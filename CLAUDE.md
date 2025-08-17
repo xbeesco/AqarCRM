@@ -25,40 +25,34 @@ the project was build using acf pro and a child theme :D:\Server\crm\wp-content\
 
 now you need to read the
 
-@docs/filament4.md
+@.docs/filament4.md
 
-@docs/laravel12.md
+@.docs/laravel12.md
 
-@docs/system-dec.md
+@.docs/system-dec.md
 
 always dont do any task by your self
 
 always ask subagent to do the task
 
-how you make any task
-
+how you START THAT ?
 1- make a full detailed plan of it
-
 2- imagine the senarios to test it
-
 3- set the unit testing plan
-
 4- set the integrated testing plan
+5- GIVE THE subagent THE TASK WITH ALL THE LAST 4 DATA
+6- also ask him to make testable code so after making any class , edit function you must run a  test script to test if this modification is working or not
+7- after you finish the task , you MUST run all the tests of this task again if all success
+8- do the finish process here @doc/finish.md after you finish every part you MUST import all the data from the old system , you can get the data using direct connection to the database or write a script to do that then run it
 
-5- always make ask the code to be testable so if the developem made a class , edit function you must run a  test script to test if this modification is working or not
 
-6- after you finish the task , you MUST run all the tests of this task again if all success
+always use the filament commands to generate resources
+1- create the database
+2- don't create the resource files yourself , always use the filamment official command : you will find them in https://filamentphp.com/docs/4.x/resources/overview
 
-do the finish process here @doc/finish.md
 
-after you finish every part you MUST import all the data from the old system , you can get the data using direct connection to the database which its info in the wordpress project
 
-be carefull alot of tables is useless and depricated , so before you detect from where to get the data you must check the files to determine which the correct data source
 
-after every step also you MUST
 
-1- write all the idea of senarios will face the user in this phase or the critical cases that perhaps face the user
 
-2- create playwright tests for every case  and run it to success
 
-again dont do any development tas by yourself , always delegeat it to sub agents
