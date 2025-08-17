@@ -6,11 +6,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasRoles;
 
     /**
      * The attributes that are mass assignable.
@@ -21,6 +24,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'phone',
+        'identity_file',
     ];
 
     /**
@@ -44,5 +49,44 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Scope for employees
+     */
+    public function scopeEmployees($query)
+    {
+        return $query->whereHas('roles', function($q) {
+            $q->where('name', 'employee');
+        });
+    }
+
+    /**
+     * Scope for owners
+     */
+    public function scopeOwners($query)
+    {
+        return $query->whereHas('roles', function($q) {
+            $q->where('name', 'owner');
+        });
+    }
+
+    /**
+     * Scope for tenants
+     */
+    public function scopeTenants($query)
+    {
+        return $query->whereHas('roles', function($q) {
+            $q->where('name', 'tenant');
+        });
+    }
+
+    /**
+     * Filament access control
+     */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        // Allow super_admin, admin, and employee to access admin panel
+        return $this->hasAnyRole(['super_admin', 'admin', 'employee']);
     }
 }
