@@ -14,7 +14,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Table;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\DateRangeFilter;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -216,7 +216,7 @@ class CollectionPaymentResource extends Resource
                     ->date('d/m/Y')
                     ->sortable(),
             ])
-            ->filtersAboveTables()
+            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContent)
             ->filters([
                 SelectFilter::make('property_id')
                     ->label('Property / العقار')
@@ -228,8 +228,21 @@ class CollectionPaymentResource extends Resource
                     ->relationship('paymentStatus', 'name_ar')
                     ->multiple(),
 
-                DateRangeFilter::make('due_date_end')
-                    ->label('Due Date Range / فترة الاستحقاق'),
+                Filter::make('due_date_range')
+                    ->label('Due Date Range / فترة الاستحقاق')
+                    ->form([
+                        DatePicker::make('due_date_from')
+                            ->label('From / من'),
+                        DatePicker::make('due_date_to')
+                            ->label('To / إلى'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['due_date_from'], 
+                                fn ($q, $date) => $q->where('due_date_end', '>=', $date))
+                            ->when($data['due_date_to'], 
+                                fn ($q, $date) => $q->where('due_date_end', '<=', $date));
+                    }),
 
                 SelectFilter::make('payment_method_id')
                     ->label('Payment Method / طريقة الدفع')
@@ -242,7 +255,7 @@ class CollectionPaymentResource extends Resource
                         false: fn ($query) => $query->whereHas('paymentStatus', fn ($q) => $q->where('is_paid_status', true)),
                     ),
             ])
-            ->recordActions([
+            ->actions([
                 ViewAction::make(),
                 EditAction::make(),
                 Action::make('process_payment')
@@ -277,7 +290,7 @@ class CollectionPaymentResource extends Resource
                     ->url(fn (CollectionPayment $record) => route('collection-payment.receipt', $record)),
                 DeleteAction::make(),
             ])
-            ->toolbarActions([
+            ->bulkActions([
                 // Bulk actions here
             ])
             ->defaultSort('created_at', 'desc');

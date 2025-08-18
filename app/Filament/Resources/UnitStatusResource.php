@@ -15,6 +15,10 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Actions\ViewAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use BackedEnum;
 
 class UnitStatusResource extends Resource
@@ -123,7 +127,6 @@ class UnitStatusResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->filtersAboveTable()
             ->columns([
                 Tables\Columns\TextColumn::make('name_display')
                     ->label('الاسم / Name')
@@ -202,15 +205,16 @@ class UnitStatusResource extends Resource
                         'pink' => 'وردي / Pink',
                     ]),
             ])
+            ->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
             ->actions([
-                Tables\Actions\ViewAction::make()
+                ViewAction::make()
                     ->label('عرض / View'),
-                Tables\Actions\EditAction::make()
+                EditAction::make()
                     ->label('تعديل / Edit'),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make()
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
                         ->label('حذف / Delete'),
                 ]),
             ])

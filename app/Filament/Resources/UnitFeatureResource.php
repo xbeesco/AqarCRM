@@ -16,6 +16,10 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Actions\ViewAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use BackedEnum;
 
 class UnitFeatureResource extends Resource
@@ -160,7 +164,6 @@ class UnitFeatureResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->filtersAboveTable()
             ->columns([
                 Tables\Columns\TextColumn::make('name_display')
                     ->label('الاسم / Name')
@@ -214,6 +217,7 @@ class UnitFeatureResource extends Resource
                     ->sortable()
                     ->alignCenter(),
             ])
+            ->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
             ->filters([
                 SelectFilter::make('category')
                     ->label('الفئة / Category')
@@ -236,14 +240,14 @@ class UnitFeatureResource extends Resource
                     ->placeholder('الكل / All'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make()
+                ViewAction::make()
                     ->label('عرض / View'),
-                Tables\Actions\EditAction::make()
+                EditAction::make()
                     ->label('تعديل / Edit'),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make()
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
                         ->label('حذف / Delete'),
                 ]),
             ])

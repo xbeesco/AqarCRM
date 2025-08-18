@@ -195,11 +195,11 @@ class PropertyResource extends Resource
                     ->label('المالك')
                     ->relationship('owner', 'name'),
             ])
-            ->recordActions([
+            ->actions([
                 ViewAction::make(),
                 EditAction::make(),
             ])
-            ->toolbarActions([
+            ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

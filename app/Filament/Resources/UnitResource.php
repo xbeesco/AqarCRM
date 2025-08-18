@@ -21,6 +21,10 @@ use Filament\Tables\Table;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\TernaryFilter;
+use Filament\Actions\ViewAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use Illuminate\Database\Eloquent\Builder;
 use BackedEnum;
 
@@ -183,7 +187,6 @@ class UnitResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->filtersAboveTable()
             ->columns([
                 Tables\Columns\TextColumn::make('unit_code')
                     ->label('كود الوحدة / Unit Code')
@@ -270,6 +273,7 @@ class UnitResource extends Resource
                     ->sortable()
                     ->placeholder('متاح الآن / Available Now'),
             ])
+            ->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
             ->filters([
                 SelectFilter::make('property')
                     ->label('العقار / Property')
@@ -370,14 +374,14 @@ class UnitResource extends Resource
                     ->multiple(),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make()
+                ViewAction::make()
                     ->label('عرض / View'),
-                Tables\Actions\EditAction::make()
+                EditAction::make()
                     ->label('تعديل / Edit'),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make()
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
                         ->label('حذف / Delete'),
                 ]),
             ])

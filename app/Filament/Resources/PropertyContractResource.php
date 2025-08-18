@@ -304,7 +304,7 @@ class PropertyContractResource extends Resource
                     ->label('ينتهي قريباً / Expiring Soon'),
             ])
             ->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
-            ->recordActions([
+            ->actions([
                 ViewAction::make(),
                 EditAction::make()
                     ->visible(fn (PropertyContract $record) => in_array($record->contract_status, ['draft', 'active'])),
