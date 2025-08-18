@@ -1,0 +1,3304 @@
+{
+  "meta": {
+    "module": "financial",
+    "description": "Comprehensive Financial System module - Complete financial management covering rent collection (دفعات التحصيل), owner payments (دفعات التوريد), property maintenance (الصيانة), and transaction tracking. Migrated from WordPress collection_payment, supply_payment, and property_repair custom post types with ACF fields. Includes commission calculations, deductions, payment workflows, reporting, and double-entry bookkeeping.",
+    "schema_definition": {
+      "models.collection_payment.database_schema.fields.fillable": "All payment tracking, status, and financial calculation fields are fillable",
+      "models.collection_payment.tests": "Comprehensive tests for payment collection, status workflows, late fee calculations, and receipt generation",
+      "models.collection_payment.processes": "Business logic for rent collection, payment processing, status transitions, late fee calculations, and receipt generation",
+      "models.collection_payment.screens": "Filament resource for collection payments with unit/tenant filtering, status management, and bulk operations",
+      "models.collection_payment.screens.components": "Standard Filament table with filters above, form components with unit/tenant selection and payment details",
+      "models.collection_payment.screens.interactions": "Payment processing, status updates, bulk collection, receipt printing, and payment reconciliation",
+      "models.supply_payment.database_schema.fields.fillable": "All owner payment, deduction, and transfer fields are fillable",
+      "models.supply_payment.tests": "Comprehensive tests for owner payments, commission deductions, net calculations, and approval workflows",
+      "models.supply_payment.processes": "Business logic for owner payment calculations, commission deductions, maintenance deductions, approval workflows, and bank transfers",
+      "models.supply_payment.screens": "Filament resource for supply payments with owner filtering, approval management, and payment tracking",
+      "models.property_repair.database_schema.fields.fillable": "All maintenance tracking, cost allocation, and contractor fields are fillable",
+      "models.property_repair.tests": "Comprehensive tests for maintenance tracking, cost calculations, warranty management, and vendor assignment",
+      "models.property_repair.processes": "Business logic for maintenance requests, cost tracking, warranty validation, vendor management, and recurring maintenance",
+      "models.property_repair.screens": "Filament resource for property repairs with property/unit filtering, status tracking, and cost management",
+      "models.transaction.database_schema.fields.fillable": "All transaction recording, balance tracking, and reference fields are fillable",
+      "models.transaction.tests": "Transaction integrity tests, balance validation, and double-entry bookkeeping compliance",
+      "models.transaction.processes": "Central transaction management, balance calculations, audit trail, and financial reconciliation",
+      "models.transaction.screens": "Filament resource for transactions with comprehensive filtering and reporting",
+      "models.payment_method.database_schema.fields.fillable": "All payment method configuration and processing fields are fillable",
+      "models.payment_status.database_schema.fields.fillable": "All payment workflow status and transition fields are fillable",
+      "models.repair_category.database_schema.fields.fillable": "All maintenance categorization and cost allocation fields are fillable",
+      "shared.processes": "Financial calculations service, commission management, payment processing, report generation, and bank integration",
+      "tests": "Module integration tests covering complete financial workflows, payment cycles, and reporting accuracy"
+    }
+  },
+  "acf_field_analysis": {
+    "description": "Complete analysis of ACF JSON fields from WordPress collection_payment, supply_payment, and property_repair custom post types with exact Filament equivalents",
+    "collection_payment_fields_from_wordpress": {
+      "contract": {
+        "acf_config": {
+          "label": "عقد الوحدة",
+          "type": "post_object",
+          "post_type": ["unit_contract"],
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "عقد الوحدة / Unit Contract",
+          "relationship": "unitContract",
+          "searchable": true,
+          "required": true,
+          "validation": "required|exists:unit_contracts,id",
+          "reactive": true
+        }
+      },
+      "contract_sell": {
+        "acf_config": {
+          "label": "قيمة الدفعة",
+          "type": "number",
+          "min": 0,
+          "step": 0.01,
+          "required": true,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "قيمة الدفعة / Payment Amount",
+          "required": true,
+          "validation": "required|numeric|min:0",
+          "step": "0.01",
+          "prefix": "ريال"
+        }
+      },
+      "contract_status": {
+        "acf_config": {
+          "label": "حالة الدفعة",
+          "type": "select",
+          "choices": {
+            "worth_collecting": "مستحقة التحصيل",
+            "collected": "محصلة",
+            "delayed": "مؤجلة",
+            "overdue": "متأخرة"
+          },
+          "required": true,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "حالة الدفعة / Payment Status",
+          "relationship": "paymentStatus",
+          "required": true,
+          "validation": "required|exists:payment_statuses,id",
+          "reactive": true
+        }
+      },
+      "collection_date_start": {
+        "acf_config": {
+          "label": "تاريخ بداية الاستحقاق",
+          "type": "date_picker",
+          "display_format": "d/m/Y",
+          "return_format": "Y-m-d",
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "DatePicker",
+          "label": "تاريخ بداية الاستحقاق / Due Date Start",
+          "required": true,
+          "validation": "required|date",
+          "format": "Y-m-d",
+          "displayFormat": "d/m/Y"
+        }
+      },
+      "collection_date_end": {
+        "acf_config": {
+          "label": "تاريخ نهاية الاستحقاق",
+          "type": "date_picker",
+          "display_format": "d/m/Y",
+          "return_format": "Y-m-d",
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "DatePicker",
+          "label": "تاريخ نهاية الاستحقاق / Due Date End",
+          "required": true,
+          "validation": "required|date|after:due_date_start",
+          "format": "Y-m-d",
+          "displayFormat": "d/m/Y"
+        }
+      },
+      "uint_id": {
+        "acf_config": {
+          "label": "الوحدة",
+          "type": "post_object",
+          "post_type": ["alh_unit"],
+          "required": true,
+          "width": "34"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "الوحدة / Unit",
+          "relationship": "unit",
+          "searchable": true,
+          "required": true,
+          "validation": "required|exists:units,id",
+          "reactive": true
+        }
+      },
+      "delay_duration": {
+        "acf_config": {
+          "label": "مدة التأخير بالأيام",
+          "type": "number",
+          "min": 0,
+          "conditional_logic": "status == delayed || status == overdue",
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "مدة التأخير بالأيام / Delay Duration (Days)",
+          "validation": "nullable|integer|min:0",
+          "visible": "fn($get) => in_array($get('payment_status_id'), [PaymentStatus::DELAYED, PaymentStatus::OVERDUE])",
+          "suffix": "يوم"
+        }
+      },
+      "delay_reason": {
+        "acf_config": {
+          "label": "سبب التأخير",
+          "type": "textarea",
+          "conditional_logic": "status == delayed || status == overdue",
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Textarea",
+          "label": "سبب التأخير / Delay Reason",
+          "validation": "nullable|string|max:1000",
+          "visible": "fn($get) => in_array($get('payment_status_id'), [PaymentStatus::DELAYED, PaymentStatus::OVERDUE])",
+          "rows": 3
+        }
+      },
+      "notes_of_exceeding_the_payment_period": {
+        "acf_config": {
+          "label": "ملاحظات تجاوز فترة الدفع",
+          "type": "textarea",
+          "width": "100"
+        },
+        "filament_equivalent": {
+          "component": "Textarea",
+          "label": "ملاحظات تجاوز فترة الدفع / Late Payment Notes",
+          "validation": "nullable|string|max:1000",
+          "rows": 3
+        }
+      }
+    },
+    "supply_payment_fields_from_wordpress": {
+      "contract": {
+        "acf_config": {
+          "label": "عقد العقار",
+          "type": "post_object",
+          "post_type": ["property_contract"],
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "عقد العقار / Property Contract",
+          "relationship": "propertyContract",
+          "searchable": true,
+          "required": true,
+          "validation": "required|exists:property_contracts,id",
+          "reactive": true
+        }
+      },
+      "contract_sell": {
+        "acf_config": {
+          "label": "إجمالي المبلغ",
+          "type": "number",
+          "min": 0,
+          "step": 0.01,
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "إجمالي المبلغ / Total Amount",
+          "required": true,
+          "validation": "required|numeric|min:0",
+          "step": "0.01",
+          "prefix": "ريال",
+          "disabled": true,
+          "dehydrated": true
+        }
+      },
+      "supply_status": {
+        "acf_config": {
+          "label": "حالة التوريد",
+          "type": "select",
+          "choices": {
+            "pending": "في الانتظار",
+            "worth_collecting": "مستحق التوريد",
+            "collected": "تم التوريد"
+          },
+          "required": true,
+          "width": "34"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "حالة التوريد / Supply Status",
+          "options": {
+            "pending": "في الانتظار",
+            "worth_collecting": "مستحق التوريد",
+            "collected": "تم التوريد"
+          },
+          "required": true,
+          "validation": "required|in:pending,worth_collecting,collected"
+        }
+      },
+      "supply_date_worthy": {
+        "acf_config": {
+          "label": "تاريخ استحقاق التوريد",
+          "type": "date_picker",
+          "display_format": "d/m/Y",
+          "return_format": "Y-m-d",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "DatePicker",
+          "label": "تاريخ استحقاق التوريد / Supply Due Date",
+          "required": true,
+          "validation": "required|date",
+          "format": "Y-m-d",
+          "displayFormat": "d/m/Y"
+        }
+      },
+      "supply_date": {
+        "acf_config": {
+          "label": "تاريخ التوريد الفعلي",
+          "type": "date_picker",
+          "display_format": "d/m/Y",
+          "return_format": "Y-m-d",
+          "conditional_logic": "status == collected",
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "DatePicker",
+          "label": "تاريخ التوريد الفعلي / Actual Supply Date",
+          "validation": "nullable|date",
+          "format": "Y-m-d",
+          "displayFormat": "d/m/Y",
+          "visible": "fn($get) => $get('supply_status') === 'collected'"
+        }
+      },
+      "owner": {
+        "acf_config": {
+          "label": "المالك",
+          "type": "user",
+          "role": ["alh_owner"],
+          "required": true,
+          "width": "100"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "المالك / Owner",
+          "relationship": "owner",
+          "searchable": true,
+          "required": true,
+          "validation": "required|exists:users,id",
+          "options_query": "User::role('owner')->pluck('name', 'id')"
+        }
+      },
+      "invoice_detail": {
+        "acf_config": {
+          "label": "تفاصيل الفاتورة",
+          "type": "textarea",
+          "description": "تفاصيل المعاملات المختارة لتوليد الفاتورة",
+          "width": "100"
+        },
+        "filament_equivalent": {
+          "component": "RichEditor",
+          "label": "تفاصيل الفاتورة / Invoice Details",
+          "validation": "nullable|string",
+          "toolbarButtons": ["bold", "italic", "ul", "ol"],
+          "columnSpanFull": true
+        }
+      }
+    },
+    "property_repair_fields_from_wordpress": {
+      "maintenance_type": {
+        "acf_config": {
+          "label": "نوع الصيانة",
+          "type": "select",
+          "choices": {
+            "general_maintenance": "صيانة عامة",
+            "special_maintenance": "صيانة خاصة",
+            "government_payment_unit": "دفعة حكومية للوحدة",
+            "government_payment_prop": "دفعة حكومية للعقار"
+          },
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "نوع الصيانة / Maintenance Type",
+          "relationship": "repairCategory",
+          "required": true,
+          "validation": "required|exists:repair_categories,id",
+          "reactive": true
+        }
+      },
+      "maintenance_property": {
+        "acf_config": {
+          "label": "العقار",
+          "type": "post_object",
+          "post_type": ["alh_property"],
+          "conditional_logic": "maintenance_type == general_maintenance || maintenance_type == government_payment_prop",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "العقار / Property",
+          "relationship": "property",
+          "searchable": true,
+          "validation": "required_if:affects_property,true|exists:properties,id",
+          "visible": "fn($get) => in_array($get('repair_category_id'), [RepairCategory::GENERAL, RepairCategory::GOVERNMENT_PROPERTY])",
+          "reactive": true
+        }
+      },
+      "maintenance_unit": {
+        "acf_config": {
+          "label": "الوحدة",
+          "type": "post_object",
+          "post_type": ["alh_unit"],
+          "conditional_logic": "maintenance_type == special_maintenance || maintenance_type == government_payment_unit",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "الوحدة / Unit",
+          "relationship": "unit",
+          "searchable": true,
+          "validation": "required_if:affects_unit,true|exists:units,id",
+          "visible": "fn($get) => in_array($get('repair_category_id'), [RepairCategory::SPECIAL, RepairCategory::GOVERNMENT_UNIT])",
+          "options": "fn($get) => $get('property_id') ? Unit::where('property_id', $get('property_id'))->pluck('unit_number', 'id') : []"
+        }
+      },
+      "total_maintenance_cost": {
+        "acf_config": {
+          "label": "إجمالي تكلفة الصيانة",
+          "type": "number",
+          "min": 0,
+          "step": 0.01,
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "إجمالي تكلفة الصيانة / Total Maintenance Cost",
+          "required": true,
+          "validation": "required|numeric|min:0",
+          "step": "0.01",
+          "prefix": "ريال"
+        }
+      },
+      "maintenance_date": {
+        "acf_config": {
+          "label": "تاريخ الصيانة",
+          "type": "date_picker",
+          "display_format": "d/m/Y",
+          "return_format": "Y-m-d",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "DatePicker",
+          "label": "تاريخ الصيانة / Maintenance Date",
+          "required": true,
+          "validation": "required|date",
+          "format": "Y-m-d",
+          "displayFormat": "d/m/Y"
+        }
+      },
+      "post_content": {
+        "acf_config": {
+          "label": "وصف الصيانة",
+          "type": "textarea",
+          "required": true,
+          "width": "100"
+        },
+        "filament_equivalent": {
+          "component": "RichEditor",
+          "label": "وصف الصيانة / Maintenance Description",
+          "required": true,
+          "validation": "required|string|max:5000",
+          "columnSpanFull": true,
+          "toolbarButtons": ["bold", "italic", "ul", "ol", "link"]
+        }
+      }
+    }
+  },
+  "models": {
+    "collection_payment": {
+      "database_schema": {
+        "fields": {
+          "id": {
+            "type": "bigint",
+            "primary": true,
+            "auto_increment": true,
+            "fillable": false
+          },
+          "payment_number": {
+            "type": "string",
+            "length": 50,
+            "nullable": false,
+            "unique": true,
+            "index": true,
+            "validation": "required|string|max:50|unique:collection_payments,payment_number",
+            "fillable": true
+          },
+          "unit_contract_id": {
+            "type": "bigint",
+            "nullable": false,
+            "foreign": "unit_contracts.id",
+            "index": true,
+            "validation": "required|exists:unit_contracts,id",
+            "fillable": true
+          },
+          "unit_id": {
+            "type": "bigint",
+            "nullable": false,
+            "foreign": "units.id",
+            "index": true,
+            "validation": "required|exists:units,id",
+            "fillable": true
+          },
+          "property_id": {
+            "type": "bigint",
+            "nullable": false,
+            "foreign": "properties.id",
+            "index": true,
+            "validation": "required|exists:properties,id",
+            "fillable": true
+          },
+          "tenant_id": {
+            "type": "bigint",
+            "nullable": false,
+            "foreign": "users.id",
+            "index": true,
+            "validation": "required|exists:users,id",
+            "fillable": true
+          },
+          "payment_status_id": {
+            "type": "bigint",
+            "nullable": false,
+            "foreign": "payment_statuses.id",
+            "index": true,
+            "validation": "required|exists:payment_statuses,id",
+            "fillable": true
+          },
+          "payment_method_id": {
+            "type": "bigint",
+            "nullable": true,
+            "foreign": "payment_methods.id",
+            "index": true,
+            "validation": "nullable|exists:payment_methods,id",
+            "fillable": true
+          },
+          "amount": {
+            "type": "decimal",
+            "precision": 10,
+            "scale": 2,
+            "nullable": false,
+            "validation": "required|numeric|min:0|max:999999.99",
+            "fillable": true
+          },
+          "late_fee": {
+            "type": "decimal",
+            "precision": 8,
+            "scale": 2,
+            "nullable": true,
+            "default": "0.00",
+            "validation": "nullable|numeric|min:0|max:99999.99",
+            "fillable": true
+          },
+          "total_amount": {
+            "type": "decimal",
+            "precision": 10,
+            "scale": 2,
+            "nullable": false,
+            "validation": "required|numeric|min:0|max:999999.99",
+            "fillable": true
+          },
+          "due_date_start": {
+            "type": "date",
+            "nullable": false,
+            "validation": "required|date",
+            "fillable": true
+          },
+          "due_date_end": {
+            "type": "date",
+            "nullable": false,
+            "validation": "required|date|after:due_date_start",
+            "fillable": true
+          },
+          "paid_date": {
+            "type": "date",
+            "nullable": true,
+            "validation": "nullable|date",
+            "fillable": true
+          },
+          "delay_duration": {
+            "type": "int",
+            "nullable": true,
+            "validation": "nullable|integer|min:0",
+            "fillable": true
+          },
+          "delay_reason": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string|max:1000",
+            "fillable": true
+          },
+          "late_payment_notes": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string|max:1000",
+            "fillable": true
+          },
+          "payment_reference": {
+            "type": "string",
+            "length": 100,
+            "nullable": true,
+            "validation": "nullable|string|max:100",
+            "fillable": true
+          },
+          "receipt_number": {
+            "type": "string",
+            "length": 50,
+            "nullable": true,
+            "unique": true,
+            "validation": "nullable|string|max:50|unique:collection_payments,receipt_number",
+            "fillable": true
+          },
+          "month_year": {
+            "type": "string",
+            "length": 7,
+            "nullable": false,
+            "index": true,
+            "validation": "required|string|size:7",
+            "fillable": true
+          },
+          "created_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          },
+          "updated_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          }
+        },
+        "indexes": {
+          "collection_payments_unit_contract_id_index": "unit_contract_id",
+          "collection_payments_status_index": "payment_status_id",
+          "collection_payments_date_range_index": "due_date_start, due_date_end",
+          "collection_payments_month_year_index": "month_year",
+          "collection_payments_property_month_index": "property_id, month_year"
+        },
+        "constraints": {
+          "collection_payments_unit_contract_foreign": "FOREIGN KEY (unit_contract_id) REFERENCES unit_contracts(id) ON DELETE CASCADE",
+          "collection_payments_unit_foreign": "FOREIGN KEY (unit_id) REFERENCES units(id) ON DELETE CASCADE",
+          "collection_payments_property_foreign": "FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE",
+          "collection_payments_tenant_foreign": "FOREIGN KEY (tenant_id) REFERENCES users(id) ON DELETE CASCADE",
+          "collection_payments_status_foreign": "FOREIGN KEY (payment_status_id) REFERENCES payment_statuses(id)",
+          "collection_payments_method_foreign": "FOREIGN KEY (payment_method_id) REFERENCES payment_methods(id)"
+        }
+      },
+      "tests": {
+        "unit": {
+          "test_collection_payment_has_required_fields": {
+            "description": "Test that collection payment model has all required fields and validation",
+            "input": {
+              "unit_contract_id": 1,
+              "unit_id": 1,
+              "property_id": 1,
+              "tenant_id": 1,
+              "amount": 5000.00
+            },
+            "expected": "CollectionPayment instance with all required fields",
+            "assertions": [
+              "assertInstanceOf(CollectionPayment::class, $payment)",
+              "assertEquals(5000.00, $payment->amount)",
+              "assertNotNull($payment->payment_number)"
+            ]
+          },
+          "test_payment_number_generation": {
+            "description": "Test automatic payment number generation using format",
+            "input": {},
+            "expected": "Unique payment number with format COLLECTION-YYYY-NNNNNN",
+            "assertions": [
+              "assertStringStartsWith('COLLECTION-' . date('Y'), $payment->payment_number)",
+              "assertEquals(17, strlen($payment->payment_number))"
+            ]
+          },
+          "test_late_fee_calculation": {
+            "description": "Test automatic late fee calculation based on days overdue",
+            "input": {
+              "amount": 5000.00,
+              "due_date_end": "2024-01-01",
+              "current_date": "2024-01-15"
+            },
+            "expected": "Late fee calculated as percentage of amount per day",
+            "assertions": [
+              "assertEquals(350.00, $payment->calculateLateFee())",
+              "assertEquals(14, $payment->getDaysOverdue())"
+            ]
+          },
+          "test_payment_status_transitions": {
+            "description": "Test payment status workflow transitions",
+            "input": {
+              "initial_status": "worth_collecting",
+              "new_status": "collected"
+            },
+            "expected": "Status transition with proper validation",
+            "assertions": [
+              "assertTrue($payment->canTransitionTo('collected'))",
+              "assertFalse($payment->canTransitionTo('invalid_status'))"
+            ]
+          },
+          "test_total_amount_calculation": {
+            "description": "Test total amount calculation including late fees",
+            "input": {
+              "amount": 5000.00,
+              "late_fee": 350.00
+            },
+            "expected": "Total amount = amount + late_fee",
+            "assertions": [
+              "assertEquals(5350.00, $payment->total_amount)",
+              "assertEquals(5350.00, $payment->getTotalAmountAttribute())"
+            ]
+          }
+        },
+        "feature": {
+          "test_payment_collection_workflow": {
+            "scenario": "Complete payment collection workflow from due to collected",
+            "steps": [
+              "Create collection payment with 'worth_collecting' status",
+              "Process payment with payment method",
+              "Update status to 'collected'",
+              "Generate receipt",
+              "Create accounting transaction"
+            ],
+            "expected_result": "Payment collected successfully with receipt and transaction record"
+          },
+          "test_bulk_payment_processing": {
+            "scenario": "Process multiple payments in bulk operation",
+            "steps": [
+              "Select multiple payments with 'worth_collecting' status",
+              "Execute bulk collection process",
+              "Update all payment statuses",
+              "Generate batch receipt",
+              "Create transaction entries for all payments"
+            ],
+            "expected_result": "All selected payments processed successfully with batch documentation"
+          },
+          "test_overdue_payment_handling": {
+            "scenario": "Handle overdue payments with late fee calculation",
+            "steps": [
+              "Identify payments past due date",
+              "Calculate late fees based on overdue days",
+              "Update payment status to 'overdue'",
+              "Send notification to tenant",
+              "Generate overdue report"
+            ],
+            "expected_result": "Overdue payments identified and processed with appropriate fees and notifications"
+          }
+        },
+        "playwright_mcp": {
+          "test_collection_payment_crud": {
+            "tools": ["mcp__playwright__browser_navigate", "mcp__playwright__browser_click", "mcp__playwright__browser_type"],
+            "flow": [
+              "Navigate to collection payments page",
+              "Click 'New Payment' button",
+              "Fill payment form with valid data",
+              "Submit form",
+              "Verify payment appears in table",
+              "Edit payment details",
+              "Process payment collection",
+              "Verify status updated"
+            ],
+            "validations": [
+              "Payment form validates required fields",
+              "Payment number auto-generated",
+              "Status updates correctly",
+              "Receipt can be generated"
+            ]
+          },
+          "test_payment_filters_and_search": {
+            "tools": ["mcp__playwright__browser_navigate", "mcp__playwright__browser_click", "mcp__playwright__browser_type"],
+            "flow": [
+              "Navigate to collection payments list",
+              "Apply property filter",
+              "Apply status filter",
+              "Apply date range filter",
+              "Search by payment number",
+              "Verify filtered results"
+            ],
+            "validations": [
+              "Filters work correctly",
+              "Search returns accurate results",
+              "Pagination works with filters",
+              "Export function includes filtered data"
+            ]
+          }
+        }
+      },
+      "processes": {
+        "custom_crud_operations": {
+          "generatePaymentNumber": {
+            "description": "Generate unique payment number with format COLLECTION-YYYY-NNNNNN",
+            "parameters": [],
+            "returns": "string"
+          },
+          "processPayment": {
+            "description": "Process payment collection with status update and receipt generation",
+            "parameters": ["payment_method_id", "paid_date", "payment_reference"],
+            "returns": "bool"
+          },
+          "calculateLateFee": {
+            "description": "Calculate late fee based on overdue days and property settings",
+            "parameters": [],
+            "returns": "float"
+          },
+          "generateReceipt": {
+            "description": "Generate payment receipt with tenant and property details",
+            "parameters": [],
+            "returns": "string"
+          }
+        },
+        "business_operations": {
+          "bulkCollection": {
+            "description": "Process multiple payments in bulk with batch receipt",
+            "parameters": ["payment_ids", "payment_method_id", "paid_date"],
+            "returns": "array"
+          },
+          "updateOverdueStatus": {
+            "description": "Update payments to overdue status and calculate late fees",
+            "parameters": [],
+            "returns": "int"
+          },
+          "reconcilePayments": {
+            "description": "Reconcile payments with bank statement data",
+            "parameters": ["bank_statement_data"],
+            "returns": "array"
+          }
+        },
+        "query_operations": {
+          "getByProperty": {
+            "description": "Get collection payments for specific property",
+            "parameters": ["property_id", "month_year"],
+            "returns": "Collection"
+          },
+          "getByTenant": {
+            "description": "Get payment history for specific tenant",
+            "parameters": ["tenant_id", "date_range"],
+            "returns": "Collection"
+          },
+          "getOverduePayments": {
+            "description": "Get all overdue payments with calculated late fees",
+            "parameters": ["as_of_date"],
+            "returns": "Collection"
+          }
+        },
+        "integration_operations": {
+          "createFromContract": {
+            "description": "Create collection payments from unit contract",
+            "parameters": ["unit_contract_id", "number_of_months"],
+            "returns": "Collection"
+          },
+          "syncWithTransaction": {
+            "description": "Create corresponding transaction entry",
+            "parameters": [],
+            "returns": "Transaction"
+          }
+        }
+      },
+      "screens": {
+        "collection_payments_index": {
+          "permissions": ["view_collection_payments"],
+          "filament_template": "resource index",
+          "components": {
+            "table": {
+              "columns": {
+                "payment_number": {
+                  "label": "رقم الدفعة",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "120px"
+                },
+                "property.name": {
+                  "label": "العقار",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "150px"
+                },
+                "unit.unit_number": {
+                  "label": "الوحدة",
+                  "type": "text",
+                  "sortable": true,
+                  "width": "80px"
+                },
+                "tenant.name": {
+                  "label": "المستأجر",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "120px"
+                },
+                "amount": {
+                  "label": "المبلغ",
+                  "type": "currency",
+                  "sortable": true,
+                  "format": "currency:SAR",
+                  "align": "right",
+                  "width": "100px"
+                },
+                "late_fee": {
+                  "label": "غرامة التأخير",
+                  "type": "currency",
+                  "sortable": true,
+                  "format": "currency:SAR",
+                  "align": "right",
+                  "width": "100px"
+                },
+                "total_amount": {
+                  "label": "الإجمالي",
+                  "type": "currency",
+                  "sortable": true,
+                  "format": "currency:SAR",
+                  "align": "right",
+                  "width": "100px"
+                },
+                "payment_status.name": {
+                  "label": "الحالة",
+                  "type": "badge",
+                  "sortable": true,
+                  "width": "100px"
+                },
+                "due_date_end": {
+                  "label": "تاريخ الاستحقاق",
+                  "type": "date",
+                  "sortable": true,
+                  "format": "date:d/m/Y",
+                  "width": "100px"
+                },
+                "paid_date": {
+                  "label": "تاريخ السداد",
+                  "type": "date",
+                  "sortable": true,
+                  "format": "date:d/m/Y",
+                  "width": "100px"
+                }
+              },
+              "filters": {
+                "property_filter": {
+                  "type": "select",
+                  "label": "العقار",
+                  "relationship": "property",
+                  "multiple": true
+                },
+                "status_filter": {
+                  "type": "select",
+                  "label": "الحالة",
+                  "relationship": "paymentStatus",
+                  "multiple": true
+                },
+                "date_range_filter": {
+                  "type": "date_range",
+                  "label": "فترة الاستحقاق",
+                  "from_field": "due_date_start",
+                  "to_field": "due_date_end"
+                },
+                "payment_method_filter": {
+                  "type": "select",
+                  "label": "طريقة الدفع",
+                  "relationship": "paymentMethod"
+                },
+                "overdue_filter": {
+                  "type": "ternary",
+                  "label": "المدفوعات المتأخرة"
+                }
+              },
+              "record_actions": {
+                "view": {
+                  "label": "عرض",
+                  "icon": "heroicon-o-eye"
+                },
+                "edit": {
+                  "label": "تعديل",
+                  "icon": "heroicon-o-pencil"
+                },
+                "process_payment": {
+                  "label": "تحصيل الدفعة",
+                  "icon": "heroicon-o-currency-dollar",
+                  "visible": "record.payment_status.slug === 'worth_collecting'"
+                },
+                "generate_receipt": {
+                  "label": "طباعة الإيصال",
+                  "icon": "heroicon-o-printer",
+                  "visible": "record.payment_status.slug === 'collected'"
+                }
+              },
+              "bulk_actions": {
+                "bulk_collect": {
+                  "label": "تحصيل مجمع",
+                  "icon": "heroicon-o-currency-dollar",
+                  "confirmation": true
+                },
+                "export_selected": {
+                  "label": "تصدير المحدد",
+                  "icon": "heroicon-o-arrow-down-tray"
+                }
+              },
+              "paginated": true
+            },
+            "form": {
+              "fields": {
+                "unit_contract_id": {
+                  "component": "Select",
+                  "label": "عقد الوحدة",
+                  "relationship": "unitContract",
+                  "searchable": true,
+                  "required": true,
+                  "reactive": true
+                },
+                "amount": {
+                  "component": "TextInput",
+                  "type": "number",
+                  "label": "قيمة الدفعة",
+                  "required": true,
+                  "step": "0.01",
+                  "prefix": "ريال"
+                },
+                "due_date_start": {
+                  "component": "DatePicker",
+                  "label": "تاريخ بداية الاستحقاق",
+                  "required": true,
+                  "displayFormat": "d/m/Y"
+                },
+                "due_date_end": {
+                  "component": "DatePicker",
+                  "label": "تاريخ نهاية الاستحقاق",
+                  "required": true,
+                  "displayFormat": "d/m/Y"
+                },
+                "payment_status_id": {
+                  "component": "Select",
+                  "label": "حالة الدفعة",
+                  "relationship": "paymentStatus",
+                  "required": true,
+                  "reactive": true
+                },
+                "payment_method_id": {
+                  "component": "Select",
+                  "label": "طريقة الدفع",
+                  "relationship": "paymentMethod",
+                  "visible": "fn($get) => $get('payment_status_id') == PaymentStatus::COLLECTED"
+                },
+                "paid_date": {
+                  "component": "DatePicker",
+                  "label": "تاريخ السداد",
+                  "displayFormat": "d/m/Y",
+                  "visible": "fn($get) => $get('payment_status_id') == PaymentStatus::COLLECTED"
+                },
+                "delay_reason": {
+                  "component": "Textarea",
+                  "label": "سبب التأخير",
+                  "rows": 3,
+                  "visible": "fn($get) => in_array($get('payment_status_id'), [PaymentStatus::DELAYED, PaymentStatus::OVERDUE])"
+                },
+                "late_payment_notes": {
+                  "component": "Textarea",
+                  "label": "ملاحظات تجاوز فترة الدفع",
+                  "rows": 3
+                }
+              },
+              "actions": {
+                "save": {
+                  "label": "حفظ",
+                  "color": "primary"
+                },
+                "save_and_create_another": {
+                  "label": "حفظ وإنشاء آخر",
+                  "color": "secondary"
+                }
+              }
+            }
+          },
+          "interactions": {
+            "process_payment": {
+              "user_action": "Click process payment button",
+              "target": "Payment status updates to collected, receipt generated"
+            },
+            "bulk_collection": {
+              "user_action": "Select multiple payments and execute bulk collection",
+              "target": "All selected payments processed with batch receipt"
+            }
+          }
+        }
+      }
+    },
+    "supply_payment": {
+      "database_schema": {
+        "fields": {
+          "id": {
+            "type": "bigint",
+            "primary": true,
+            "auto_increment": true,
+            "fillable": false
+          },
+          "payment_number": {
+            "type": "string",
+            "length": 50,
+            "nullable": false,
+            "unique": true,
+            "index": true,
+            "validation": "required|string|max:50|unique:supply_payments,payment_number",
+            "fillable": true
+          },
+          "property_contract_id": {
+            "type": "bigint",
+            "nullable": false,
+            "foreign": "property_contracts.id",
+            "index": true,
+            "validation": "required|exists:property_contracts,id",
+            "fillable": true
+          },
+          "owner_id": {
+            "type": "bigint",
+            "nullable": false,
+            "foreign": "users.id",
+            "index": true,
+            "validation": "required|exists:users,id",
+            "fillable": true
+          },
+          "gross_amount": {
+            "type": "decimal",
+            "precision": 10,
+            "scale": 2,
+            "nullable": false,
+            "validation": "required|numeric|min:0|max:999999.99",
+            "fillable": true
+          },
+          "commission_amount": {
+            "type": "decimal",
+            "precision": 10,
+            "scale": 2,
+            "nullable": false,
+            "default": "0.00",
+            "validation": "required|numeric|min:0|max:999999.99",
+            "fillable": true
+          },
+          "commission_rate": {
+            "type": "decimal",
+            "precision": 5,
+            "scale": 2,
+            "nullable": false,
+            "validation": "required|numeric|min:0|max:100",
+            "fillable": true
+          },
+          "maintenance_deduction": {
+            "type": "decimal",
+            "precision": 10,
+            "scale": 2,
+            "nullable": false,
+            "default": "0.00",
+            "validation": "required|numeric|min:0|max:999999.99",
+            "fillable": true
+          },
+          "other_deductions": {
+            "type": "decimal",
+            "precision": 10,
+            "scale": 2,
+            "nullable": false,
+            "default": "0.00",
+            "validation": "required|numeric|min:0|max:999999.99",
+            "fillable": true
+          },
+          "net_amount": {
+            "type": "decimal",
+            "precision": 10,
+            "scale": 2,
+            "nullable": false,
+            "validation": "required|numeric|min:0|max:999999.99",
+            "fillable": true
+          },
+          "supply_status": {
+            "type": "enum",
+            "values": ["pending", "worth_collecting", "collected", "on_hold"],
+            "nullable": false,
+            "default": "pending",
+            "index": true,
+            "validation": "required|in:pending,worth_collecting,collected,on_hold",
+            "fillable": true
+          },
+          "due_date": {
+            "type": "date",
+            "nullable": false,
+            "validation": "required|date",
+            "fillable": true
+          },
+          "paid_date": {
+            "type": "date",
+            "nullable": true,
+            "validation": "nullable|date",
+            "fillable": true
+          },
+          "approval_status": {
+            "type": "enum",
+            "values": ["pending", "approved", "rejected"],
+            "nullable": false,
+            "default": "pending",
+            "index": true,
+            "validation": "required|in:pending,approved,rejected",
+            "fillable": true
+          },
+          "approved_by": {
+            "type": "bigint",
+            "nullable": true,
+            "foreign": "users.id",
+            "validation": "nullable|exists:users,id",
+            "fillable": true
+          },
+          "approved_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "validation": "nullable|date",
+            "fillable": true
+          },
+          "bank_transfer_reference": {
+            "type": "string",
+            "length": 100,
+            "nullable": true,
+            "validation": "nullable|string|max:100",
+            "fillable": true
+          },
+          "invoice_details": {
+            "type": "json",
+            "nullable": true,
+            "validation": "nullable|array",
+            "fillable": true
+          },
+          "deduction_details": {
+            "type": "json",
+            "nullable": true,
+            "validation": "nullable|array",
+            "fillable": true
+          },
+          "month_year": {
+            "type": "string",
+            "length": 7,
+            "nullable": false,
+            "index": true,
+            "validation": "required|string|size:7",
+            "fillable": true
+          },
+          "notes": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string|max:2000",
+            "fillable": true
+          },
+          "created_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          },
+          "updated_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          }
+        },
+        "indexes": {
+          "supply_payments_property_contract_id_index": "property_contract_id",
+          "supply_payments_owner_id_index": "owner_id",
+          "supply_payments_status_index": "supply_status",
+          "supply_payments_approval_index": "approval_status",
+          "supply_payments_month_year_index": "month_year",
+          "supply_payments_due_date_index": "due_date"
+        },
+        "constraints": {
+          "supply_payments_property_contract_foreign": "FOREIGN KEY (property_contract_id) REFERENCES property_contracts(id) ON DELETE CASCADE",
+          "supply_payments_owner_foreign": "FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE",
+          "supply_payments_approved_by_foreign": "FOREIGN KEY (approved_by) REFERENCES users(id)"
+        }
+      },
+      "tests": {
+        "unit": {
+          "test_supply_payment_creation": {
+            "description": "Test supply payment creation with proper calculations",
+            "input": {
+              "property_contract_id": 1,
+              "owner_id": 1,
+              "gross_amount": 10000.00,
+              "commission_rate": 5.00
+            },
+            "expected": "SupplyPayment with calculated commission and net amount",
+            "assertions": [
+              "assertEquals(500.00, $payment->commission_amount)",
+              "assertEquals(9500.00, $payment->net_amount)",
+              "assertNotNull($payment->payment_number)"
+            ]
+          },
+          "test_commission_calculation": {
+            "description": "Test commission calculation based on contract rate",
+            "input": {
+              "gross_amount": 10000.00,
+              "commission_rate": 7.50
+            },
+            "expected": "Commission calculated as percentage of gross amount",
+            "assertions": [
+              "assertEquals(750.00, $payment->calculateCommission())",
+              "assertEquals(9250.00, $payment->calculateNetAmount())"
+            ]
+          },
+          "test_deduction_handling": {
+            "description": "Test maintenance and other deductions from owner payment",
+            "input": {
+              "gross_amount": 10000.00,
+              "commission_amount": 500.00,
+              "maintenance_deduction": 1500.00,
+              "other_deductions": 200.00
+            },
+            "expected": "Net amount after all deductions",
+            "assertions": [
+              "assertEquals(7800.00, $payment->net_amount)",
+              "assertEquals(2200.00, $payment->getTotalDeductions())"
+            ]
+          },
+          "test_approval_workflow": {
+            "description": "Test payment approval workflow and status changes",
+            "input": {
+              "approval_status": "pending"
+            },
+            "expected": "Approval workflow with proper status transitions",
+            "assertions": [
+              "assertTrue($payment->canBeApproved())",
+              "assertFalse($payment->isApproved())",
+              "assertTrue($payment->approve($manager))"
+            ]
+          }
+        },
+        "feature": {
+          "test_owner_payment_generation": {
+            "scenario": "Generate owner payment from collected rent payments",
+            "steps": [
+              "Collect rent payments for property",
+              "Calculate commission based on property contract",
+              "Deduct maintenance costs",
+              "Create supply payment for owner",
+              "Generate invoice with breakdown"
+            ],
+            "expected_result": "Owner payment created with accurate calculations and detailed invoice"
+          },
+          "test_approval_and_transfer_workflow": {
+            "scenario": "Complete approval and bank transfer workflow",
+            "steps": [
+              "Submit supply payment for approval",
+              "Manager reviews and approves payment",
+              "Execute bank transfer",
+              "Update payment status to collected",
+              "Generate payment confirmation"
+            ],
+            "expected_result": "Payment approved, transferred, and documented successfully"
+          }
+        },
+        "playwright_mcp": {
+          "test_supply_payment_approval": {
+            "tools": ["mcp__playwright__browser_navigate", "mcp__playwright__browser_click"],
+            "flow": [
+              "Navigate to pending supply payments",
+              "Click on payment requiring approval",
+              "Review payment details and calculations",
+              "Click approve button",
+              "Confirm approval",
+              "Verify status updated to approved"
+            ],
+            "validations": [
+              "Approval requires proper permissions",
+              "Approval workflow is audited",
+              "Status updates correctly",
+              "Approval timestamp recorded"
+            ]
+          }
+        }
+      },
+      "processes": {
+        "custom_crud_operations": {
+          "generatePaymentNumber": {
+            "description": "Generate unique payment number with format SUPPLY-YYYY-NNNNNN",
+            "parameters": [],
+            "returns": "string"
+          },
+          "calculateCommission": {
+            "description": "Calculate commission based on property contract rate",
+            "parameters": [],
+            "returns": "float"
+          },
+          "calculateNetAmount": {
+            "description": "Calculate net amount after all deductions",
+            "parameters": [],
+            "returns": "float"
+          },
+          "approve": {
+            "description": "Approve payment with manager authentication",
+            "parameters": ["approver_id"],
+            "returns": "bool"
+          }
+        },
+        "business_operations": {
+          "generateFromCollections": {
+            "description": "Generate supply payment from collection payments",
+            "parameters": ["property_contract_id", "month_year", "collection_payment_ids"],
+            "returns": "SupplyPayment"
+          },
+          "executeBankTransfer": {
+            "description": "Execute bank transfer and update status",
+            "parameters": ["bank_transfer_reference"],
+            "returns": "bool"
+          },
+          "generateInvoice": {
+            "description": "Generate detailed invoice with breakdown",
+            "parameters": [],
+            "returns": "string"
+          }
+        },
+        "query_operations": {
+          "getPendingApprovals": {
+            "description": "Get payments pending approval",
+            "parameters": [],
+            "returns": "Collection"
+          },
+          "getByOwner": {
+            "description": "Get supply payments for specific owner",
+            "parameters": ["owner_id", "date_range"],
+            "returns": "Collection"
+          }
+        }
+      },
+      "screens": {
+        "supply_payments_index": {
+          "permissions": ["view_supply_payments"],
+          "filament_template": "resource index",
+          "components": {
+            "table": {
+              "columns": {
+                "payment_number": {
+                  "label": "رقم التوريد",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "120px"
+                },
+                "owner.name": {
+                  "label": "المالك",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "150px"
+                },
+                "gross_amount": {
+                  "label": "إجمالي المبلغ",
+                  "type": "currency",
+                  "format": "currency:SAR",
+                  "sortable": true,
+                  "align": "right",
+                  "width": "120px"
+                },
+                "commission_amount": {
+                  "label": "العمولة",
+                  "type": "currency",
+                  "format": "currency:SAR",
+                  "sortable": true,
+                  "align": "right",
+                  "width": "100px"
+                },
+                "maintenance_deduction": {
+                  "label": "خصم الصيانة",
+                  "type": "currency",
+                  "format": "currency:SAR",
+                  "sortable": true,
+                  "align": "right",
+                  "width": "120px"
+                },
+                "net_amount": {
+                  "label": "صافي المبلغ",
+                  "type": "currency",
+                  "format": "currency:SAR",
+                  "sortable": true,
+                  "align": "right",
+                  "width": "120px"
+                },
+                "supply_status": {
+                  "label": "حالة التوريد",
+                  "type": "badge",
+                  "sortable": true,
+                  "width": "100px"
+                },
+                "approval_status": {
+                  "label": "حالة الموافقة",
+                  "type": "badge",
+                  "sortable": true,
+                  "width": "100px"
+                },
+                "due_date": {
+                  "label": "تاريخ الاستحقاق",
+                  "type": "date",
+                  "format": "date:d/m/Y",
+                  "sortable": true,
+                  "width": "100px"
+                },
+                "paid_date": {
+                  "label": "تاريخ التوريد",
+                  "type": "date",
+                  "format": "date:d/m/Y",
+                  "sortable": true,
+                  "width": "100px"
+                }
+              },
+              "filters": {
+                "owner_filter": {
+                  "type": "select",
+                  "label": "المالك",
+                  "relationship": "owner",
+                  "multiple": true
+                },
+                "supply_status_filter": {
+                  "type": "select",
+                  "label": "حالة التوريد",
+                  "options": {
+                    "pending": "في الانتظار",
+                    "worth_collecting": "مستحق التوريد",
+                    "collected": "تم التوريد",
+                    "on_hold": "معلق"
+                  }
+                },
+                "approval_status_filter": {
+                  "type": "select",
+                  "label": "حالة الموافقة",
+                  "options": {
+                    "pending": "في الانتظار",
+                    "approved": "موافق عليه",
+                    "rejected": "مرفوض"
+                  }
+                },
+                "date_range_filter": {
+                  "type": "date_range",
+                  "label": "فترة الاستحقاق",
+                  "from_field": "due_date",
+                  "to_field": "due_date"
+                }
+              },
+              "record_actions": {
+                "view": {
+                  "label": "عرض",
+                  "icon": "heroicon-o-eye"
+                },
+                "edit": {
+                  "label": "تعديل",
+                  "icon": "heroicon-o-pencil"
+                },
+                "approve": {
+                  "label": "موافقة",
+                  "icon": "heroicon-o-check-circle",
+                  "visible": "record.approval_status === 'pending'",
+                  "confirmation": true
+                },
+                "transfer": {
+                  "label": "تحويل بنكي",
+                  "icon": "heroicon-o-banknotes",
+                  "visible": "record.approval_status === 'approved' && record.supply_status === 'worth_collecting'"
+                },
+                "generate_invoice": {
+                  "label": "طباعة الفاتورة",
+                  "icon": "heroicon-o-printer"
+                }
+              },
+              "bulk_actions": {
+                "bulk_approve": {
+                  "label": "موافقة مجمعة",
+                  "icon": "heroicon-o-check-circle",
+                  "confirmation": true
+                },
+                "export_selected": {
+                  "label": "تصدير المحدد",
+                  "icon": "heroicon-o-arrow-down-tray"
+                }
+              },
+              "paginated": true
+            }
+          }
+        }
+      }
+    },
+    "property_repair": {
+      "database_schema": {
+        "fields": {
+          "id": {
+            "type": "bigint",
+            "primary": true,
+            "auto_increment": true,
+            "fillable": false
+          },
+          "repair_number": {
+            "type": "string",
+            "length": 50,
+            "nullable": false,
+            "unique": true,
+            "index": true,
+            "validation": "required|string|max:50|unique:property_repairs,repair_number",
+            "fillable": true
+          },
+          "repair_category_id": {
+            "type": "bigint",
+            "nullable": false,
+            "foreign": "repair_categories.id",
+            "index": true,
+            "validation": "required|exists:repair_categories,id",
+            "fillable": true
+          },
+          "property_id": {
+            "type": "bigint",
+            "nullable": true,
+            "foreign": "properties.id",
+            "index": true,
+            "validation": "nullable|exists:properties,id",
+            "fillable": true
+          },
+          "unit_id": {
+            "type": "bigint",
+            "nullable": true,
+            "foreign": "units.id",
+            "index": true,
+            "validation": "nullable|exists:units,id",
+            "fillable": true
+          },
+          "title": {
+            "type": "string",
+            "length": 255,
+            "nullable": false,
+            "validation": "required|string|max:255",
+            "fillable": true
+          },
+          "description": {
+            "type": "text",
+            "nullable": false,
+            "validation": "required|string|max:5000",
+            "fillable": true
+          },
+          "priority": {
+            "type": "enum",
+            "values": ["low", "medium", "high", "urgent"],
+            "nullable": false,
+            "default": "medium",
+            "index": true,
+            "validation": "required|in:low,medium,high,urgent",
+            "fillable": true
+          },
+          "status": {
+            "type": "enum",
+            "values": ["reported", "scheduled", "in_progress", "completed", "cancelled", "on_hold"],
+            "nullable": false,
+            "default": "reported",
+            "index": true,
+            "validation": "required|in:reported,scheduled,in_progress,completed,cancelled,on_hold",
+            "fillable": true
+          },
+          "cost": {
+            "type": "decimal",
+            "precision": 10,
+            "scale": 2,
+            "nullable": false,
+            "validation": "required|numeric|min:0|max:999999.99",
+            "fillable": true
+          },
+          "estimated_cost": {
+            "type": "decimal",
+            "precision": 10,
+            "scale": 2,
+            "nullable": true,
+            "validation": "nullable|numeric|min:0|max:999999.99",
+            "fillable": true
+          },
+          "vendor_id": {
+            "type": "bigint",
+            "nullable": true,
+            "foreign": "users.id",
+            "index": true,
+            "validation": "nullable|exists:users,id",
+            "fillable": true
+          },
+          "assigned_to": {
+            "type": "bigint",
+            "nullable": true,
+            "foreign": "users.id",
+            "index": true,
+            "validation": "nullable|exists:users,id",
+            "fillable": true
+          },
+          "reported_by": {
+            "type": "bigint",
+            "nullable": false,
+            "foreign": "users.id",
+            "index": true,
+            "validation": "required|exists:users,id",
+            "fillable": true
+          },
+          "reported_date": {
+            "type": "date",
+            "nullable": false,
+            "validation": "required|date",
+            "fillable": true
+          },
+          "scheduled_date": {
+            "type": "date",
+            "nullable": true,
+            "validation": "nullable|date",
+            "fillable": true
+          },
+          "completion_date": {
+            "type": "date",
+            "nullable": true,
+            "validation": "nullable|date",
+            "fillable": true
+          },
+          "warranty_until": {
+            "type": "date",
+            "nullable": true,
+            "validation": "nullable|date",
+            "fillable": true
+          },
+          "is_warranty_claim": {
+            "type": "bool",
+            "nullable": false,
+            "default": false,
+            "validation": "boolean",
+            "fillable": true
+          },
+          "recurring_schedule": {
+            "type": "json",
+            "nullable": true,
+            "validation": "nullable|array",
+            "fillable": true
+          },
+          "cost_allocation": {
+            "type": "enum",
+            "values": ["owner", "tenant", "company", "shared"],
+            "nullable": false,
+            "default": "owner",
+            "validation": "required|in:owner,tenant,company,shared",
+            "fillable": true
+          },
+          "invoice_number": {
+            "type": "string",
+            "length": 100,
+            "nullable": true,
+            "validation": "nullable|string|max:100",
+            "fillable": true
+          },
+          "receipt_attachments": {
+            "type": "json",
+            "nullable": true,
+            "validation": "nullable|array",
+            "fillable": true
+          },
+          "notes": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string|max:2000",
+            "fillable": true
+          },
+          "created_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          },
+          "updated_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          }
+        },
+        "indexes": {
+          "property_repairs_category_id_index": "repair_category_id",
+          "property_repairs_property_id_index": "property_id",
+          "property_repairs_unit_id_index": "unit_id",
+          "property_repairs_status_index": "status",
+          "property_repairs_priority_index": "priority",
+          "property_repairs_date_index": "reported_date",
+          "property_repairs_vendor_index": "vendor_id"
+        },
+        "constraints": {
+          "property_repairs_category_foreign": "FOREIGN KEY (repair_category_id) REFERENCES repair_categories(id)",
+          "property_repairs_property_foreign": "FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE",
+          "property_repairs_unit_foreign": "FOREIGN KEY (unit_id) REFERENCES units(id) ON DELETE CASCADE",
+          "property_repairs_vendor_foreign": "FOREIGN KEY (vendor_id) REFERENCES users(id)",
+          "property_repairs_assigned_foreign": "FOREIGN KEY (assigned_to) REFERENCES users(id)",
+          "property_repairs_reported_foreign": "FOREIGN KEY (reported_by) REFERENCES users(id)"
+        }
+      },
+      "tests": {
+        "unit": {
+          "test_repair_creation": {
+            "description": "Test property repair creation with required fields",
+            "input": {
+              "repair_category_id": 1,
+              "property_id": 1,
+              "title": "Plumbing Issue",
+              "description": "Kitchen sink leak",
+              "cost": 500.00
+            },
+            "expected": "PropertyRepair instance with repair number generated",
+            "assertions": [
+              "assertInstanceOf(PropertyRepair::class, $repair)",
+              "assertNotNull($repair->repair_number)",
+              "assertEquals('Plumbing Issue', $repair->title)"
+            ]
+          },
+          "test_warranty_validation": {
+            "description": "Test warranty claim validation and period checking",
+            "input": {
+              "warranty_until": "2024-12-31",
+              "current_date": "2024-06-15"
+            },
+            "expected": "Warranty status correctly determined",
+            "assertions": [
+              "assertTrue($repair->isUnderWarranty())",
+              "assertFalse($repair->isWarrantyExpired())"
+            ]
+          },
+          "test_cost_allocation": {
+            "description": "Test cost allocation based on repair category and type",
+            "input": {
+              "repair_category": "general_maintenance",
+              "cost": 1000.00
+            },
+            "expected": "Cost allocated to appropriate party",
+            "assertions": [
+              "assertEquals('owner', $repair->cost_allocation)",
+              "assertTrue($repair->shouldDeductFromOwner())"
+            ]
+          }
+        },
+        "feature": {
+          "test_repair_workflow": {
+            "scenario": "Complete repair workflow from report to completion",
+            "steps": [
+              "Report maintenance issue",
+              "Assign to vendor",
+              "Schedule repair date",
+              "Update status to in_progress",
+              "Complete repair with cost",
+              "Update status to completed",
+              "Generate cost deduction"
+            ],
+            "expected_result": "Repair completed with proper status updates and cost allocation"
+          },
+          "test_recurring_maintenance": {
+            "scenario": "Set up and execute recurring maintenance schedule",
+            "steps": [
+              "Create repair with recurring schedule",
+              "System generates next maintenance date",
+              "Auto-create maintenance reminder",
+              "Execute scheduled maintenance",
+              "Update next occurrence"
+            ],
+            "expected_result": "Recurring maintenance properly scheduled and executed"
+          }
+        },
+        "playwright_mcp": {
+          "test_repair_management": {
+            "tools": ["mcp__playwright__browser_navigate", "mcp__playwright__browser_click", "mcp__playwright__browser_type"],
+            "flow": [
+              "Navigate to property repairs page",
+              "Click 'New Repair' button",
+              "Fill repair form with property and issue details",
+              "Select repair category and priority",
+              "Enter cost information",
+              "Submit repair request",
+              "Verify repair appears in list",
+              "Update repair status",
+              "Complete repair"
+            ],
+            "validations": [
+              "Repair form validates required fields",
+              "Status workflow is enforced",
+              "Cost allocation is calculated correctly",
+              "Vendor assignment works properly"
+            ]
+          }
+        }
+      },
+      "processes": {
+        "custom_crud_operations": {
+          "generateRepairNumber": {
+            "description": "Generate unique repair number with format REPAIR-YYYY-NNNNNN",
+            "parameters": [],
+            "returns": "string"
+          },
+          "assignVendor": {
+            "description": "Assign repair to vendor with notification",
+            "parameters": ["vendor_id", "scheduled_date"],
+            "returns": "bool"
+          },
+          "completeRepair": {
+            "description": "Mark repair as completed with cost and warranty",
+            "parameters": ["actual_cost", "completion_date", "warranty_period"],
+            "returns": "bool"
+          },
+          "isUnderWarranty": {
+            "description": "Check if repair is still under warranty period",
+            "parameters": [],
+            "returns": "bool"
+          }
+        },
+        "business_operations": {
+          "scheduleRecurring": {
+            "description": "Set up recurring maintenance schedule",
+            "parameters": ["schedule_config"],
+            "returns": "bool"
+          },
+          "calculateCostImpact": {
+            "description": "Calculate impact on owner payment based on cost allocation",
+            "parameters": [],
+            "returns": "array"
+          },
+          "processWarrantyClaim": {
+            "description": "Process warranty claim and cost recovery",
+            "parameters": [],
+            "returns": "bool"
+          }
+        },
+        "query_operations": {
+          "getByProperty": {
+            "description": "Get all repairs for specific property",
+            "parameters": ["property_id", "status_filter"],
+            "returns": "Collection"
+          },
+          "getPendingRepairs": {
+            "description": "Get repairs pending action by priority",
+            "parameters": [],
+            "returns": "Collection"
+          },
+          "getMaintenanceCosts": {
+            "description": "Get maintenance costs for property in date range",
+            "parameters": ["property_id", "date_range"],
+            "returns": "float"
+          }
+        }
+      },
+      "screens": {
+        "property_repairs_index": {
+          "permissions": ["view_property_repairs"],
+          "filament_template": "resource index",
+          "components": {
+            "table": {
+              "columns": {
+                "repair_number": {
+                  "label": "رقم الصيانة",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "120px"
+                },
+                "title": {
+                  "label": "العنوان",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "200px"
+                },
+                "property.name": {
+                  "label": "العقار",
+                  "type": "text",
+                  "sortable": true,
+                  "width": "150px"
+                },
+                "unit.unit_number": {
+                  "label": "الوحدة",
+                  "type": "text",
+                  "sortable": true,
+                  "width": "80px"
+                },
+                "repair_category.name": {
+                  "label": "نوع الصيانة",
+                  "type": "text",
+                  "sortable": true,
+                  "width": "120px"
+                },
+                "priority": {
+                  "label": "الأولوية",
+                  "type": "badge",
+                  "sortable": true,
+                  "width": "80px"
+                },
+                "status": {
+                  "label": "الحالة",
+                  "type": "badge",
+                  "sortable": true,
+                  "width": "100px"
+                },
+                "cost": {
+                  "label": "التكلفة",
+                  "type": "currency",
+                  "format": "currency:SAR",
+                  "sortable": true,
+                  "align": "right",
+                  "width": "100px"
+                },
+                "reported_date": {
+                  "label": "تاريخ البلاغ",
+                  "type": "date",
+                  "format": "date:d/m/Y",
+                  "sortable": true,
+                  "width": "100px"
+                },
+                "completion_date": {
+                  "label": "تاريخ الإنجاز",
+                  "type": "date",
+                  "format": "date:d/m/Y",
+                  "sortable": true,
+                  "width": "100px"
+                }
+              },
+              "filters": {
+                "property_filter": {
+                  "type": "select",
+                  "label": "العقار",
+                  "relationship": "property",
+                  "multiple": true
+                },
+                "category_filter": {
+                  "type": "select",
+                  "label": "نوع الصيانة",
+                  "relationship": "repairCategory"
+                },
+                "status_filter": {
+                  "type": "select",
+                  "label": "الحالة",
+                  "options": {
+                    "reported": "مبلغ عنها",
+                    "scheduled": "مجدولة",
+                    "in_progress": "قيد التنفيذ",
+                    "completed": "مكتملة",
+                    "cancelled": "ملغية"
+                  }
+                },
+                "priority_filter": {
+                  "type": "select",
+                  "label": "الأولوية",
+                  "options": {
+                    "urgent": "عاجل",
+                    "high": "عالي",
+                    "medium": "متوسط",
+                    "low": "منخفض"
+                  }
+                },
+                "date_range_filter": {
+                  "type": "date_range",
+                  "label": "فترة التاريخ",
+                  "from_field": "reported_date",
+                  "to_field": "reported_date"
+                }
+              },
+              "record_actions": {
+                "view": {
+                  "label": "عرض",
+                  "icon": "heroicon-o-eye"
+                },
+                "edit": {
+                  "label": "تعديل",
+                  "icon": "heroicon-o-pencil"
+                },
+                "assign_vendor": {
+                  "label": "تعيين مقاول",
+                  "icon": "heroicon-o-user-plus",
+                  "visible": "record.status === 'reported'"
+                },
+                "complete": {
+                  "label": "إنجاز الصيانة",
+                  "icon": "heroicon-o-check-circle",
+                  "visible": "record.status === 'in_progress'"
+                }
+              },
+              "bulk_actions": {
+                "bulk_assign": {
+                  "label": "تعيين مقاول مجمع",
+                  "icon": "heroicon-o-user-plus"
+                },
+                "export_selected": {
+                  "label": "تصدير المحدد",
+                  "icon": "heroicon-o-arrow-down-tray"
+                }
+              },
+              "paginated": true
+            }
+          }
+        }
+      }
+    },
+    "transaction": {
+      "database_schema": {
+        "fields": {
+          "id": {
+            "type": "bigint",
+            "primary": true,
+            "auto_increment": true,
+            "fillable": false
+          },
+          "transaction_number": {
+            "type": "string",
+            "length": 50,
+            "nullable": false,
+            "unique": true,
+            "index": true,
+            "validation": "required|string|max:50|unique:transactions,transaction_number",
+            "fillable": true
+          },
+          "transaction_type": {
+            "type": "enum",
+            "values": ["rent_payment", "owner_payment", "maintenance", "commission", "deposit", "refund", "fee"],
+            "nullable": false,
+            "index": true,
+            "validation": "required|in:rent_payment,owner_payment,maintenance,commission,deposit,refund,fee",
+            "fillable": true
+          },
+          "reference_type": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "validation": "required|string|max:100",
+            "fillable": true
+          },
+          "reference_id": {
+            "type": "bigint",
+            "nullable": false,
+            "index": true,
+            "validation": "required|integer",
+            "fillable": true
+          },
+          "property_id": {
+            "type": "bigint",
+            "nullable": true,
+            "foreign": "properties.id",
+            "index": true,
+            "validation": "nullable|exists:properties,id",
+            "fillable": true
+          },
+          "unit_id": {
+            "type": "bigint",
+            "nullable": true,
+            "foreign": "units.id",
+            "index": true,
+            "validation": "nullable|exists:units,id",
+            "fillable": true
+          },
+          "from_account": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "validation": "required|string|max:100",
+            "fillable": true
+          },
+          "to_account": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "validation": "required|string|max:100",
+            "fillable": true
+          },
+          "amount": {
+            "type": "decimal",
+            "precision": 10,
+            "scale": 2,
+            "nullable": false,
+            "validation": "required|numeric|min:0|max:999999.99",
+            "fillable": true
+          },
+          "description": {
+            "type": "string",
+            "length": 255,
+            "nullable": false,
+            "validation": "required|string|max:255",
+            "fillable": true
+          },
+          "transaction_date": {
+            "type": "date",
+            "nullable": false,
+            "index": true,
+            "validation": "required|date",
+            "fillable": true
+          },
+          "created_by": {
+            "type": "bigint",
+            "nullable": false,
+            "foreign": "users.id",
+            "index": true,
+            "validation": "required|exists:users,id",
+            "fillable": true
+          },
+          "approved_by": {
+            "type": "bigint",
+            "nullable": true,
+            "foreign": "users.id",
+            "validation": "nullable|exists:users,id",
+            "fillable": true
+          },
+          "approved_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "validation": "nullable|date",
+            "fillable": true
+          },
+          "metadata": {
+            "type": "json",
+            "nullable": true,
+            "validation": "nullable|array",
+            "fillable": true
+          },
+          "created_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          },
+          "updated_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          }
+        },
+        "indexes": {
+          "transactions_type_index": "transaction_type",
+          "transactions_reference_index": "reference_type, reference_id",
+          "transactions_property_index": "property_id",
+          "transactions_date_index": "transaction_date",
+          "transactions_accounts_index": "from_account, to_account"
+        },
+        "constraints": {
+          "transactions_property_foreign": "FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE",
+          "transactions_unit_foreign": "FOREIGN KEY (unit_id) REFERENCES units(id) ON DELETE CASCADE",
+          "transactions_created_by_foreign": "FOREIGN KEY (created_by) REFERENCES users(id)",
+          "transactions_approved_by_foreign": "FOREIGN KEY (approved_by) REFERENCES users(id)"
+        }
+      },
+      "tests": {
+        "unit": {
+          "test_transaction_creation": {
+            "description": "Test transaction creation with proper double-entry structure",
+            "input": {
+              "transaction_type": "rent_payment",
+              "reference_type": "CollectionPayment",
+              "reference_id": 1,
+              "amount": 5000.00
+            },
+            "expected": "Transaction with proper debit/credit structure",
+            "assertions": [
+              "assertNotNull($transaction->transaction_number)",
+              "assertEquals(5000.00, $transaction->amount)",
+              "assertEquals('rent_payment', $transaction->transaction_type)"
+            ]
+          },
+          "test_balance_validation": {
+            "description": "Test transaction balance validation for double-entry",
+            "input": {
+              "debit_amount": 5000.00,
+              "credit_amount": 5000.00
+            },
+            "expected": "Balanced transaction entries",
+            "assertions": [
+              "assertTrue($transaction->isBalanced())",
+              "assertEquals(0, $transaction->getBalanceDifference())"
+            ]
+          }
+        }
+      },
+      "processes": {
+        "custom_crud_operations": {
+          "generateTransactionNumber": {
+            "description": "Generate unique transaction number with format TXN-YYYY-NNNNNN",
+            "parameters": [],
+            "returns": "string"
+          },
+          "createDoubleEntry": {
+            "description": "Create balanced double-entry transaction",
+            "parameters": ["debit_account", "credit_account", "amount", "description"],
+            "returns": "Transaction"
+          }
+        },
+        "business_operations": {
+          "recordPayment": {
+            "description": "Record payment transaction with proper accounting",
+            "parameters": ["payment_reference", "amount", "accounts"],
+            "returns": "Transaction"
+          },
+          "recordMaintenance": {
+            "description": "Record maintenance expense transaction",
+            "parameters": ["repair_reference", "cost", "allocation"],
+            "returns": "Transaction"
+          }
+        }
+      },
+      "screens": {
+        "transactions_index": {
+          "permissions": ["view_transactions"],
+          "filament_template": "resource index",
+          "components": {
+            "table": {
+              "columns": {
+                "transaction_number": {
+                  "label": "رقم المعاملة",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "120px"
+                },
+                "transaction_type": {
+                  "label": "نوع المعاملة",
+                  "type": "badge",
+                  "sortable": true,
+                  "width": "120px"
+                },
+                "description": {
+                  "label": "الوصف",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "200px"
+                },
+                "amount": {
+                  "label": "المبلغ",
+                  "type": "currency",
+                  "format": "currency:SAR",
+                  "sortable": true,
+                  "align": "right",
+                  "width": "120px"
+                },
+                "from_account": {
+                  "label": "من حساب",
+                  "type": "text",
+                  "sortable": true,
+                  "width": "120px"
+                },
+                "to_account": {
+                  "label": "إلى حساب",
+                  "type": "text",
+                  "sortable": true,
+                  "width": "120px"
+                },
+                "transaction_date": {
+                  "label": "تاريخ المعاملة",
+                  "type": "date",
+                  "format": "date:d/m/Y",
+                  "sortable": true,
+                  "width": "100px"
+                }
+              },
+              "filters": {
+                "type_filter": {
+                  "type": "select",
+                  "label": "نوع المعاملة",
+                  "options": {
+                    "rent_payment": "دفعة إيجار",
+                    "owner_payment": "دفعة مالك",
+                    "maintenance": "صيانة",
+                    "commission": "عمولة",
+                    "deposit": "وديعة",
+                    "refund": "استرداد"
+                  }
+                },
+                "property_filter": {
+                  "type": "select",
+                  "label": "العقار",
+                  "relationship": "property"
+                },
+                "date_range_filter": {
+                  "type": "date_range",
+                  "label": "فترة التاريخ",
+                  "from_field": "transaction_date",
+                  "to_field": "transaction_date"
+                }
+              },
+              "paginated": true
+            }
+          }
+        }
+      }
+    },
+    "payment_method": {
+      "database_schema": {
+        "fields": {
+          "id": {
+            "type": "bigint",
+            "primary": true,
+            "auto_increment": true,
+            "fillable": false
+          },
+          "name_ar": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "validation": "required|string|max:100",
+            "fillable": true
+          },
+          "name_en": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "validation": "required|string|max:100",
+            "fillable": true
+          },
+          "slug": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "unique": true,
+            "index": true,
+            "validation": "required|string|max:100|unique:payment_methods,slug",
+            "fillable": true
+          },
+          "icon": {
+            "type": "string",
+            "length": 100,
+            "nullable": true,
+            "validation": "nullable|string|max:100",
+            "fillable": true
+          },
+          "description": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string|max:500",
+            "fillable": true
+          },
+          "is_active": {
+            "type": "bool",
+            "nullable": false,
+            "default": true,
+            "index": true,
+            "validation": "boolean",
+            "fillable": true
+          },
+          "requires_reference": {
+            "type": "bool",
+            "nullable": false,
+            "default": false,
+            "validation": "boolean",
+            "fillable": true
+          },
+          "sort_order": {
+            "type": "int",
+            "nullable": false,
+            "default": 0,
+            "validation": "integer|min:0",
+            "fillable": true
+          },
+          "created_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          },
+          "updated_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          }
+        },
+        "indexes": {
+          "payment_methods_slug_index": "slug",
+          "payment_methods_active_index": "is_active",
+          "payment_methods_sort_index": "sort_order"
+        }
+      },
+      "tests": {
+        "unit": {
+          "test_payment_method_creation": {
+            "description": "Test payment method creation with localization",
+            "input": {
+              "name_ar": "نقداً",
+              "name_en": "Cash",
+              "slug": "cash"
+            },
+            "expected": "PaymentMethod with localized names",
+            "assertions": [
+              "assertEquals('نقداً', $method->name_ar)",
+              "assertEquals('Cash', $method->name_en)",
+              "assertEquals('cash', $method->slug)"
+            ]
+          }
+        }
+      },
+      "processes": {
+        "custom_crud_operations": {
+          "getNameAttribute": {
+            "description": "Get localized name based on app locale",
+            "parameters": [],
+            "returns": "string"
+          }
+        },
+        "query_operations": {
+          "active": {
+            "description": "Scope for active payment methods",
+            "parameters": [],
+            "returns": "Builder"
+          },
+          "ordered": {
+            "description": "Scope for ordered payment methods",
+            "parameters": [],
+            "returns": "Builder"
+          }
+        }
+      },
+      "screens": {
+        "payment_methods_index": {
+          "permissions": ["manage_payment_methods"],
+          "filament_template": "resource index",
+          "components": {
+            "table": {
+              "columns": {
+                "sort_order": {
+                  "label": "الترتيب",
+                  "type": "number",
+                  "sortable": true,
+                  "width": "80px"
+                },
+                "name_ar": {
+                  "label": "الاسم بالعربية",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "150px"
+                },
+                "name_en": {
+                  "label": "الاسم بالإنجليزية",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "150px"
+                },
+                "slug": {
+                  "label": "المعرف",
+                  "type": "text",
+                  "sortable": true,
+                  "width": "120px"
+                },
+                "requires_reference": {
+                  "label": "يتطلب مرجع",
+                  "type": "boolean",
+                  "sortable": true,
+                  "width": "100px"
+                },
+                "is_active": {
+                  "label": "نشط",
+                  "type": "boolean",
+                  "sortable": true,
+                  "width": "80px"
+                }
+              },
+              "filters": {
+                "active_filter": {
+                  "type": "ternary",
+                  "label": "الحالة"
+                }
+              },
+              "record_actions": {
+                "edit": {
+                  "label": "تعديل",
+                  "icon": "heroicon-o-pencil"
+                },
+                "toggle_status": {
+                  "label": "تغيير الحالة",
+                  "icon": "heroicon-o-arrow-path"
+                }
+              },
+              "paginated": true
+            }
+          }
+        }
+      }
+    },
+    "payment_status": {
+      "database_schema": {
+        "fields": {
+          "id": {
+            "type": "bigint",
+            "primary": true,
+            "auto_increment": true,
+            "fillable": false
+          },
+          "name_ar": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "validation": "required|string|max:100",
+            "fillable": true
+          },
+          "name_en": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "validation": "required|string|max:100",
+            "fillable": true
+          },
+          "slug": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "unique": true,
+            "index": true,
+            "validation": "required|string|max:100|unique:payment_statuses,slug",
+            "fillable": true
+          },
+          "color": {
+            "type": "string",
+            "length": 20,
+            "nullable": false,
+            "default": "gray",
+            "validation": "required|string|max:20",
+            "fillable": true
+          },
+          "icon": {
+            "type": "string",
+            "length": 100,
+            "nullable": true,
+            "validation": "nullable|string|max:100",
+            "fillable": true
+          },
+          "is_final": {
+            "type": "bool",
+            "nullable": false,
+            "default": false,
+            "validation": "boolean",
+            "fillable": true
+          },
+          "is_active": {
+            "type": "bool",
+            "nullable": false,
+            "default": true,
+            "validation": "boolean",
+            "fillable": true
+          },
+          "sort_order": {
+            "type": "int",
+            "nullable": false,
+            "default": 0,
+            "validation": "integer|min:0",
+            "fillable": true
+          },
+          "created_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          },
+          "updated_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          }
+        },
+        "indexes": {
+          "payment_statuses_slug_index": "slug",
+          "payment_statuses_active_index": "is_active",
+          "payment_statuses_sort_index": "sort_order"
+        }
+      },
+      "tests": {
+        "unit": {
+          "test_payment_status_workflow": {
+            "description": "Test payment status workflow transitions",
+            "input": {
+              "current_status": "worth_collecting",
+              "new_status": "collected"
+            },
+            "expected": "Valid status transition",
+            "assertions": [
+              "assertTrue($status->canTransitionTo('collected'))",
+              "assertFalse($status->canTransitionTo('invalid_status'))"
+            ]
+          }
+        }
+      },
+      "processes": {
+        "custom_crud_operations": {
+          "canTransitionTo": {
+            "description": "Check if status can transition to another status",
+            "parameters": ["target_status"],
+            "returns": "bool"
+          },
+          "getBadgeColorAttribute": {
+            "description": "Get badge color for UI display",
+            "parameters": [],
+            "returns": "string"
+          }
+        }
+      },
+      "screens": {
+        "payment_statuses_index": {
+          "permissions": ["manage_payment_statuses"],
+          "filament_template": "resource index",
+          "components": {
+            "table": {
+              "columns": {
+                "sort_order": {
+                  "label": "الترتيب",
+                  "type": "number",
+                  "sortable": true,
+                  "width": "80px"
+                },
+                "name_ar": {
+                  "label": "الاسم بالعربية",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "150px"
+                },
+                "name_en": {
+                  "label": "الاسم بالإنجليزية",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "150px"
+                },
+                "slug": {
+                  "label": "المعرف",
+                  "type": "text",
+                  "sortable": true,
+                  "width": "120px"
+                },
+                "color": {
+                  "label": "اللون",
+                  "type": "color",
+                  "sortable": true,
+                  "width": "80px"
+                },
+                "is_final": {
+                  "label": "حالة نهائية",
+                  "type": "boolean",
+                  "sortable": true,
+                  "width": "100px"
+                },
+                "is_active": {
+                  "label": "نشط",
+                  "type": "boolean",
+                  "sortable": true,
+                  "width": "80px"
+                }
+              },
+              "filters": {
+                "active_filter": {
+                  "type": "ternary",
+                  "label": "الحالة"
+                },
+                "final_filter": {
+                  "type": "ternary",
+                  "label": "حالة نهائية"
+                }
+              },
+              "paginated": true
+            }
+          }
+        }
+      }
+    },
+    "repair_category": {
+      "database_schema": {
+        "fields": {
+          "id": {
+            "type": "bigint",
+            "primary": true,
+            "auto_increment": true,
+            "fillable": false
+          },
+          "name_ar": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "validation": "required|string|max:100",
+            "fillable": true
+          },
+          "name_en": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "validation": "required|string|max:100",
+            "fillable": true
+          },
+          "slug": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "unique": true,
+            "index": true,
+            "validation": "required|string|max:100|unique:repair_categories,slug",
+            "fillable": true
+          },
+          "description": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string|max:500",
+            "fillable": true
+          },
+          "affects_property": {
+            "type": "bool",
+            "nullable": false,
+            "default": true,
+            "validation": "boolean",
+            "fillable": true
+          },
+          "affects_unit": {
+            "type": "bool",
+            "nullable": false,
+            "default": false,
+            "validation": "boolean",
+            "fillable": true
+          },
+          "default_cost_allocation": {
+            "type": "enum",
+            "values": ["owner", "tenant", "company", "shared"],
+            "nullable": false,
+            "default": "owner",
+            "validation": "required|in:owner,tenant,company,shared",
+            "fillable": true
+          },
+          "is_active": {
+            "type": "bool",
+            "nullable": false,
+            "default": true,
+            "validation": "boolean",
+            "fillable": true
+          },
+          "sort_order": {
+            "type": "int",
+            "nullable": false,
+            "default": 0,
+            "validation": "integer|min:0",
+            "fillable": true
+          },
+          "created_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          },
+          "updated_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          }
+        },
+        "indexes": {
+          "repair_categories_slug_index": "slug",
+          "repair_categories_active_index": "is_active",
+          "repair_categories_sort_index": "sort_order"
+        }
+      },
+      "tests": {
+        "unit": {
+          "test_repair_category_cost_allocation": {
+            "description": "Test repair category cost allocation rules",
+            "input": {
+              "category": "general_maintenance",
+              "default_allocation": "owner"
+            },
+            "expected": "Correct cost allocation based on category",
+            "assertions": [
+              "assertEquals('owner', $category->default_cost_allocation)",
+              "assertTrue($category->affects_property)",
+              "assertFalse($category->affects_unit)"
+            ]
+          }
+        }
+      },
+      "processes": {
+        "custom_crud_operations": {
+          "getNameAttribute": {
+            "description": "Get localized name based on app locale",
+            "parameters": [],
+            "returns": "string"
+          }
+        },
+        "query_operations": {
+          "active": {
+            "description": "Scope for active repair categories",
+            "parameters": [],
+            "returns": "Builder"
+          },
+          "forProperty": {
+            "description": "Scope for categories affecting properties",
+            "parameters": [],
+            "returns": "Builder"
+          },
+          "forUnit": {
+            "description": "Scope for categories affecting units",
+            "parameters": [],
+            "returns": "Builder"
+          }
+        }
+      },
+      "screens": {
+        "repair_categories_index": {
+          "permissions": ["manage_repair_categories"],
+          "filament_template": "resource index",
+          "components": {
+            "table": {
+              "columns": {
+                "sort_order": {
+                  "label": "الترتيب",
+                  "type": "number",
+                  "sortable": true,
+                  "width": "80px"
+                },
+                "name_ar": {
+                  "label": "الاسم بالعربية",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "150px"
+                },
+                "name_en": {
+                  "label": "الاسم بالإنجليزية",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "150px"
+                },
+                "default_cost_allocation": {
+                  "label": "تخصيص التكلفة",
+                  "type": "badge",
+                  "sortable": true,
+                  "width": "120px"
+                },
+                "affects_property": {
+                  "label": "يؤثر على العقار",
+                  "type": "boolean",
+                  "sortable": true,
+                  "width": "100px"
+                },
+                "affects_unit": {
+                  "label": "يؤثر على الوحدة",
+                  "type": "boolean",
+                  "sortable": true,
+                  "width": "100px"
+                },
+                "is_active": {
+                  "label": "نشط",
+                  "type": "boolean",
+                  "sortable": true,
+                  "width": "80px"
+                }
+              },
+              "filters": {
+                "active_filter": {
+                  "type": "ternary",
+                  "label": "الحالة"
+                },
+                "allocation_filter": {
+                  "type": "select",
+                  "label": "تخصيص التكلفة",
+                  "options": {
+                    "owner": "المالك",
+                    "tenant": "المستأجر",
+                    "company": "الشركة",
+                    "shared": "مشترك"
+                  }
+                }
+              },
+              "paginated": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "relationships": {
+    "collection_payment_unit_contract": {
+      "type": "one_to_many",
+      "1st_side": "unit_contract",
+      "2nd_side": "collection_payment",
+      "constraints": {
+        "foreign_key": "unit_contract_id",
+        "on_delete": "cascade"
+      }
+    },
+    "collection_payment_unit": {
+      "type": "one_to_many",
+      "1st_side": "unit",
+      "2nd_side": "collection_payment",
+      "constraints": {
+        "foreign_key": "unit_id",
+        "on_delete": "cascade"
+      }
+    },
+    "collection_payment_property": {
+      "type": "one_to_many",
+      "1st_side": "property",
+      "2nd_side": "collection_payment",
+      "constraints": {
+        "foreign_key": "property_id",
+        "on_delete": "cascade"
+      }
+    },
+    "collection_payment_tenant": {
+      "type": "one_to_many",
+      "1st_side": "user",
+      "2nd_side": "collection_payment",
+      "constraints": {
+        "foreign_key": "tenant_id",
+        "on_delete": "cascade"
+      }
+    },
+    "collection_payment_status": {
+      "type": "one_to_many",
+      "1st_side": "payment_status",
+      "2nd_side": "collection_payment",
+      "constraints": {
+        "foreign_key": "payment_status_id"
+      }
+    },
+    "collection_payment_method": {
+      "type": "one_to_many",
+      "1st_side": "payment_method",
+      "2nd_side": "collection_payment",
+      "constraints": {
+        "foreign_key": "payment_method_id"
+      }
+    },
+    "supply_payment_property_contract": {
+      "type": "one_to_many",
+      "1st_side": "property_contract",
+      "2nd_side": "supply_payment",
+      "constraints": {
+        "foreign_key": "property_contract_id",
+        "on_delete": "cascade"
+      }
+    },
+    "supply_payment_owner": {
+      "type": "one_to_many",
+      "1st_side": "user",
+      "2nd_side": "supply_payment",
+      "constraints": {
+        "foreign_key": "owner_id",
+        "on_delete": "cascade"
+      }
+    },
+    "supply_payment_approver": {
+      "type": "one_to_many",
+      "1st_side": "user",
+      "2nd_side": "supply_payment",
+      "constraints": {
+        "foreign_key": "approved_by"
+      }
+    },
+    "property_repair_category": {
+      "type": "one_to_many",
+      "1st_side": "repair_category",
+      "2nd_side": "property_repair",
+      "constraints": {
+        "foreign_key": "repair_category_id"
+      }
+    },
+    "property_repair_property": {
+      "type": "one_to_many",
+      "1st_side": "property",
+      "2nd_side": "property_repair",
+      "constraints": {
+        "foreign_key": "property_id",
+        "on_delete": "cascade"
+      }
+    },
+    "property_repair_unit": {
+      "type": "one_to_many",
+      "1st_side": "unit",
+      "2nd_side": "property_repair",
+      "constraints": {
+        "foreign_key": "unit_id",
+        "on_delete": "cascade"
+      }
+    },
+    "property_repair_vendor": {
+      "type": "one_to_many",
+      "1st_side": "user",
+      "2nd_side": "property_repair",
+      "constraints": {
+        "foreign_key": "vendor_id"
+      }
+    },
+    "property_repair_assigned": {
+      "type": "one_to_many",
+      "1st_side": "user",
+      "2nd_side": "property_repair",
+      "constraints": {
+        "foreign_key": "assigned_to"
+      }
+    },
+    "property_repair_reporter": {
+      "type": "one_to_many",
+      "1st_side": "user",
+      "2nd_side": "property_repair",
+      "constraints": {
+        "foreign_key": "reported_by"
+      }
+    },
+    "transaction_property": {
+      "type": "one_to_many",
+      "1st_side": "property",
+      "2nd_side": "transaction",
+      "constraints": {
+        "foreign_key": "property_id",
+        "on_delete": "cascade"
+      }
+    },
+    "transaction_unit": {
+      "type": "one_to_many",
+      "1st_side": "unit",
+      "2nd_side": "transaction",
+      "constraints": {
+        "foreign_key": "unit_id",
+        "on_delete": "cascade"
+      }
+    },
+    "transaction_creator": {
+      "type": "one_to_many",
+      "1st_side": "user",
+      "2nd_side": "transaction",
+      "constraints": {
+        "foreign_key": "created_by"
+      }
+    },
+    "transaction_approver": {
+      "type": "one_to_many",
+      "1st_side": "user",
+      "2nd_side": "transaction",
+      "constraints": {
+        "foreign_key": "approved_by"
+      }
+    }
+  },
+  "shared": {
+    "processes": {
+      "FinancialCalculationService": {
+        "description": "Central service for all financial calculations",
+        "methods": {
+          "calculateCommission": "Calculate commission based on contract rate and amount",
+          "calculateLateFee": "Calculate late fees based on overdue days and policy",
+          "calculateNetOwnerPayment": "Calculate net payment to owner after deductions",
+          "generatePaymentSchedule": "Generate payment schedule for contract",
+          "processMonthlyPayments": "Process all monthly payments for properties"
+        }
+      },
+      "PaymentProcessingService": {
+        "description": "Service for payment processing workflows",
+        "methods": {
+          "processCollectionPayment": "Process rent collection with status updates",
+          "processBulkCollection": "Process multiple payments in batch",
+          "processOwnerPayment": "Process payment to owner with approvals",
+          "reconcilePayments": "Reconcile payments with bank statements",
+          "generateReceipts": "Generate payment receipts and invoices"
+        }
+      },
+      "MaintenanceService": {
+        "description": "Service for maintenance management",
+        "methods": {
+          "createMaintenanceRequest": "Create new maintenance request",
+          "assignToVendor": "Assign maintenance to vendor",
+          "trackMaintenanceCosts": "Track and allocate maintenance costs",
+          "processWarrantyClaim": "Process warranty claims and cost recovery",
+          "scheduleRecurringMaintenance": "Set up recurring maintenance schedules"
+        }
+      },
+      "ReportingService": {
+        "description": "Service for financial reporting",
+        "methods": {
+          "generateOwnerStatement": "Generate detailed owner financial statement",
+          "generatePropertyProfitLoss": "Generate P&L report for property",
+          "generateCashFlowReport": "Generate cash flow analysis",
+          "generateCommissionReport": "Generate commission summary report",
+          "generateMaintenanceCostReport": "Generate maintenance cost analysis"
+        }
+      },
+      "TransactionService": {
+        "description": "Service for transaction management",
+        "methods": {
+          "recordTransaction": "Record transaction with double-entry",
+          "createFromPayment": "Create transaction from payment record",
+          "createFromMaintenance": "Create transaction from maintenance record",
+          "validateTransactionBalance": "Validate transaction balance integrity",
+          "generateAuditTrail": "Generate transaction audit trail"
+        }
+      }
+    },
+    "screens": {
+      "financial_dashboard": {
+        "permissions": ["view_financial_dashboard"],
+        "filament_template": "dashboard",
+        "components": {
+          "widgets": {
+            "monthly_collections_widget": {
+              "type": "chart",
+              "title": "التحصيلات الشهرية",
+              "data_source": "CollectionPayment::monthlyTotals()",
+              "chart_type": "line"
+            },
+            "pending_payments_widget": {
+              "type": "stats",
+              "title": "المدفوعات المعلقة",
+              "data_source": "CollectionPayment::pendingCount()",
+              "format": "number"
+            },
+            "owner_payments_widget": {
+              "type": "stats",
+              "title": "دفعات الملاك",
+              "data_source": "SupplyPayment::monthlyTotal()",
+              "format": "currency"
+            },
+            "maintenance_costs_widget": {
+              "type": "chart",
+              "title": "تكاليف الصيانة",
+              "data_source": "PropertyRepair::monthlyCosts()",
+              "chart_type": "bar"
+            }
+          }
+        }
+      }
+    },
+    "utilities": {
+      "helpers": {
+        "FormatHelper": {
+          "methods": {
+            "formatCurrency": "Format amount as Saudi Riyal currency",
+            "formatDate": "Format date in Arabic locale",
+            "formatPaymentNumber": "Format payment number for display",
+            "formatTransactionReference": "Format transaction reference"
+          }
+        },
+        "PaymentHelper": {
+          "methods": {
+            "generatePaymentNumber": "Generate unique payment number",
+            "calculateDaysOverdue": "Calculate days overdue for payment",
+            "getPaymentStatusColor": "Get color for payment status badge",
+            "isPaymentOverdue": "Check if payment is overdue"
+          }
+        }
+      },
+      "validators": {
+        "PaymentValidator": {
+          "rules": {
+            "validatePaymentAmount": "Validate payment amount is positive",
+            "validatePaymentDate": "Validate payment date is not future",
+            "validatePaymentStatus": "Validate payment status transition",
+            "validateContractRelation": "Validate payment belongs to active contract"
+          }
+        },
+        "FinancialValidator": {
+          "rules": {
+            "validateCommissionRate": "Validate commission rate is within limits",
+            "validateDeductionAmount": "Validate deduction does not exceed gross amount",
+            "validateTransactionBalance": "Validate transaction debits equal credits",
+            "validateApprovalWorkflow": "Validate approval workflow compliance"
+          }
+        }
+      },
+      "transformers": {
+        "PaymentTransformer": {
+          "methods": {
+            "transformForApi": "Transform payment data for API response",
+            "transformForExport": "Transform payment data for export",
+            "transformForReceipt": "Transform payment data for receipt generation",
+            "transformForReport": "Transform payment data for reporting"
+          }
+        },
+        "FinancialTransformer": {
+          "methods": {
+            "transformOwnerStatement": "Transform data for owner statement",
+            "transformPropertyReport": "Transform data for property report",
+            "transformCashFlow": "Transform data for cash flow report",
+            "transformCommissionReport": "Transform data for commission report"
+          }
+        }
+      }
+    }
+  },
+  "tests": {
+    "integration": {
+      "test_complete_payment_cycle": {
+        "description": "Test complete payment cycle from collection to owner payment",
+        "scenario": "Process rent collection through to owner payment with commission deduction",
+        "steps": [
+          "Create unit contract with tenant",
+          "Generate collection payments for contract",
+          "Process rent collection from tenant",
+          "Calculate commission and maintenance deductions",
+          "Generate supply payment for owner",
+          "Process approval workflow",
+          "Execute owner payment",
+          "Verify all transactions recorded correctly"
+        ],
+        "expected_result": "Complete payment cycle with accurate financial tracking"
+      },
+      "test_maintenance_cost_allocation": {
+        "description": "Test maintenance cost allocation and deduction workflow",
+        "scenario": "Create maintenance request and allocate costs appropriately",
+        "steps": [
+          "Create property repair request",
+          "Assign to vendor and complete work",
+          "Record maintenance cost",
+          "Allocate cost based on repair category",
+          "Deduct from next owner payment",
+          "Verify transaction entries",
+          "Generate maintenance cost report"
+        ],
+        "expected_result": "Maintenance costs properly allocated and deducted from owner payments"
+      },
+      "test_financial_reporting": {
+        "description": "Test comprehensive financial reporting functionality",
+        "scenario": "Generate various financial reports with accurate data",
+        "steps": [
+          "Create multiple properties with contracts",
+          "Process various types of payments",
+          "Record maintenance and other costs",
+          "Generate owner financial statements",
+          "Generate property P&L reports",
+          "Generate commission summary",
+          "Verify report accuracy against transaction data"
+        ],
+        "expected_result": "All financial reports generated accurately with cross-verification"
+      }
+    },
+    "performance": {
+      "test_bulk_payment_processing": {
+        "description": "Test performance of bulk payment processing",
+        "scenario": "Process large number of payments efficiently",
+        "parameters": {
+          "payment_count": 1000,
+          "max_processing_time": "30 seconds",
+          "memory_limit": "256MB"
+        },
+        "expected_result": "Bulk processing completes within performance limits"
+      },
+      "test_report_generation": {
+        "description": "Test performance of complex financial report generation",
+        "scenario": "Generate comprehensive reports for large datasets",
+        "parameters": {
+          "data_range": "12 months",
+          "property_count": 100,
+          "max_generation_time": "10 seconds"
+        },
+        "expected_result": "Reports generated within acceptable time limits"
+      }
+    }
+  }
+}
