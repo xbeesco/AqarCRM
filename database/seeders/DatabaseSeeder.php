@@ -22,6 +22,8 @@ class DatabaseSeeder extends Seeder
             UnitStatusSeeder::class,
             UnitFeatureSeeder::class,
             UnitSeeder::class,
+            ContractStatusSeeder::class,
+            ContractsSeeder::class,
         ]);
 
         User::factory()->create([

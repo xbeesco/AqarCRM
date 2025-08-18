@@ -1,0 +1,2356 @@
+{
+  "meta": {
+    "module": "contracts",
+    "description": "Comprehensive contracts management module - Handles both Property Management Contracts (عقود الملاك) between owners and company, and Unit Rental Contracts (عقود المستأجرين) between tenants and properties. Based on WordPress property_contract and unit_contract custom post types with full ACF field migration, contract workflow management, payment generation, and financial calculations.",
+    "schema_definition": {
+      "models.property_contract.database_schema.fields.fillable": "All contract terms, commission, duration, and status fields are fillable",
+      "models.property_contract.tests": "Comprehensive tests for contract creation, commission calculations, renewal workflows, and payment generation",
+      "models.property_contract.processes": "Business logic for contract lifecycle, commission calculations, auto-renewal, and property management workflows",
+      "models.property_contract.screens": "Filament resource for property contracts with owner filtering, status management, and commission tracking",
+      "models.property_contract.screens.components": "Standard Filament table with filters above, form components with owner/property selection and commission configuration",
+      "models.property_contract.screens.interactions": "Contract activation, renewal workflows, termination processes, and commission calculations",
+      "models.unit_contract.database_schema.fields.fillable": "All rental terms, pricing, payment schedule, and tenant fields are fillable",
+      "models.unit_contract.tests": "Comprehensive tests for rental contracts, payment generation, late fee calculations, and tenant assignment",
+      "models.unit_contract.processes": "Business logic for rental contract lifecycle, payment schedule generation, late fee calculations, and tenant management",
+      "models.unit_contract.screens": "Filament resource for unit contracts with property/unit filtering, tenant management, and payment tracking",
+      "models.contract_status.database_schema.fields.fillable": "All workflow status and transition fields are fillable",
+      "models.contract_status.tests": "Status transition tests, workflow validation, and business rule enforcement",
+      "models.contract_status.processes": "Contract status workflow management, transition validation, and automated status updates",
+      "models.contract_status.screens": "Filament resource for contract statuses with workflow configuration",
+      "shared.processes": "Contract numbering service, document management, notification scheduling, and payment integration",
+      "tests": "Module integration tests covering complete contract workflows, payment generation, and renewal processes"
+    }
+  },
+  "acf_field_analysis": {
+    "description": "Complete analysis of ACF JSON fields from WordPress property_contract and unit_contract custom post types with exact Filament equivalents",
+    "property_contract_fields_from_wordpress": {
+      "owner": {
+        "acf_config": {
+          "label": "المالك",
+          "type": "user",
+          "role": ["alh_owner"],
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "المالك / Owner",
+          "relationship": "owner",
+          "searchable": true,
+          "required": true,
+          "validation": "required|exists:users,id",
+          "options_query": "User::role('owner')->pluck('name', 'id')"
+        }
+      },
+      "property": {
+        "acf_config": {
+          "label": "العقار",
+          "type": "post_object",
+          "post_type": ["alh_property"],
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "العقار / Property",
+          "relationship": "property",
+          "searchable": true,
+          "required": true,
+          "validation": "required|exists:properties,id",
+          "reactive": true
+        }
+      },
+      "agreed_to_rate": {
+        "acf_config": {
+          "label": "نسبة العمولة المتفق عليها",
+          "type": "number",
+          "default_value": 5,
+          "min": 0,
+          "max": 50,
+          "step": 0.01,
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "نسبة العمولة % / Commission Rate %",
+          "required": true,
+          "validation": "required|numeric|min:0|max:50",
+          "step": "0.01",
+          "default": 5,
+          "suffix": "%"
+        }
+      },
+      "contract_duration_per_month": {
+        "acf_config": {
+          "label": "مدة التعاقد بالشهر",
+          "type": "number",
+          "default_value": 12,
+          "min": 1,
+          "max": 120,
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "مدة التعاقد بالشهر / Contract Duration (Months)",
+          "required": true,
+          "validation": "required|integer|min:1|max:120",
+          "default": 12,
+          "numeric": true
+        }
+      },
+      "date_creation_contract": {
+        "acf_config": {
+          "label": "تاريخ بدء العقد",
+          "type": "date_picker",
+          "display_format": "d/m/Y",
+          "return_format": "Y-m-d",
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "DatePicker",
+          "label": "تاريخ بدء العقد / Contract Start Date",
+          "required": true,
+          "validation": "required|date",
+          "format": "Y-m-d",
+          "displayFormat": "d/m/Y"
+        }
+      }
+    },
+    "unit_contract_fields_from_wordpress": {
+      "tenant": {
+        "acf_config": {
+          "label": "المستأجر",
+          "type": "user",
+          "role": ["alh_tenant"],
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "المستأجر / Tenant",
+          "relationship": "tenant",
+          "searchable": true,
+          "required": true,
+          "validation": "required|exists:users,id",
+          "options_query": "User::role('tenant')->pluck('name', 'id')"
+        }
+      },
+      "unit": {
+        "acf_config": {
+          "label": "الوحدة",
+          "type": "post_object",
+          "post_type": ["alh_unit"],
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "الوحدة / Unit",
+          "relationship": "unit",
+          "searchable": true,
+          "required": true,
+          "validation": "required|exists:units,id",
+          "reactive": true
+        }
+      },
+      "unit_property": {
+        "acf_config": {
+          "label": "العقار",
+          "type": "post_object",
+          "post_type": ["alh_property"],
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "العقار / Property",
+          "relationship": "property",
+          "searchable": true,
+          "required": true,
+          "validation": "required|exists:properties,id",
+          "reactive": true,
+          "dependsOn": "unit"
+        }
+      },
+      "rent_price": {
+        "acf_config": {
+          "label": "قيمة الإيجار الشهري",
+          "type": "number",
+          "min": 1,
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "قيمة الإيجار الشهري / Monthly Rent",
+          "required": true,
+          "validation": "required|numeric|min:0.01",
+          "step": "0.01",
+          "prefix": "SAR"
+        }
+      },
+      "contract_duration_per_month": {
+        "acf_config": {
+          "label": "مدة التعاقد بالشهر",
+          "type": "number",
+          "default_value": 12,
+          "min": 1,
+          "max": 120,
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "مدة التعاقد بالشهر / Contract Duration (Months)",
+          "required": true,
+          "validation": "required|integer|min:1|max:120",
+          "default": 12,
+          "numeric": true
+        }
+      },
+      "date_creation_contract": {
+        "acf_config": {
+          "label": "تاريخ بدء العقد",
+          "type": "date_picker",
+          "display_format": "d/m/Y",
+          "return_format": "Y-m-d",
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "DatePicker",
+          "label": "تاريخ بدء العقد / Contract Start Date",
+          "required": true,
+          "validation": "required|date",
+          "format": "Y-m-d",
+          "displayFormat": "d/m/Y"
+        }
+      }
+    }
+  },
+  "models": {
+    "property_contract": {
+      "database_schema": {
+        "fields": {
+          "id": {
+            "type": "bigint",
+            "primary": true,
+            "auto_increment": true,
+            "fillable": false
+          },
+          "contract_number": {
+            "type": "string",
+            "length": 50,
+            "nullable": false,
+            "unique": true,
+            "index": "unique",
+            "validation": "required|string|max:50|unique:property_contracts,contract_number",
+            "fillable": true
+          },
+          "owner_id": {
+            "type": "bigint",
+            "nullable": false,
+            "foreign": "users.id",
+            "index": true,
+            "validation": "required|exists:users,id",
+            "fillable": true
+          },
+          "property_id": {
+            "type": "bigint",
+            "nullable": false,
+            "foreign": "properties.id",
+            "index": true,
+            "validation": "required|exists:properties,id",
+            "fillable": true
+          },
+          "commission_rate": {
+            "type": "decimal",
+            "precision": 5,
+            "scale": 2,
+            "nullable": false,
+            "default": 5.00,
+            "validation": "required|numeric|min:0|max:50",
+            "fillable": true
+          },
+          "duration_months": {
+            "type": "integer",
+            "nullable": false,
+            "default": 12,
+            "validation": "required|integer|min:1|max:120",
+            "fillable": true
+          },
+          "start_date": {
+            "type": "date",
+            "nullable": false,
+            "validation": "required|date",
+            "fillable": true
+          },
+          "end_date": {
+            "type": "date",
+            "nullable": false,
+            "validation": "required|date|after:start_date",
+            "fillable": true
+          },
+          "contract_status": {
+            "type": "enum",
+            "values": ["draft", "active", "suspended", "expired", "terminated"],
+            "nullable": false,
+            "default": "draft",
+            "index": true,
+            "validation": "required|in:draft,active,suspended,expired,terminated",
+            "fillable": true
+          },
+          "notary_number": {
+            "type": "string",
+            "length": 100,
+            "nullable": true,
+            "validation": "nullable|string|max:100",
+            "fillable": true
+          },
+          "payment_day": {
+            "type": "integer",
+            "nullable": false,
+            "default": 1,
+            "validation": "required|integer|min:1|max:28",
+            "fillable": true
+          },
+          "auto_renew": {
+            "type": "boolean",
+            "nullable": false,
+            "default": false,
+            "validation": "boolean",
+            "fillable": true
+          },
+          "notice_period_days": {
+            "type": "integer",
+            "nullable": false,
+            "default": 30,
+            "validation": "required|integer|min:1|max:365",
+            "fillable": true
+          },
+          "terms_and_conditions": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string",
+            "fillable": true
+          },
+          "notes": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string",
+            "fillable": true
+          },
+          "created_by": {
+            "type": "bigint",
+            "nullable": true,
+            "foreign": "users.id",
+            "validation": "nullable|exists:users,id",
+            "fillable": true
+          },
+          "approved_by": {
+            "type": "bigint",
+            "nullable": true,
+            "foreign": "users.id",
+            "validation": "nullable|exists:users,id",
+            "fillable": true
+          },
+          "approved_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "validation": "nullable|date",
+            "fillable": true
+          },
+          "terminated_reason": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string",
+            "fillable": true
+          },
+          "terminated_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "validation": "nullable|date",
+            "fillable": true
+          },
+          "created_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          },
+          "updated_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          }
+        },
+        "indexes": {
+          "idx_property_contracts_owner": ["owner_id"],
+          "idx_property_contracts_property": ["property_id"],
+          "idx_property_contracts_status": ["contract_status"],
+          "idx_property_contracts_dates": ["start_date", "end_date"],
+          "idx_property_contracts_active": ["contract_status", "start_date", "end_date"]
+        },
+        "constraints": {
+          "fk_property_contracts_owner": {
+            "foreign_key": "owner_id",
+            "references": "users(id)",
+            "on_delete": "CASCADE"
+          },
+          "fk_property_contracts_property": {
+            "foreign_key": "property_id",
+            "references": "properties(id)",
+            "on_delete": "CASCADE"
+          }
+        }
+      },
+      "tests": {
+        "unit": {
+          "test_contract_number_generation": {
+            "description": "Test automatic contract number generation with unique format",
+            "input": {
+              "owner_id": 1,
+              "property_id": 1,
+              "commission_rate": 5.00
+            },
+            "expected": {
+              "contract_number": "PC-{year}-{sequential_number}",
+              "format": "PC-2025-000001"
+            },
+            "assertions": [
+              "assertNotNull($contract->contract_number)",
+              "assertStringStartsWith('PC-', $contract->contract_number)",
+              "assertDatabaseHas('property_contracts', ['contract_number' => $contract->contract_number])"
+            ]
+          },
+          "test_commission_calculation": {
+            "description": "Test commission percentage calculations for payment generation",
+            "input": {
+              "commission_rate": 7.5,
+              "rental_amount": 10000
+            },
+            "expected": {
+              "commission_amount": 750.00
+            },
+            "assertions": [
+              "assertEquals(750.00, $contract->calculateCommission(10000))",
+              "assertEquals(0, $contract->calculateCommission(0))"
+            ]
+          },
+          "test_end_date_calculation": {
+            "description": "Test automatic end date calculation based on start date and duration",
+            "input": {
+              "start_date": "2025-01-01",
+              "duration_months": 12
+            },
+            "expected": {
+              "end_date": "2025-12-31"
+            },
+            "assertions": [
+              "assertEquals('2025-12-31', $contract->end_date->format('Y-m-d'))",
+              "assertTrue($contract->isActive())"
+            ]
+          },
+          "test_renewal_eligibility": {
+            "description": "Test contract renewal eligibility checks",
+            "input": {
+              "status": "active",
+              "end_date": "2025-12-31",
+              "check_date": "2025-11-01"
+            },
+            "expected": {
+              "can_renew": true
+            },
+            "assertions": [
+              "assertTrue($contract->canRenew())",
+              "assertFalse($expiredContract->canRenew())"
+            ]
+          }
+        },
+        "feature": {
+          "test_complete_property_contract_lifecycle": {
+            "scenario": "Create, activate, manage, and renew a property contract",
+            "steps": [
+              "Create draft property contract with owner and property",
+              "Validate contract terms and commission rate",
+              "Activate contract and generate contract number",
+              "Generate payment schedules based on contract terms",
+              "Test auto-renewal process near expiry date",
+              "Test manual termination with reason"
+            ],
+            "expected_result": "Complete contract lifecycle management with proper status transitions and payment generation"
+          },
+          "test_property_contract_commission_workflow": {
+            "scenario": "Test commission calculation and payment generation workflow",
+            "steps": [
+              "Create property contract with custom commission rate",
+              "Generate rental payments for units in property",
+              "Calculate commission amounts for each payment",
+              "Test commission deduction from owner payments",
+              "Validate commission reporting and tracking"
+            ],
+            "expected_result": "Accurate commission calculations and proper payment distributions"
+          }
+        },
+        "playwright_mcp": {
+          "test_property_contract_creation_form": {
+            "tools": ["mcp__playwright__browser_navigate", "mcp__playwright__browser_snapshot", "mcp__playwright__browser_click", "mcp__playwright__browser_type"],
+            "flow": [
+              "Navigate to property contracts list page",
+              "Click 'إنشاء عقد ملكية جديد' button",
+              "Fill owner selection field",
+              "Fill property selection field",
+              "Enter commission rate",
+              "Set contract duration",
+              "Select start date",
+              "Submit form and verify success"
+            ],
+            "validations": [
+              "Form fields are properly labeled in Arabic and English",
+              "Owner dropdown shows only users with 'owner' role",
+              "Property dropdown shows available properties",
+              "Commission rate accepts decimal values",
+              "Contract number is auto-generated after save",
+              "Success notification appears after creation"
+            ]
+          },
+          "test_property_contract_table_filters": {
+            "tools": ["mcp__playwright__browser_navigate", "mcp__playwright__browser_snapshot", "mcp__playwright__browser_click", "mcp__playwright__browser_select_option"],
+            "flow": [
+              "Navigate to property contracts list page",
+              "Test status filter (active, expired, draft)",
+              "Test owner filter dropdown",
+              "Test date range filters",
+              "Test commission rate range filter",
+              "Verify filtered results accuracy"
+            ],
+            "validations": [
+              "Filters are displayed above the table",
+              "Status filter shows all contract statuses",
+              "Owner filter shows searchable owner list",
+              "Date filters accept proper date formats",
+              "Filter combinations work correctly",
+              "Table updates reflect applied filters"
+            ]
+          }
+        }
+      },
+      "processes": {
+        "custom_crud_operations": {
+          "generateContractNumber": {
+            "description": "Generate unique contract number with format PC-{year}-{sequential}",
+            "implementation": "PropertyContractService::generateContractNumber()",
+            "format": "PC-{Y}-{000000}",
+            "business_rules": [
+              "Reset sequence annually",
+              "Ensure uniqueness across all property contracts",
+              "Include year for easy identification"
+            ]
+          },
+          "activateContract": {
+            "description": "Activate draft contract and start payment generation",
+            "implementation": "PropertyContractService::activateContract($contractId)",
+            "business_rules": [
+              "Validate all required fields are present",
+              "Check property is not under another active contract",
+              "Generate contract number if not exists",
+              "Set status to 'active'",
+              "Start payment schedule generation"
+            ]
+          },
+          "renewContract": {
+            "description": "Renew existing contract for additional term",
+            "implementation": "PropertyContractService::renewContract($contractId, $newDuration)",
+            "business_rules": [
+              "Create new contract based on existing terms",
+              "Update end date based on new duration",
+              "Maintain same commission rate unless specified",
+              "Mark old contract as 'renewed'",
+              "Transfer payment schedules"
+            ]
+          }
+        },
+        "business_operations": {
+          "calculateCommission": {
+            "description": "Calculate commission amount based on rental payments",
+            "formula": "rental_amount * (commission_rate / 100)",
+            "implementation": "PropertyContract::calculateCommission($amount)",
+            "validation": [
+              "Commission rate must be between 0 and 50%",
+              "Amount must be positive number",
+              "Result rounded to 2 decimal places"
+            ]
+          },
+          "checkRenewalEligibility": {
+            "description": "Check if contract is eligible for renewal",
+            "implementation": "PropertyContract::canRenew()",
+            "criteria": [
+              "Contract status is 'active'",
+              "Not already renewed",
+              "Within renewal period (30 days before expiry)",
+              "No outstanding issues"
+            ]
+          },
+          "processAutoRenewal": {
+            "description": "Process automatic renewal for contracts with auto_renew=true",
+            "implementation": "PropertyContractService::processAutoRenewals()",
+            "schedule": "Daily job check",
+            "business_rules": [
+              "Check contracts expiring in notice_period_days",
+              "Auto-renew only if auto_renew flag is true",
+              "Send notification to owner before auto-renewal",
+              "Create new contract with same terms"
+            ]
+          }
+        },
+        "query_operations": {
+          "getActiveContracts": {
+            "description": "Get all currently active property contracts",
+            "scope": "PropertyContract::active()",
+            "conditions": "status = 'active' AND start_date <= NOW() AND end_date >= NOW()"
+          },
+          "getExpiringContracts": {
+            "description": "Get contracts expiring within specified days",
+            "scope": "PropertyContract::expiring($days)",
+            "conditions": "status = 'active' AND end_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL {days} DAY)"
+          },
+          "getOwnerContracts": {
+            "description": "Get all contracts for specific owner",
+            "scope": "PropertyContract::forOwner($ownerId)",
+            "includes": ["property", "owner", "payments"]
+          }
+        },
+        "integration_operations": {
+          "syncWithPaymentGeneration": {
+            "description": "Integrate with payment system to generate collection schedules",
+            "implementation": "PropertyContractService::generatePaymentSchedules($contractId)",
+            "triggers": [
+              "Contract activation",
+              "Contract renewal",
+              "Commission rate change"
+            ]
+          },
+          "syncWithPropertyStatus": {
+            "description": "Update property status based on contract status",
+            "implementation": "PropertyContractObserver::updated()",
+            "business_rules": [
+              "Active contract -> Property status 'managed'",
+              "Terminated contract -> Property status 'available'",
+              "Expired contract -> Property status 'available'"
+            ]
+          }
+        }
+      },
+      "screens": {
+        "list": {
+          "permissions": ["view_property_contracts"],
+          "filament_template": "resource index",
+          "components": {
+            "table": {
+              "columns": {
+                "contract_number": {
+                  "label": "رقم العقد / Contract Number",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "150px"
+                },
+                "owner_name": {
+                  "label": "المالك / Owner",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "relationship": "owner.name"
+                },
+                "property_name": {
+                  "label": "العقار / Property",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "relationship": "property.name"
+                },
+                "commission_rate": {
+                  "label": "العمولة % / Commission %",
+                  "type": "number",
+                  "sortable": true,
+                  "format": "percentage",
+                  "align": "center"
+                },
+                "start_date": {
+                  "label": "تاريخ البدء / Start Date",
+                  "type": "date",
+                  "sortable": true,
+                  "format": "date:d/m/Y"
+                },
+                "end_date": {
+                  "label": "تاريخ الانتهاء / End Date",
+                  "type": "date",
+                  "sortable": true,
+                  "format": "date:d/m/Y"
+                },
+                "contract_status": {
+                  "label": "الحالة / Status",
+                  "type": "badge",
+                  "sortable": true,
+                  "color_mapping": {
+                    "draft": "gray",
+                    "active": "success",
+                    "suspended": "warning",
+                    "expired": "danger",
+                    "terminated": "danger"
+                  }
+                },
+                "duration_months": {
+                  "label": "المدة (شهر) / Duration (Months)",
+                  "type": "number",
+                  "sortable": true,
+                  "align": "center"
+                }
+              },
+              "filters": {
+                "status_filter": {
+                  "type": "select",
+                  "label": "الحالة / Status",
+                  "options": {
+                    "draft": "مسودة / Draft",
+                    "active": "نشط / Active",
+                    "suspended": "معلق / Suspended",
+                    "expired": "منتهي / Expired",
+                    "terminated": "مفسوخ / Terminated"
+                  }
+                },
+                "owner_filter": {
+                  "type": "select",
+                  "label": "المالك / Owner",
+                  "relationship": "owner",
+                  "searchable": true
+                },
+                "commission_range_filter": {
+                  "type": "number_range",
+                  "label": "نطاق العمولة % / Commission Range %",
+                  "min": 0,
+                  "max": 50
+                },
+                "date_range_filter": {
+                  "type": "date_range",
+                  "label": "فترة العقد / Contract Period"
+                },
+                "expiring_soon_filter": {
+                  "type": "toggle",
+                  "label": "ينتهي قريباً / Expiring Soon"
+                }
+              },
+              "record_actions": {
+                "view": {
+                  "label": "عرض / View",
+                  "icon": "heroicon-o-eye"
+                },
+                "edit": {
+                  "label": "تحرير / Edit",
+                  "icon": "heroicon-o-pencil",
+                  "visible": "status in ['draft', 'active']"
+                },
+                "renew": {
+                  "label": "تجديد / Renew",
+                  "icon": "heroicon-o-arrow-path",
+                  "visible": "canRenew()",
+                  "action": "renewContract"
+                },
+                "terminate": {
+                  "label": "فسخ / Terminate",
+                  "icon": "heroicon-o-x-circle",
+                  "visible": "status == 'active'",
+                  "action": "terminateContract",
+                  "color": "danger"
+                }
+              },
+              "bulk_actions": {
+                "bulk_activate": {
+                  "label": "تفعيل المحدد / Activate Selected",
+                  "icon": "heroicon-o-check",
+                  "visible": "status == 'draft'"
+                },
+                "bulk_export": {
+                  "label": "تصدير / Export",
+                  "icon": "heroicon-o-arrow-down-tray"
+                }
+              },
+              "paginated": true
+            }
+          },
+          "interactions": {
+            "status_filter_change": {
+              "user_action": "Change status filter selection",
+              "target": "Filter table by contract status"
+            },
+            "renew_contract": {
+              "user_action": "Click renew contract action",
+              "target": "Open renewal modal with contract details"
+            },
+            "terminate_contract": {
+              "user_action": "Click terminate contract action",
+              "target": "Open termination modal with reason field"
+            }
+          }
+        },
+        "create": {
+          "permissions": ["create_property_contracts"],
+          "filament_template": "resource add/edit",
+          "components": {
+            "form": {
+              "fields": {
+                "contract_details_section": {
+                  "type": "section",
+                  "label": "تفاصيل العقد / Contract Details",
+                  "fields": {
+                    "owner_id": {
+                      "type": "select",
+                      "label": "المالك / Owner",
+                      "required": true,
+                      "searchable": true,
+                      "relationship": "owner",
+                      "options_query": "User::role('owner')"
+                    },
+                    "property_id": {
+                      "type": "select",
+                      "label": "العقار / Property",
+                      "required": true,
+                      "searchable": true,
+                      "relationship": "property",
+                      "depends_on": "owner_id"
+                    },
+                    "commission_rate": {
+                      "type": "number",
+                      "label": "نسبة العمولة % / Commission Rate %",
+                      "required": true,
+                      "min": 0,
+                      "max": 50,
+                      "step": 0.01,
+                      "default": 5,
+                      "suffix": "%"
+                    }
+                  }
+                },
+                "contract_period_section": {
+                  "type": "section",
+                  "label": "فترة العقد / Contract Period",
+                  "fields": {
+                    "start_date": {
+                      "type": "date",
+                      "label": "تاريخ بدء العقد / Contract Start Date",
+                      "required": true,
+                      "default": "today"
+                    },
+                    "duration_months": {
+                      "type": "number",
+                      "label": "مدة العقد بالشهور / Contract Duration (Months)",
+                      "required": true,
+                      "min": 1,
+                      "max": 120,
+                      "default": 12
+                    },
+                    "end_date": {
+                      "type": "date",
+                      "label": "تاريخ انتهاء العقد / Contract End Date",
+                      "required": true,
+                      "calculated": true,
+                      "hint": "يتم حسابه تلقائياً / Auto-calculated"
+                    }
+                  }
+                },
+                "contract_terms_section": {
+                  "type": "section",
+                  "label": "شروط العقد / Contract Terms",
+                  "fields": {
+                    "payment_day": {
+                      "type": "number",
+                      "label": "يوم دفع العمولة / Commission Payment Day",
+                      "required": true,
+                      "min": 1,
+                      "max": 28,
+                      "default": 1,
+                      "hint": "اليوم من كل شهر لدفع العمولة"
+                    },
+                    "auto_renew": {
+                      "type": "toggle",
+                      "label": "التجديد التلقائي / Auto Renewal",
+                      "default": false
+                    },
+                    "notice_period_days": {
+                      "type": "number",
+                      "label": "فترة الإشعار (أيام) / Notice Period (Days)",
+                      "required": true,
+                      "min": 1,
+                      "max": 365,
+                      "default": 30
+                    },
+                    "notary_number": {
+                      "type": "text",
+                      "label": "رقم الكاتب العدل / Notary Number",
+                      "maxLength": 100
+                    }
+                  }
+                },
+                "additional_terms_section": {
+                  "type": "section",
+                  "label": "الشروط الإضافية / Additional Terms",
+                  "collapsible": true,
+                  "fields": {
+                    "terms_and_conditions": {
+                      "type": "textarea",
+                      "label": "الشروط والأحكام / Terms and Conditions",
+                      "rows": 5
+                    },
+                    "notes": {
+                      "type": "textarea",
+                      "label": "ملاحظات / Notes",
+                      "rows": 3
+                    }
+                  }
+                }
+              },
+              "actions": {
+                "create": {
+                  "label": "إنشاء العقد / Create Contract",
+                  "icon": "heroicon-o-plus"
+                },
+                "create_and_activate": {
+                  "label": "إنشاء وتفعيل / Create & Activate",
+                  "icon": "heroicon-o-check"
+                },
+                "cancel": {
+                  "label": "إلغاء / Cancel",
+                  "icon": "heroicon-o-x-mark"
+                }
+              }
+            }
+          },
+          "interactions": {
+            "owner_selection_change": {
+              "user_action": "Select owner from dropdown",
+              "target": "Filter properties to show only properties owned by selected owner"
+            },
+            "duration_change": {
+              "user_action": "Change duration months",
+              "target": "Auto-calculate and update end_date field"
+            },
+            "start_date_change": {
+              "user_action": "Change start date",
+              "target": "Auto-calculate and update end_date field"
+            }
+          }
+        }
+      }
+    },
+    "unit_contract": {
+      "database_schema": {
+        "fields": {
+          "id": {
+            "type": "bigint",
+            "primary": true,
+            "auto_increment": true,
+            "fillable": false
+          },
+          "contract_number": {
+            "type": "string",
+            "length": 50,
+            "nullable": false,
+            "unique": true,
+            "index": "unique",
+            "validation": "required|string|max:50|unique:unit_contracts,contract_number",
+            "fillable": true
+          },
+          "tenant_id": {
+            "type": "bigint",
+            "nullable": false,
+            "foreign": "users.id",
+            "index": true,
+            "validation": "required|exists:users,id",
+            "fillable": true
+          },
+          "unit_id": {
+            "type": "bigint",
+            "nullable": false,
+            "foreign": "units.id",
+            "index": true,
+            "validation": "required|exists:units,id",
+            "fillable": true
+          },
+          "property_id": {
+            "type": "bigint",
+            "nullable": false,
+            "foreign": "properties.id",
+            "index": true,
+            "validation": "required|exists:properties,id",
+            "fillable": true
+          },
+          "monthly_rent": {
+            "type": "decimal",
+            "precision": 10,
+            "scale": 2,
+            "nullable": false,
+            "validation": "required|numeric|min:0.01",
+            "fillable": true
+          },
+          "security_deposit": {
+            "type": "decimal",
+            "precision": 10,
+            "scale": 2,
+            "nullable": false,
+            "default": 0.00,
+            "validation": "required|numeric|min:0",
+            "fillable": true
+          },
+          "duration_months": {
+            "type": "integer",
+            "nullable": false,
+            "default": 12,
+            "validation": "required|integer|min:1|max:120",
+            "fillable": true
+          },
+          "start_date": {
+            "type": "date",
+            "nullable": false,
+            "validation": "required|date",
+            "fillable": true
+          },
+          "end_date": {
+            "type": "date",
+            "nullable": false,
+            "validation": "required|date|after:start_date",
+            "fillable": true
+          },
+          "contract_status": {
+            "type": "enum",
+            "values": ["draft", "active", "expired", "terminated", "renewed"],
+            "nullable": false,
+            "default": "draft",
+            "index": true,
+            "validation": "required|in:draft,active,expired,terminated,renewed",
+            "fillable": true
+          },
+          "payment_frequency": {
+            "type": "enum",
+            "values": ["monthly", "quarterly", "semi_annually", "annually"],
+            "nullable": false,
+            "default": "monthly",
+            "validation": "required|in:monthly,quarterly,semi_annually,annually",
+            "fillable": true
+          },
+          "payment_method": {
+            "type": "enum",
+            "values": ["bank_transfer", "cash", "check", "online"],
+            "nullable": false,
+            "default": "bank_transfer",
+            "validation": "required|in:bank_transfer,cash,check,online",
+            "fillable": true
+          },
+          "grace_period_days": {
+            "type": "integer",
+            "nullable": false,
+            "default": 5,
+            "validation": "required|integer|min:0|max:30",
+            "fillable": true
+          },
+          "late_fee_rate": {
+            "type": "decimal",
+            "precision": 5,
+            "scale": 2,
+            "nullable": false,
+            "default": 0.00,
+            "validation": "required|numeric|min:0|max:100",
+            "fillable": true
+          },
+          "utilities_included": {
+            "type": "boolean",
+            "nullable": false,
+            "default": false,
+            "validation": "boolean",
+            "fillable": true
+          },
+          "furnished": {
+            "type": "boolean",
+            "nullable": false,
+            "default": false,
+            "validation": "boolean",
+            "fillable": true
+          },
+          "evacuation_notice_days": {
+            "type": "integer",
+            "nullable": false,
+            "default": 30,
+            "validation": "required|integer|min:1|max:365",
+            "fillable": true
+          },
+          "terms_and_conditions": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string",
+            "fillable": true
+          },
+          "special_conditions": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string",
+            "fillable": true
+          },
+          "notes": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string",
+            "fillable": true
+          },
+          "created_by": {
+            "type": "bigint",
+            "nullable": true,
+            "foreign": "users.id",
+            "validation": "nullable|exists:users,id",
+            "fillable": true
+          },
+          "approved_by": {
+            "type": "bigint",
+            "nullable": true,
+            "foreign": "users.id",
+            "validation": "nullable|exists:users,id",
+            "fillable": true
+          },
+          "approved_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "validation": "nullable|date",
+            "fillable": true
+          },
+          "terminated_reason": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string",
+            "fillable": true
+          },
+          "terminated_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "validation": "nullable|date",
+            "fillable": true
+          },
+          "created_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          },
+          "updated_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          }
+        },
+        "indexes": {
+          "idx_unit_contracts_tenant": ["tenant_id"],
+          "idx_unit_contracts_unit": ["unit_id"],
+          "idx_unit_contracts_property": ["property_id"],
+          "idx_unit_contracts_status": ["contract_status"],
+          "idx_unit_contracts_dates": ["start_date", "end_date"],
+          "idx_unit_contracts_active": ["contract_status", "start_date", "end_date"]
+        },
+        "constraints": {
+          "fk_unit_contracts_tenant": {
+            "foreign_key": "tenant_id",
+            "references": "users(id)",
+            "on_delete": "CASCADE"
+          },
+          "fk_unit_contracts_unit": {
+            "foreign_key": "unit_id",
+            "references": "units(id)",
+            "on_delete": "CASCADE"
+          },
+          "fk_unit_contracts_property": {
+            "foreign_key": "property_id",
+            "references": "properties(id)",
+            "on_delete": "CASCADE"
+          }
+        }
+      },
+      "tests": {
+        "unit": {
+          "test_unit_contract_number_generation": {
+            "description": "Test automatic unit contract number generation with unique format",
+            "input": {
+              "tenant_id": 1,
+              "unit_id": 1,
+              "monthly_rent": 5000
+            },
+            "expected": {
+              "contract_number": "UC-{year}-{sequential_number}",
+              "format": "UC-2025-000001"
+            },
+            "assertions": [
+              "assertNotNull($contract->contract_number)",
+              "assertStringStartsWith('UC-', $contract->contract_number)",
+              "assertDatabaseHas('unit_contracts', ['contract_number' => $contract->contract_number])"
+            ]
+          },
+          "test_payment_schedule_generation": {
+            "description": "Test payment schedule generation based on frequency and duration",
+            "input": {
+              "monthly_rent": 5000,
+              "duration_months": 12,
+              "payment_frequency": "monthly",
+              "start_date": "2025-01-01"
+            },
+            "expected": {
+              "payments_count": 12,
+              "total_amount": 60000
+            },
+            "assertions": [
+              "assertEquals(12, $contract->generatePaymentSchedule()->count())",
+              "assertEquals(60000, $contract->getTotalContractValue())"
+            ]
+          },
+          "test_late_fee_calculation": {
+            "description": "Test late fee calculations for overdue payments",
+            "input": {
+              "monthly_rent": 5000,
+              "late_fee_rate": 2.5,
+              "days_late": 10
+            },
+            "expected": {
+              "late_fee": 125.00
+            },
+            "assertions": [
+              "assertEquals(125.00, $contract->calculateLateFee(5000, 10))",
+              "assertEquals(0, $contract->calculateLateFee(5000, 0))"
+            ]
+          },
+          "test_early_termination_calculation": {
+            "description": "Test early termination penalty calculations",
+            "input": {
+              "monthly_rent": 5000,
+              "remaining_months": 6,
+              "termination_date": "2025-06-01"
+            },
+            "expected": {
+              "penalty_amount": 10000
+            },
+            "assertions": [
+              "assertEquals(10000, $contract->calculateEarlyTerminationPenalty())",
+              "assertTrue($contract->canTerminateEarly())"
+            ]
+          }
+        },
+        "feature": {
+          "test_complete_unit_contract_lifecycle": {
+            "scenario": "Create, activate, manage payments, and terminate a unit contract",
+            "steps": [
+              "Create draft unit contract with tenant and unit",
+              "Validate contract terms and rental amount",
+              "Activate contract and assign unit to tenant",
+              "Generate payment schedule based on frequency",
+              "Process monthly payments and track status",
+              "Handle late payments with fees",
+              "Test early termination with penalties"
+            ],
+            "expected_result": "Complete unit contract lifecycle with proper payment tracking and status management"
+          },
+          "test_tenant_unit_assignment_workflow": {
+            "scenario": "Test tenant assignment to unit and availability management",
+            "steps": [
+              "Create unit contract with specific unit",
+              "Verify unit availability before assignment",
+              "Activate contract and mark unit as occupied",
+              "Test unit status changes during contract lifecycle",
+              "Release unit upon contract termination",
+              "Verify unit becomes available again"
+            ],
+            "expected_result": "Proper unit availability management through contract lifecycle"
+          }
+        },
+        "playwright_mcp": {
+          "test_unit_contract_creation_form": {
+            "tools": ["mcp__playwright__browser_navigate", "mcp__playwright__browser_snapshot", "mcp__playwright__browser_click", "mcp__playwright__browser_type", "mcp__playwright__browser_select_option"],
+            "flow": [
+              "Navigate to unit contracts list page",
+              "Click 'إنشاء عقد إيجار جديد' button",
+              "Fill tenant selection field",
+              "Fill unit selection field",
+              "Enter monthly rent amount",
+              "Set security deposit",
+              "Select payment frequency",
+              "Set contract duration",
+              "Select start date",
+              "Submit form and verify success"
+            ],
+            "validations": [
+              "Form fields are properly labeled in Arabic and English",
+              "Tenant dropdown shows only users with 'tenant' role",
+              "Unit dropdown shows available units only",
+              "Rent amount accepts decimal values",
+              "Payment frequency options are displayed correctly",
+              "Contract number is auto-generated after save",
+              "Success notification appears after creation"
+            ]
+          },
+          "test_unit_contract_payment_tracking": {
+            "tools": ["mcp__playwright__browser_navigate", "mcp__playwright__browser_snapshot", "mcp__playwright__browser_click"],
+            "flow": [
+              "Navigate to unit contract details page",
+              "View payment schedule section",
+              "Test payment status updates",
+              "View late payment indicators",
+              "Test payment history tracking",
+              "Generate payment receipts"
+            ],
+            "validations": [
+              "Payment schedule is displayed correctly",
+              "Payment statuses are color-coded",
+              "Late payments show fee calculations",
+              "Payment history is chronologically ordered",
+              "Receipt generation works properly"
+            ]
+          }
+        }
+      },
+      "processes": {
+        "custom_crud_operations": {
+          "generateContractNumber": {
+            "description": "Generate unique unit contract number with format UC-{year}-{sequential}",
+            "implementation": "UnitContractService::generateContractNumber()",
+            "format": "UC-{Y}-{000000}",
+            "business_rules": [
+              "Reset sequence annually",
+              "Ensure uniqueness across all unit contracts",
+              "Include year for easy identification"
+            ]
+          },
+          "activateContract": {
+            "description": "Activate draft contract and assign unit to tenant",
+            "implementation": "UnitContractService::activateContract($contractId)",
+            "business_rules": [
+              "Validate all required fields are present",
+              "Check unit is available for the contract period",
+              "Generate contract number if not exists",
+              "Set status to 'active'",
+              "Mark unit as occupied",
+              "Generate payment schedule",
+              "Send activation notifications"
+            ]
+          },
+          "terminateContract": {
+            "description": "Terminate active contract and release unit",
+            "implementation": "UnitContractService::terminateContract($contractId, $reason)",
+            "business_rules": [
+              "Calculate early termination penalties if applicable",
+              "Process final payment settlements",
+              "Mark unit as available",
+              "Set status to 'terminated'",
+              "Record termination reason and date",
+              "Send termination notifications"
+            ]
+          }
+        },
+        "business_operations": {
+          "generatePaymentSchedule": {
+            "description": "Generate payment schedule based on contract terms",
+            "implementation": "UnitContract::generatePaymentSchedule()",
+            "calculation": "monthly_rent * (12 / payment_frequency_months)",
+            "business_rules": [
+              "Monthly: 12 payments per year",
+              "Quarterly: 4 payments per year",
+              "Semi-annually: 2 payments per year",
+              "Annually: 1 payment per year",
+              "Due dates calculated from start_date"
+            ]
+          },
+          "calculateLateFee": {
+            "description": "Calculate late fees for overdue payments",
+            "formula": "rent_amount * (late_fee_rate / 100) * (days_late / 30)",
+            "implementation": "UnitContract::calculateLateFee($amount, $daysLate)",
+            "business_rules": [
+              "Grace period exempts from late fees",
+              "Late fee rate is monthly percentage",
+              "Maximum late fee cap can be configured",
+              "Compound late fees for extended delays"
+            ]
+          },
+          "checkUnitAvailability": {
+            "description": "Check unit availability for contract period",
+            "implementation": "UnitContractService::checkUnitAvailability($unitId, $startDate, $endDate)",
+            "validation": [
+              "No overlapping active contracts",
+              "Unit is not under maintenance",
+              "Unit belongs to accessible property",
+              "Contract period is valid"
+            ]
+          },
+          "processSecurityDeposit": {
+            "description": "Handle security deposit collection and refund",
+            "implementation": "UnitContractService::processSecurityDeposit($contractId, $action)",
+            "actions": [
+              "collect: Mark deposit as collected",
+              "hold: Keep deposit during contract",
+              "refund: Return deposit after contract",
+              "deduct: Apply deductions from deposit"
+            ]
+          }
+        },
+        "query_operations": {
+          "getActiveContracts": {
+            "description": "Get all currently active unit contracts",
+            "scope": "UnitContract::active()",
+            "conditions": "status = 'active' AND start_date <= NOW() AND end_date >= NOW()"
+          },
+          "getExpiringContracts": {
+            "description": "Get contracts expiring within specified days",
+            "scope": "UnitContract::expiring($days)",
+            "conditions": "status = 'active' AND end_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL {days} DAY)"
+          },
+          "getTenantContracts": {
+            "description": "Get all contracts for specific tenant",
+            "scope": "UnitContract::forTenant($tenantId)",
+            "includes": ["unit", "property", "tenant", "payments"]
+          },
+          "getPropertyContracts": {
+            "description": "Get all unit contracts for specific property",
+            "scope": "UnitContract::forProperty($propertyId)",
+            "includes": ["unit", "tenant", "payments"]
+          }
+        },
+        "integration_operations": {
+          "syncWithPaymentGeneration": {
+            "description": "Integrate with payment system to generate collection schedules",
+            "implementation": "UnitContractService::generateCollectionPayments($contractId)",
+            "triggers": [
+              "Contract activation",
+              "Contract renewal",
+              "Payment frequency change"
+            ]
+          },
+          "syncWithUnitStatus": {
+            "description": "Update unit status based on contract status",
+            "implementation": "UnitContractObserver::updated()",
+            "business_rules": [
+              "Active contract -> Unit status 'occupied'",
+              "Terminated contract -> Unit status 'available'",
+              "Expired contract -> Unit status 'available'"
+            ]
+          },
+          "syncWithTenantProfile": {
+            "description": "Update tenant current unit information",
+            "implementation": "UnitContractObserver::created()",
+            "business_rules": [
+              "Set tenant current_unit_id",
+              "Update tenant lease_status",
+              "Track tenant contract history"
+            ]
+          }
+        }
+      },
+      "screens": {
+        "list": {
+          "permissions": ["view_unit_contracts"],
+          "filament_template": "resource index",
+          "components": {
+            "table": {
+              "columns": {
+                "contract_number": {
+                  "label": "رقم العقد / Contract Number",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "150px"
+                },
+                "tenant_name": {
+                  "label": "المستأجر / Tenant",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "relationship": "tenant.name"
+                },
+                "property_name": {
+                  "label": "العقار / Property",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "relationship": "property.name"
+                },
+                "unit_number": {
+                  "label": "رقم الوحدة / Unit Number",
+                  "type": "text",
+                  "sortable": true,
+                  "relationship": "unit.unit_number"
+                },
+                "monthly_rent": {
+                  "label": "الإيجار الشهري / Monthly Rent",
+                  "type": "number",
+                  "sortable": true,
+                  "format": "currency:SAR",
+                  "align": "right"
+                },
+                "start_date": {
+                  "label": "تاريخ البدء / Start Date",
+                  "type": "date",
+                  "sortable": true,
+                  "format": "date:d/m/Y"
+                },
+                "end_date": {
+                  "label": "تاريخ الانتهاء / End Date",
+                  "type": "date",
+                  "sortable": true,
+                  "format": "date:d/m/Y"
+                },
+                "contract_status": {
+                  "label": "الحالة / Status",
+                  "type": "badge",
+                  "sortable": true,
+                  "color_mapping": {
+                    "draft": "gray",
+                    "active": "success",
+                    "expired": "warning",
+                    "terminated": "danger",
+                    "renewed": "info"
+                  }
+                },
+                "payment_frequency": {
+                  "label": "دورية الدفع / Payment Frequency",
+                  "type": "badge",
+                  "sortable": true,
+                  "format_mapping": {
+                    "monthly": "شهري / Monthly",
+                    "quarterly": "ربع سنوي / Quarterly",
+                    "semi_annually": "نصف سنوي / Semi-Annual",
+                    "annually": "سنوي / Annual"
+                  }
+                }
+              },
+              "filters": {
+                "status_filter": {
+                  "type": "select",
+                  "label": "الحالة / Status",
+                  "options": {
+                    "draft": "مسودة / Draft",
+                    "active": "نشط / Active",
+                    "expired": "منتهي / Expired",
+                    "terminated": "مفسوخ / Terminated",
+                    "renewed": "مجدد / Renewed"
+                  }
+                },
+                "tenant_filter": {
+                  "type": "select",
+                  "label": "المستأجر / Tenant",
+                  "relationship": "tenant",
+                  "searchable": true
+                },
+                "property_filter": {
+                  "type": "select",
+                  "label": "العقار / Property",
+                  "relationship": "property",
+                  "searchable": true
+                },
+                "rent_range_filter": {
+                  "type": "number_range",
+                  "label": "نطاق الإيجار / Rent Range",
+                  "currency": "SAR"
+                },
+                "payment_frequency_filter": {
+                  "type": "select",
+                  "label": "دورية الدفع / Payment Frequency",
+                  "options": {
+                    "monthly": "شهري / Monthly",
+                    "quarterly": "ربع سنوي / Quarterly",
+                    "semi_annually": "نصف سنوي / Semi-Annual",
+                    "annually": "سنوي / Annual"
+                  }
+                },
+                "date_range_filter": {
+                  "type": "date_range",
+                  "label": "فترة العقد / Contract Period"
+                },
+                "expiring_soon_filter": {
+                  "type": "toggle",
+                  "label": "ينتهي قريباً / Expiring Soon"
+                }
+              },
+              "record_actions": {
+                "view": {
+                  "label": "عرض / View",
+                  "icon": "heroicon-o-eye"
+                },
+                "edit": {
+                  "label": "تحرير / Edit",
+                  "icon": "heroicon-o-pencil",
+                  "visible": "status in ['draft', 'active']"
+                },
+                "payments": {
+                  "label": "المدفوعات / Payments",
+                  "icon": "heroicon-o-credit-card",
+                  "visible": "status == 'active'",
+                  "action": "viewPayments"
+                },
+                "renew": {
+                  "label": "تجديد / Renew",
+                  "icon": "heroicon-o-arrow-path",
+                  "visible": "canRenew()",
+                  "action": "renewContract"
+                },
+                "terminate": {
+                  "label": "فسخ / Terminate",
+                  "icon": "heroicon-o-x-circle",
+                  "visible": "status == 'active'",
+                  "action": "terminateContract",
+                  "color": "danger"
+                }
+              },
+              "bulk_actions": {
+                "bulk_activate": {
+                  "label": "تفعيل المحدد / Activate Selected",
+                  "icon": "heroicon-o-check",
+                  "visible": "status == 'draft'"
+                },
+                "bulk_generate_payments": {
+                  "label": "إنشاء دفعات / Generate Payments",
+                  "icon": "heroicon-o-credit-card",
+                  "visible": "status == 'active'"
+                },
+                "bulk_export": {
+                  "label": "تصدير / Export",
+                  "icon": "heroicon-o-arrow-down-tray"
+                }
+              },
+              "paginated": true
+            }
+          },
+          "interactions": {
+            "status_filter_change": {
+              "user_action": "Change status filter selection",
+              "target": "Filter table by contract status"
+            },
+            "view_payments": {
+              "user_action": "Click payments action",
+              "target": "Navigate to contract payment schedule page"
+            },
+            "renew_contract": {
+              "user_action": "Click renew contract action",
+              "target": "Open renewal modal with contract details"
+            },
+            "terminate_contract": {
+              "user_action": "Click terminate contract action",
+              "target": "Open termination modal with reason and penalty calculation"
+            }
+          }
+        },
+        "create": {
+          "permissions": ["create_unit_contracts"],
+          "filament_template": "resource add/edit",
+          "components": {
+            "form": {
+              "fields": {
+                "parties_section": {
+                  "type": "section",
+                  "label": "أطراف العقد / Contract Parties",
+                  "fields": {
+                    "tenant_id": {
+                      "type": "select",
+                      "label": "المستأجر / Tenant",
+                      "required": true,
+                      "searchable": true,
+                      "relationship": "tenant",
+                      "options_query": "User::role('tenant')"
+                    },
+                    "unit_id": {
+                      "type": "select",
+                      "label": "الوحدة / Unit",
+                      "required": true,
+                      "searchable": true,
+                      "relationship": "unit",
+                      "options_query": "Unit::available()"
+                    },
+                    "property_id": {
+                      "type": "select",
+                      "label": "العقار / Property",
+                      "required": true,
+                      "searchable": true,
+                      "relationship": "property",
+                      "depends_on": "unit_id",
+                      "disabled": true
+                    }
+                  }
+                },
+                "financial_terms_section": {
+                  "type": "section",
+                  "label": "الشروط المالية / Financial Terms",
+                  "fields": {
+                    "monthly_rent": {
+                      "type": "number",
+                      "label": "الإيجار الشهري / Monthly Rent",
+                      "required": true,
+                      "min": 0.01,
+                      "step": 0.01,
+                      "prefix": "SAR"
+                    },
+                    "security_deposit": {
+                      "type": "number",
+                      "label": "التأمين / Security Deposit",
+                      "required": true,
+                      "min": 0,
+                      "step": 0.01,
+                      "prefix": "SAR",
+                      "hint": "عادة ما يكون شهر واحد"
+                    },
+                    "payment_frequency": {
+                      "type": "select",
+                      "label": "دورية الدفع / Payment Frequency",
+                      "required": true,
+                      "options": {
+                        "monthly": "شهري / Monthly",
+                        "quarterly": "ربع سنوي / Quarterly",
+                        "semi_annually": "نصف سنوي / Semi-Annual",
+                        "annually": "سنوي / Annual"
+                      },
+                      "default": "monthly"
+                    },
+                    "payment_method": {
+                      "type": "select",
+                      "label": "طريقة الدفع / Payment Method",
+                      "required": true,
+                      "options": {
+                        "bank_transfer": "تحويل بنكي / Bank Transfer",
+                        "cash": "نقد / Cash",
+                        "check": "شيك / Check",
+                        "online": "دفع إلكتروني / Online Payment"
+                      },
+                      "default": "bank_transfer"
+                    }
+                  }
+                },
+                "contract_period_section": {
+                  "type": "section",
+                  "label": "فترة العقد / Contract Period",
+                  "fields": {
+                    "start_date": {
+                      "type": "date",
+                      "label": "تاريخ بدء العقد / Contract Start Date",
+                      "required": true,
+                      "default": "today"
+                    },
+                    "duration_months": {
+                      "type": "number",
+                      "label": "مدة العقد بالشهور / Contract Duration (Months)",
+                      "required": true,
+                      "min": 1,
+                      "max": 120,
+                      "default": 12
+                    },
+                    "end_date": {
+                      "type": "date",
+                      "label": "تاريخ انتهاء العقد / Contract End Date",
+                      "required": true,
+                      "calculated": true,
+                      "hint": "يتم حسابه تلقائياً / Auto-calculated"
+                    }
+                  }
+                },
+                "additional_terms_section": {
+                  "type": "section",
+                  "label": "الشروط الإضافية / Additional Terms",
+                  "fields": {
+                    "grace_period_days": {
+                      "type": "number",
+                      "label": "فترة السماح (أيام) / Grace Period (Days)",
+                      "required": true,
+                      "min": 0,
+                      "max": 30,
+                      "default": 5
+                    },
+                    "late_fee_rate": {
+                      "type": "number",
+                      "label": "نسبة غرامة التأخير % / Late Fee Rate %",
+                      "required": true,
+                      "min": 0,
+                      "max": 100,
+                      "step": 0.01,
+                      "default": 0,
+                      "suffix": "%"
+                    },
+                    "evacuation_notice_days": {
+                      "type": "number",
+                      "label": "فترة إشعار الإخلاء / Evacuation Notice (Days)",
+                      "required": true,
+                      "min": 1,
+                      "max": 365,
+                      "default": 30
+                    },
+                    "utilities_included": {
+                      "type": "toggle",
+                      "label": "المرافق مشمولة / Utilities Included",
+                      "default": false
+                    },
+                    "furnished": {
+                      "type": "toggle",
+                      "label": "مفروش / Furnished",
+                      "default": false
+                    }
+                  }
+                },
+                "contract_terms_section": {
+                  "type": "section",
+                  "label": "الشروط والأحكام / Terms and Conditions",
+                  "collapsible": true,
+                  "fields": {
+                    "terms_and_conditions": {
+                      "type": "textarea",
+                      "label": "الشروط والأحكام / Terms and Conditions",
+                      "rows": 5
+                    },
+                    "special_conditions": {
+                      "type": "textarea",
+                      "label": "الشروط الخاصة / Special Conditions",
+                      "rows": 3
+                    },
+                    "notes": {
+                      "type": "textarea",
+                      "label": "ملاحظات / Notes",
+                      "rows": 3
+                    }
+                  }
+                }
+              },
+              "actions": {
+                "create": {
+                  "label": "إنشاء العقد / Create Contract",
+                  "icon": "heroicon-o-plus"
+                },
+                "create_and_activate": {
+                  "label": "إنشاء وتفعيل / Create & Activate",
+                  "icon": "heroicon-o-check"
+                },
+                "cancel": {
+                  "label": "إلغاء / Cancel",
+                  "icon": "heroicon-o-x-mark"
+                }
+              }
+            }
+          },
+          "interactions": {
+            "unit_selection_change": {
+              "user_action": "Select unit from dropdown",
+              "target": "Auto-populate property_id and suggested monthly_rent from unit data"
+            },
+            "duration_change": {
+              "user_action": "Change duration months",
+              "target": "Auto-calculate and update end_date field"
+            },
+            "start_date_change": {
+              "user_action": "Change start date",
+              "target": "Auto-calculate and update end_date field"
+            },
+            "payment_frequency_change": {
+              "user_action": "Change payment frequency",
+              "target": "Update payment amount preview and schedule information"
+            }
+          }
+        }
+      }
+    },
+    "contract_status": {
+      "database_schema": {
+        "fields": {
+          "id": {
+            "type": "bigint",
+            "primary": true,
+            "auto_increment": true,
+            "fillable": false
+          },
+          "name_ar": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "validation": "required|string|max:100",
+            "fillable": true
+          },
+          "name_en": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "validation": "required|string|max:100",
+            "fillable": true
+          },
+          "slug": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "unique": true,
+            "index": "unique",
+            "validation": "required|string|max:100|unique:contract_statuses,slug",
+            "fillable": true
+          },
+          "color": {
+            "type": "string",
+            "length": 20,
+            "nullable": false,
+            "default": "gray",
+            "validation": "required|string|max:20",
+            "fillable": true
+          },
+          "icon": {
+            "type": "string",
+            "length": 50,
+            "nullable": true,
+            "validation": "nullable|string|max:50",
+            "fillable": true
+          },
+          "description_ar": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string",
+            "fillable": true
+          },
+          "description_en": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string",
+            "fillable": true
+          },
+          "is_active": {
+            "type": "boolean",
+            "nullable": false,
+            "default": true,
+            "validation": "boolean",
+            "fillable": true
+          },
+          "allows_editing": {
+            "type": "boolean",
+            "nullable": false,
+            "default": true,
+            "validation": "boolean",
+            "fillable": true
+          },
+          "allows_termination": {
+            "type": "boolean",
+            "nullable": false,
+            "default": true,
+            "validation": "boolean",
+            "fillable": true
+          },
+          "sort_order": {
+            "type": "integer",
+            "nullable": false,
+            "default": 0,
+            "validation": "required|integer|min:0",
+            "fillable": true
+          },
+          "created_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          },
+          "updated_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          }
+        },
+        "indexes": {
+          "idx_contract_statuses_active": ["is_active"],
+          "idx_contract_statuses_sort": ["sort_order"]
+        },
+        "constraints": {}
+      },
+      "tests": {
+        "unit": {
+          "test_status_name_localization": {
+            "description": "Test status name returns correct language based on locale",
+            "input": {
+              "name_ar": "نشط",
+              "name_en": "Active",
+              "locale": "ar"
+            },
+            "expected": {
+              "name": "نشط"
+            },
+            "assertions": [
+              "assertEquals('نشط', $status->getNameAttribute())",
+              "assertEquals('Active', $status->setLocale('en')->getNameAttribute())"
+            ]
+          },
+          "test_status_workflow_permissions": {
+            "description": "Test status workflow permissions for editing and termination",
+            "input": {
+              "allows_editing": true,
+              "allows_termination": false
+            },
+            "expected": {
+              "can_edit": true,
+              "can_terminate": false
+            },
+            "assertions": [
+              "assertTrue($status->allows_editing)",
+              "assertFalse($status->allows_termination)"
+            ]
+          }
+        },
+        "feature": {
+          "test_contract_status_workflow": {
+            "scenario": "Test complete contract status workflow transitions",
+            "steps": [
+              "Create contract statuses (draft, active, expired, terminated)",
+              "Create contract with draft status",
+              "Test transition to active status",
+              "Test status-based permission checks",
+              "Test transition to terminated status",
+              "Verify workflow completion"
+            ],
+            "expected_result": "Contract status transitions work correctly with proper permissions"
+          }
+        },
+        "playwright_mcp": {
+          "test_contract_status_management": {
+            "tools": ["mcp__playwright__browser_navigate", "mcp__playwright__browser_snapshot", "mcp__playwright__browser_click"],
+            "flow": [
+              "Navigate to contract statuses management page",
+              "View existing status list",
+              "Create new contract status",
+              "Edit status permissions",
+              "Test status activation/deactivation"
+            ],
+            "validations": [
+              "Status list displays all configured statuses",
+              "Status creation form works correctly",
+              "Permission toggles function properly",
+              "Status colors are displayed correctly"
+            ]
+          }
+        }
+      },
+      "processes": {
+        "custom_crud_operations": {
+          "generateSlug": {
+            "description": "Generate URL-safe slug from English name",
+            "implementation": "ContractStatus::generateSlug($nameEn)",
+            "business_rules": [
+              "Convert to lowercase",
+              "Replace spaces with hyphens",
+              "Remove special characters",
+              "Ensure uniqueness"
+            ]
+          }
+        },
+        "business_operations": {
+          "validateStatusTransition": {
+            "description": "Validate if status transition is allowed",
+            "implementation": "ContractStatusService::canTransitionTo($fromStatus, $toStatus)",
+            "business_rules": [
+              "Draft can transition to Active or Terminated",
+              "Active can transition to Suspended, Expired, or Terminated",
+              "Suspended can transition to Active or Terminated",
+              "Expired and Terminated are final states"
+            ]
+          }
+        },
+        "query_operations": {
+          "getActiveStatuses": {
+            "description": "Get all active contract statuses ordered by sort_order",
+            "scope": "ContractStatus::active()->ordered()",
+            "conditions": "is_active = true ORDER BY sort_order ASC"
+          }
+        }
+      },
+      "screens": {
+        "list": {
+          "permissions": ["view_contract_statuses"],
+          "filament_template": "resource index",
+          "components": {
+            "table": {
+              "columns": {
+                "name": {
+                  "label": "الاسم / Name",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true
+                },
+                "slug": {
+                  "label": "الرمز / Slug",
+                  "type": "text",
+                  "sortable": true
+                },
+                "color": {
+                  "label": "اللون / Color",
+                  "type": "badge",
+                  "sortable": true
+                },
+                "permissions": {
+                  "label": "الصلاحيات / Permissions",
+                  "type": "text",
+                  "format": "boolean_list"
+                },
+                "is_active": {
+                  "label": "نشط / Active",
+                  "type": "boolean",
+                  "sortable": true
+                },
+                "sort_order": {
+                  "label": "الترتيب / Order",
+                  "type": "number",
+                  "sortable": true
+                }
+              },
+              "filters": {
+                "active_filter": {
+                  "type": "toggle",
+                  "label": "نشط فقط / Active Only"
+                }
+              },
+              "record_actions": {
+                "edit": {
+                  "label": "تحرير / Edit",
+                  "icon": "heroicon-o-pencil"
+                }
+              },
+              "paginated": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "relationships": {
+    "property_contract_owner": {
+      "type": "many_to_one",
+      "1st_side": "property_contract",
+      "2nd_side": "user",
+      "constraints": {
+        "foreign_key": "owner_id",
+        "on_delete": "CASCADE"
+      }
+    },
+    "property_contract_property": {
+      "type": "many_to_one",
+      "1st_side": "property_contract",
+      "2nd_side": "property",
+      "constraints": {
+        "foreign_key": "property_id",
+        "on_delete": "CASCADE"
+      }
+    },
+    "unit_contract_tenant": {
+      "type": "many_to_one",
+      "1st_side": "unit_contract",
+      "2nd_side": "user",
+      "constraints": {
+        "foreign_key": "tenant_id",
+        "on_delete": "CASCADE"
+      }
+    },
+    "unit_contract_unit": {
+      "type": "many_to_one",
+      "1st_side": "unit_contract",
+      "2nd_side": "unit",
+      "constraints": {
+        "foreign_key": "unit_id",
+        "on_delete": "CASCADE"
+      }
+    },
+    "unit_contract_property": {
+      "type": "many_to_one",
+      "1st_side": "unit_contract",
+      "2nd_side": "property",
+      "constraints": {
+        "foreign_key": "property_id",
+        "on_delete": "CASCADE"
+      }
+    },
+    "contract_documents": {
+      "type": "polymorphic",
+      "1st_side": "document",
+      "2nd_side": "property_contract|unit_contract",
+      "constraints": {
+        "morph_name": "documentable",
+        "morph_fields": ["documentable_type", "documentable_id"]
+      }
+    },
+    "contract_payments": {
+      "type": "one_to_many",
+      "1st_side": "unit_contract",
+      "2nd_side": "collection_payment",
+      "constraints": {
+        "foreign_key": "contract_id",
+        "on_delete": "CASCADE"
+      }
+    }
+  },
+  "shared": {
+    "processes": {
+      "ContractNumberingService": {
+        "description": "Centralized contract numbering system for both property and unit contracts",
+        "methods": {
+          "generatePropertyContractNumber": "Generate PC-{year}-{sequence} format",
+          "generateUnitContractNumber": "Generate UC-{year}-{sequence} format",
+          "resetAnnualSequence": "Reset sequence counters at year start",
+          "validateNumberUniqueness": "Ensure contract numbers are unique across types"
+        }
+      },
+      "ContractDocumentService": {
+        "description": "Handle contract document generation, storage, and management",
+        "methods": {
+          "generateContractPDF": "Generate PDF contracts from templates",
+          "storeContractDocument": "Store signed contract documents",
+          "getContractDocuments": "Retrieve all documents for a contract",
+          "generateContractTemplate": "Create contract template with dynamic data"
+        }
+      },
+      "ContractNotificationService": {
+        "description": "Handle all contract-related notifications and reminders",
+        "methods": {
+          "sendActivationNotification": "Notify parties when contract is activated",
+          "sendExpiryReminder": "Send renewal reminders before expiry",
+          "sendTerminationNotification": "Notify parties of contract termination",
+          "scheduleNotifications": "Schedule recurring notification checks"
+        }
+      },
+      "ContractWorkflowService": {
+        "description": "Manage contract status transitions and business rules",
+        "methods": {
+          "validateWorkflowTransition": "Check if status transition is allowed",
+          "executeStatusChange": "Perform status change with side effects",
+          "enforceBusinessRules": "Apply business rules during transitions",
+          "auditStatusChanges": "Log all status changes for compliance"
+        }
+      }
+    },
+    "screens": {
+      "dashboard_widgets": {
+        "contracts_overview": {
+          "title": "نظرة عامة على العقود / Contracts Overview",
+          "stats": [
+            "Active Property Contracts Count",
+            "Active Unit Contracts Count",
+            "Expiring Contracts (Next 30 Days)",
+            "Total Monthly Rental Value"
+          ]
+        },
+        "contract_status_distribution": {
+          "title": "توزيع حالات العقود / Contract Status Distribution",
+          "chart_type": "pie",
+          "data_source": "Contract status counts"
+        },
+        "monthly_contract_activity": {
+          "title": "النشاط الشهري للعقود / Monthly Contract Activity",
+          "chart_type": "line",
+          "data_source": "Contract creation/expiry trends"
+        }
+      },
+      "reports": {
+        "property_contracts_report": {
+          "title": "تقرير عقود الملاك / Property Contracts Report",
+          "filters": ["Owner", "Property", "Status", "Date Range"],
+          "columns": ["Contract Number", "Owner", "Property", "Commission Rate", "Period", "Status"]
+        },
+        "unit_contracts_report": {
+          "title": "تقرير عقود الإيجار / Unit Contracts Report",
+          "filters": ["Tenant", "Property", "Unit", "Status", "Date Range"],
+          "columns": ["Contract Number", "Tenant", "Unit", "Rent", "Period", "Status"]
+        },
+        "expiring_contracts_report": {
+          "title": "تقرير العقود المنتهية الصلاحية / Expiring Contracts Report",
+          "filters": ["Contract Type", "Days Until Expiry", "Auto Renewal"],
+          "columns": ["Contract Number", "Type", "Party", "Property/Unit", "Expiry Date", "Days Remaining"]
+        }
+      }
+    },
+    "utilities": {
+      "helpers": {
+        "ContractCalculator": "Calculate contract values, commissions, penalties",
+        "DateCalculator": "Calculate contract periods, expiry dates, grace periods",
+        "CurrencyFormatter": "Format monetary amounts with proper locale",
+        "ContractValidator": "Validate contract data and business rules"
+      },
+      "validators": {
+        "ContractPeriodValidator": "Validate contract date ranges and periods",
+        "FinancialTermsValidator": "Validate rental amounts, deposits, rates",
+        "PartyEligibilityValidator": "Check if parties are eligible for contracts",
+        "UnitAvailabilityValidator": "Verify unit availability for contract period"
+      },
+      "transformers": {
+        "WordPressContractMapper": "Map WordPress contract data to Laravel models",
+        "PaymentScheduleTransformer": "Transform contracts to payment schedules",
+        "ContractExportTransformer": "Transform contracts for export/reporting",
+        "NotificationDataTransformer": "Transform contract data for notifications"
+      }
+    }
+  },
+  "tests": {
+    "integration": {
+      "test_complete_property_contract_workflow": {
+        "description": "Test complete property contract lifecycle from creation to renewal",
+        "steps": [
+          "Create owner and property",
+          "Create draft property contract",
+          "Activate contract and verify status changes",
+          "Generate commission payments",
+          "Test contract renewal process",
+          "Test contract termination"
+        ],
+        "expected_result": "Complete property contract workflow functions correctly with proper integrations"
+      },
+      "test_complete_unit_contract_workflow": {
+        "description": "Test complete unit contract lifecycle from creation to payment generation",
+        "steps": [
+          "Create tenant and available unit",
+          "Create draft unit contract",
+          "Activate contract and assign unit",
+          "Generate payment schedule",
+          "Process payments and late fees",
+          "Test early termination with penalties"
+        ],
+        "expected_result": "Complete unit contract workflow functions correctly with payment integration"
+      },
+      "test_contract_integration_with_payment_system": {
+        "description": "Test contract integration with payment generation and tracking",
+        "steps": [
+          "Create active unit contracts",
+          "Verify payment schedules are generated",
+          "Test payment status updates",
+          "Test commission calculations for property contracts",
+          "Verify financial reporting accuracy"
+        ],
+        "expected_result": "Contracts properly integrate with payment system for accurate financial tracking"
+      },
+      "test_migration_from_wordpress_contracts": {
+        "description": "Test complete migration from WordPress contract system",
+        "steps": [
+          "Import WordPress property_contract data",
+          "Import WordPress unit_contract data", 
+          "Verify data integrity after import",
+          "Test relationship preservation",
+          "Validate payment history migration",
+          "Test new system functionality with migrated data"
+        ],
+        "expected_result": "All WordPress contract data migrated correctly with full functionality in new system"
+      }
+    },
+    "seeder_verification": {
+      "test_default_contract_statuses_seeded": {
+        "description": "Verify all default contract statuses are seeded correctly",
+        "expected_data": [
+          {"name_ar": "مسودة", "name_en": "Draft", "slug": "draft", "color": "gray", "allows_editing": true},
+          {"name_ar": "نشط", "name_en": "Active", "slug": "active", "color": "green", "allows_editing": true},
+          {"name_ar": "معلق", "name_en": "Suspended", "slug": "suspended", "color": "yellow", "allows_editing": true},
+          {"name_ar": "منتهي", "name_en": "Expired", "slug": "expired", "color": "orange", "allows_editing": false},
+          {"name_ar": "مفسوخ", "name_en": "Terminated", "slug": "terminated", "color": "red", "allows_editing": false}
+        ]
+      },
+      "test_sample_contracts_seeded": {
+        "description": "Verify sample contracts are created for testing",
+        "expected_data": [
+          "At least 5 property contracts with different owners",
+          "At least 10 unit contracts with different tenants",
+          "Mix of contract statuses and durations",
+          "Proper relationship links to users, properties, and units"
+        ]
+      }
+    }
+  }
+}
