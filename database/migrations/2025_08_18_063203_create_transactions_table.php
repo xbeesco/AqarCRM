@@ -29,7 +29,7 @@ return new class extends Migration
             $table->index(['type', 'transaction_date']);
             $table->index(['property_id', 'transaction_date']);
             $table->index('transaction_date');
-            $table->index(['transactionable_type', 'transactionable_id']);
+            // morphs() already creates index for transactionable_type and transactionable_id
         });
     }
 

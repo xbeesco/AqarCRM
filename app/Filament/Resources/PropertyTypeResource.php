@@ -158,7 +158,7 @@ class PropertyTypeResource extends Resource
                     ->label('Parent Type')
                     ->options(PropertyType::query()->pluck('name_en', 'id')),
             ])
-            ->filtersAboveTableColumns()
+            ->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
             ->actions([
                 ViewAction::make(),
                 EditAction::make(),
