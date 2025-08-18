@@ -1,0 +1,129 @@
+{
+  "meta": {
+    "module": "module_slug",
+    "description": "",
+    "schema_definition": {
+      "models.model_slug.database_schema.fields.fillable": "is this field allowed by laravel fillable",
+      "models.model_slug.tests": "model tests",
+      "models.model_slug.processes": "the back-end processes that the filament don't provide by defult and we need it to make our system logic mostly in the model service",
+      "models.model_slug.screens": "filament page",
+      "models.model_slug.screens.components": "a standard filament components",
+      "models.model_slug.screens.interactions": "custom user interface interactions",
+      "shared.processes": "the same as models.model_slug.processes but generic for the module scope",
+      "tests": "generic module tests"
+    }
+  },
+  "models": {
+    "model_slug": {
+      "database_schema": {
+        "fields": {
+          "base_field": {
+            "type": "int|bigint|string|text|bool|decimal|float|date|datetime|timestamp|json|enum",
+            "length": "int",
+            "nullable": "bool",
+            "default": "value",
+            "unique": "bool",
+            "index": "bool|unique|fulltext",
+            "foreign": "table.field",
+            "validation": "required|email|min:n|max:n|unique|exists",
+            "fillable": "bool"
+          }
+        },
+        "indexes": {},
+        "constraints": {}
+      },
+      "tests": {
+        "unit": {
+          "test_name": {
+            "description": "",
+            "input": {},
+            "expected": {},
+            "assertions": []
+          }
+        },
+        "feature": {
+          "test_name": {
+            "scenario": "",
+            "steps": [],
+            "expected_result": ""
+          }
+        },
+        "playwright_mcp": {
+          "test_name": {
+            "tools": [],
+            "flow": [],
+            "validations": []
+          }
+        }
+      },
+      "processes": {
+        "custom_crud_operations": {},
+        "business_operations": {},
+        "query_operations": {},
+        "integration_operations": {}
+      },
+      "screens": {
+        "screen_slug": {
+          "permissions": [],
+          "filament_template": "dashboard | auth | resource index | resource add/edit | resource view | custom",
+          "components": {
+            "table": {
+              "columns": {
+                "base_column": {
+                  "label": "Display Name",
+                  "type": "text|number|date|badge|link|image|boolean",
+                  "sortable": "bool",
+                  "searchable": "bool",
+                  "format": "date:Y-m-d|currency|percentage",
+                  "width": "auto|100px",
+                  "align": "left|center|right"
+                },
+                "column_type_1": {}
+              },
+              "filters": {
+                "bas_filter": {},
+                "filter_type_1": {}
+              },
+              "record_actions": {},
+              "bulk_ations": {},
+              "paginated": {}
+            },
+            "form": {
+              "fields": {
+                "basic_field": {},
+                "field_type_1": {}
+              },
+              "actions": {}
+            },
+            "widgets": {},
+            "infolist": {}
+          },
+          "interactions": {
+            "{{event_slug}}": {
+              "user_action": "",
+              "target": ""
+            }
+          }
+        }
+      }
+    }
+  },
+  "relationships": {
+    "relationship_slug": {
+      "type": "one_to_one | one_to_many | many_to_many | polymorphic | morphToMany",
+      "1st_side": "model_slug",
+      "2nd_side": "model_slug",
+      "constraints": {}
+    }
+  },
+  "shared": {
+    "processes": {},
+    "screens": {},
+    "utilities": {
+      "helpers": {},
+      "validators": {},
+      "transformers": {}
+    }
+  },
+  "tests": {}
+}
