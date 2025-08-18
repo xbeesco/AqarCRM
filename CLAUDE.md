@@ -46,15 +46,16 @@ how a task work ?
 1- detect what the next module (prperties , contracts , payments ) that the agent will work on 
 2 - you ask a new agent to read files:  tree.json and implementation-plan to create a .doc/modules/module-slug.json file the 100% exaclty schema.json filled
 3- ask the agent to follow the .doc/modules/module-slug.json exactly 100% and do all the tests
-4- make a git commit with a shot sentence 
-
-
-always make the table filters above the table https://filamentphp.com/docs/4.x/tables/filters/layout#displaying-filters-above-the-table-content
 
 
 عملية الاختبارات الخاصه ب playwright يجب ان تغطي كل الشاشات الخاصه بال resource  
 عملية الاختبارات الخاصه ب playwright يجب ان تغطي كل الحالات ال حرجة 
 عملية الاختبارات الخاصه ب playwright يجب ان تغطي كل  عمليات الداخليه بحيث نختبر ما سيواجهه المستخدم في العملايت المعقدة
+4- make a git commit with a shot sentence  متعملش اي  commit  غير لما تجرب كل الاختبارات التي تتناسب مع هذا التعديل
+
+
+always make the table filters above the table https://filamentphp.com/docs/4.x/tables/filters/layout#displaying-filters-above-the-table-content
+
 
 
 كل صفحة تدخلها تسحب محتوي الداخلي للصفحة و تتاكد انه لا يحتوي علي اخطاء برمجية 
@@ -62,3 +63,9 @@ always make the table filters above the table https://filamentphp.com/docs/4.x/t
 مثل صفحة فاتورة مدوفع او شيئ من هذا القبيل يجب ايضا ان تخنبرخها بنفس الاسلوب 
 
 في حالة احتاجت ان تكتب اختبارات للتجريب اي شيئ اثناء البرمجة ( جزا من عملية الاختبار ) او كتابه او script  لتنفيذ شيئ معين , اجعله في مجلد tests\development لا تضيف اي ملفات في المجلد العام للمشروع الا للضرورة القصوي فقط
+
+
+لا تتوقف قبل ان تنهي المشروع كله 
+لا تتوقف ابدا في المنتصف لتسالني اي اساله , اكمل العمل كاملا 
+ثم جرب مره اخيره ان تنفيذ كل الاختبارات التي تم كتاباتها في ملفات ال modules  للتحقق من ان بعد الانتهاء الكلي من العمل ان كل شيئ بعمل 100 % 
+

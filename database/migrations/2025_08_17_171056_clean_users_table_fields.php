@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -11,6 +12,22 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Drop foreign key constraint first if it exists
+        Schema::table('users', function (Blueprint $table) {
+            $foreignKeys = DB::select("
+                SELECT CONSTRAINT_NAME 
+                FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND TABLE_NAME = 'users' 
+                AND COLUMN_NAME = 'current_property_id' 
+                AND REFERENCED_TABLE_NAME IS NOT NULL
+            ");
+            
+            foreach ($foreignKeys as $key) {
+                $table->dropForeign($key->CONSTRAINT_NAME);
+            }
+        });
+        
         // Remove unwanted columns one by one to avoid errors
         Schema::table('users', function (Blueprint $table) {
             $columnsToRemove = [

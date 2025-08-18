@@ -1,0 +1,2645 @@
+{
+  "meta": {
+    "module": "units",
+    "description": "Units management module - Individual rental units within properties with comprehensive tenant assignment, availability tracking, and feature management. Based on WordPress alh_unit custom post type with ACF fields and unit_type/unit_rank taxonomies. Includes current tenant relationships, unit status workflow, and payment tracking integration.",
+    "schema_definition": {
+      "models.unit.database_schema.fields.fillable": "All unit configuration, pricing, and specification fields are fillable",
+      "models.unit.tests": "Comprehensive unit tests for CRUD operations, availability logic, tenant assignment, and pricing calculations",
+      "models.unit.processes": "Business logic for availability checking, tenant assignment, pricing calculations, and status management",
+      "models.unit.screens": "Filament resource for units with property filtering, availability status, and tenant management",
+      "models.unit.screens.components": "Standard Filament table with filters above, form components with property/tenant selection",
+      "models.unit.screens.interactions": "Unit assignment to tenants, availability calendar, status transitions, and pricing updates",
+      "models.unit_status.database_schema.fields.fillable": "All status workflow and display fields are fillable",
+      "models.unit_status.tests": "Status transition tests, availability workflow validation, and tenant assignment rules",
+      "models.unit_status.processes": "Status workflow management, availability checking, and tenant assignment validation",
+      "models.unit_status.screens": "Filament resource for unit statuses with workflow management and availability rules",
+      "models.unit_feature.database_schema.fields.fillable": "All feature definition and value type fields are fillable",
+      "models.unit_feature.tests": "Feature categorization tests, value validation, and unit relationship tests",
+      "models.unit_feature.processes": "Feature management, value validation by type, and unit feature assignment",
+      "models.unit_feature.screens": "Filament resource for unit features with category management and value types",
+      "shared.processes": "Unit availability checking services, tenant assignment workflow, and unit pricing calculations",
+      "tests": "Module integration tests covering unit-property relationships, tenant assignments, and availability management"
+    }
+  },
+  "acf_field_analysis": {
+    "description": "Complete analysis of ACF JSON fields from WordPress alh_unit custom post type and related taxonomies",
+    "unit_fields_from_wordpress": {
+      "unit_in_property": {
+        "acf_config": {
+          "label": "العقار",
+          "type": "post_object", 
+          "post_type": ["alh_property"],
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "العقار / Property",
+          "relationship": "property",
+          "searchable": true,
+          "required": true,
+          "validation": "required|exists:properties,id"
+        }
+      },
+      "unit_number": {
+        "acf_config": {
+          "label": "رقم الوحدة",
+          "type": "text",
+          "required": true,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "label": "رقم الوحدة / Unit Number",
+          "required": true,
+          "validation": "required|string|max:20"
+        }
+      },
+      "unit_floor": {
+        "acf_config": {
+          "label": "الدور",
+          "type": "number",
+          "required": true,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "الدور / Floor Number",
+          "required": true,
+          "validation": "required|integer|min:0|max:200",
+          "numeric": true
+        }
+      },
+      "unit_area": {
+        "acf_config": {
+          "label": "المساحة",
+          "type": "number",
+          "required": true,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "المساحة / Area (sqm)",
+          "required": true,
+          "validation": "required|numeric|min:1|max:10000",
+          "step": "0.01",
+          "suffix": "م²"
+        }
+      },
+      "rooms_number": {
+        "acf_config": {
+          "label": "عدد الغرف",
+          "type": "number",
+          "required": true,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "عدد الغرف / Rooms Count",
+          "required": true,
+          "validation": "required|integer|min:0|max:20",
+          "numeric": true
+        }
+      },
+      "bathroom_number": {
+        "acf_config": {
+          "label": "عدد الحمامات",
+          "type": "number",
+          "required": true,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "عدد الحمامات / Bathrooms Count",
+          "required": true,
+          "validation": "required|integer|min:0|max:10",
+          "numeric": true
+        }
+      },
+      "rant_price": {
+        "acf_config": {
+          "label": "السعر",
+          "type": "number",
+          "required": true,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "قيمة الإيجار الشهري / Monthly Rent",
+          "required": true,
+          "validation": "required|numeric|min:0.01",
+          "step": "0.01",
+          "prefix": "SAR"
+        }
+      },
+      "apartment_tenant": {
+        "acf_config": {
+          "label": "المستأجر الحالي",
+          "type": "user",
+          "role": ["alh_tenant"],
+          "required": false,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "المستأجر الحالي / Current Tenant",
+          "relationship": "currentTenant",
+          "searchable": true,
+          "required": false,
+          "validation": "nullable|exists:users,id"
+        }
+      },
+      "unit_type": {
+        "acf_config": {
+          "label": "نوع الوحدة",
+          "type": "taxonomy",
+          "taxonomy": "unit_type",
+          "field_type": "select",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "نوع الوحدة / Unit Type",
+          "options": {
+            "studio": "ستوديو / Studio",
+            "apartment": "شقة / Apartment", 
+            "duplex": "دوبلكس / Duplex",
+            "penthouse": "بنت هاوس / Penthouse",
+            "office": "مكتب / Office",
+            "shop": "محل تجاري / Shop",
+            "warehouse": "مستودع / Warehouse"
+          },
+          "required": true,
+          "validation": "required|in:studio,apartment,duplex,penthouse,office,shop,warehouse"
+        }
+      },
+      "unit_ranking": {
+        "acf_config": {
+          "label": "التصنيف",
+          "type": "taxonomy",
+          "taxonomy": "unit_rank",
+          "field_type": "select",
+          "required": false,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "التصنيف / Ranking",
+          "options": {
+            "economy": "اقتصادي / Economy",
+            "standard": "عادي / Standard",
+            "premium": "مميز / Premium",
+            "luxury": "فاخر / Luxury"
+          },
+          "required": false,
+          "validation": "nullable|in:economy,standard,premium,luxury"
+        }
+      },
+      "unit_direction": {
+        "acf_config": {
+          "label": "الاتجاه",
+          "type": "text",
+          "required": false,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "الاتجاه / Direction",
+          "options": {
+            "north": "شمال / North",
+            "south": "جنوب / South",
+            "east": "شرق / East",
+            "west": "غرب / West",
+            "northeast": "شمال شرق / Northeast",
+            "northwest": "شمال غرب / Northwest",
+            "southeast": "جنوب شرق / Southeast",
+            "southwest": "جنوب غرب / Southwest"
+          },
+          "required": false,
+          "validation": "nullable|in:north,south,east,west,northeast,northwest,southeast,southwest"
+        }
+      },
+      "unit_features": {
+        "acf_config": {
+          "label": "المميزات",
+          "type": "checkbox",
+          "choices": {
+            "balcony": "بلكونة",
+            "parking": "موقف سيارة",
+            "storage": "مخزن",
+            "garden": "حديقة",
+            "maid_room": "غرفة خادمة",
+            "laundry": "غرفة غسيل"
+          },
+          "required": false,
+          "width": "100"
+        },
+        "filament_equivalent": {
+          "component": "CheckboxList",
+          "label": "مميزات الوحدة / Unit Features",
+          "relationship": "features",
+          "searchable": true,
+          "validation": "nullable|array"
+        }
+      },
+      "unit_notes": {
+        "acf_config": {
+          "label": "ملاحظات",
+          "type": "textarea",
+          "required": false,
+          "full_width": true
+        },
+        "filament_equivalent": {
+          "component": "Textarea",
+          "label": "ملاحظات / Notes",
+          "validation": "nullable|string|max:2000",
+          "rows": 4,
+          "columnSpanFull": true
+        }
+      },
+      "furnished": {
+        "acf_config": {
+          "label": "مفروش",
+          "type": "true_false",
+          "default_value": false,
+          "required": false,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "Toggle",
+          "label": "مفروش / Furnished",
+          "default": false,
+          "validation": "boolean"
+        }
+      },
+      "has_balcony": {
+        "acf_config": {
+          "label": "يوجد بلكونة",
+          "type": "true_false",
+          "default_value": false,
+          "required": false,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "Toggle",
+          "label": "يوجد بلكونة / Has Balcony",
+          "default": false,
+          "validation": "boolean"
+        }
+      },
+      "view_type": {
+        "acf_config": {
+          "label": "نوع الإطلالة",
+          "type": "select",
+          "choices": {
+            "street": "شارع",
+            "garden": "حديقة",
+            "sea": "بحر",
+            "city": "مدينة",
+            "mountain": "جبل",
+            "courtyard": "فناء داخلي"
+          },
+          "required": false,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "نوع الإطلالة / View Type",
+          "options": {
+            "street": "شارع / Street",
+            "garden": "حديقة / Garden",
+            "sea": "بحر / Sea",
+            "city": "مدينة / City",
+            "mountain": "جبل / Mountain",
+            "courtyard": "فناء داخلي / Courtyard"
+          },
+          "required": false,
+          "validation": "nullable|in:street,garden,sea,city,mountain,courtyard"
+        }
+      }
+    },
+    "unit_table_filters": {
+      "property_filter": {
+        "acf_source": "unit_in_property post_object field",
+        "filament_filter": {
+          "type": "SelectFilter",
+          "label": "العقار / Property",
+          "relationship": "property",
+          "searchable": true
+        }
+      },
+      "status_filter": {
+        "acf_source": "calculated based on apartment_tenant field",
+        "filament_filter": {
+          "type": "SelectFilter",
+          "label": "حالة الوحدة / Unit Status",
+          "relationship": "status",
+          "options": {
+            "available": "متاح / Available",
+            "occupied": "مؤجر / Occupied",
+            "maintenance": "تحت الصيانة / Under Maintenance",
+            "reserved": "محجوز / Reserved"
+          }
+        }
+      },
+      "unit_type_filter": {
+        "acf_source": "unit_type taxonomy field",
+        "filament_filter": {
+          "type": "SelectFilter",
+          "label": "نوع الوحدة / Unit Type",
+          "options": {
+            "studio": "ستوديو / Studio",
+            "apartment": "شقة / Apartment",
+            "duplex": "دوبلكس / Duplex",
+            "penthouse": "بنت هاوس / Penthouse",
+            "office": "مكتب / Office",
+            "shop": "محل تجاري / Shop",
+            "warehouse": "مستودع / Warehouse"
+          }
+        }
+      },
+      "price_range_filter": {
+        "acf_source": "rant_price number field",
+        "filament_filter": {
+          "type": "Filter",
+          "label": "نطاق السعر / Price Range",
+          "form": [
+            "TextInput::make('price_from')->numeric()->label('من / From')->prefix('SAR')",
+            "TextInput::make('price_to')->numeric()->label('إلى / To')->prefix('SAR')"
+          ],
+          "query": "range filter on rent_price"
+        }
+      },
+      "rooms_filter": {
+        "acf_source": "rooms_number number field",
+        "filament_filter": {
+          "type": "SelectFilter",
+          "label": "عدد الغرف / Rooms Count",
+          "options": {
+            "0": "ستوديو / Studio",
+            "1": "غرفة واحدة / 1 Room",
+            "2": "غرفتان / 2 Rooms",
+            "3": "3 غرف / 3 Rooms",
+            "4": "4 غرف / 4 Rooms",
+            "5+": "5+ غرف / 5+ Rooms"
+          }
+        }
+      },
+      "area_range_filter": {
+        "acf_source": "unit_area number field",
+        "filament_filter": {
+          "type": "Filter",
+          "label": "نطاق المساحة / Area Range",
+          "form": [
+            "TextInput::make('area_from')->numeric()->label('من / From')->suffix('م²')",
+            "TextInput::make('area_to')->numeric()->label('إلى / To')->suffix('م²')"
+          ],
+          "query": "range filter on area_sqm"
+        }
+      },
+      "furnished_filter": {
+        "acf_source": "furnished true_false field",
+        "filament_filter": {
+          "type": "TernaryFilter",
+          "label": "مفروش / Furnished",
+          "trueLabel": "مفروش / Furnished",
+          "falseLabel": "غير مفروش / Unfurnished",
+          "placeholder": "الكل / All"
+        }
+      },
+      "tenant_filter": {
+        "acf_source": "apartment_tenant user field",
+        "filament_filter": {
+          "type": "SelectFilter",
+          "label": "المستأجر / Tenant",
+          "relationship": "currentTenant",
+          "searchable": true
+        }
+      }
+    }
+  },
+  "models": {
+    "unit": {
+      "database_schema": {
+        "fields": {
+          "id": {
+            "type": "bigint",
+            "auto_increment": true,
+            "primary": true,
+            "fillable": false
+          },
+          "property_id": {
+            "type": "bigint",
+            "nullable": false,
+            "foreign": "properties.id",
+            "index": true,
+            "validation": "required|exists:properties,id",
+            "fillable": true
+          },
+          "unit_number": {
+            "type": "string",
+            "length": 20,
+            "nullable": false,
+            "index": true,
+            "validation": "required|string|max:20",
+            "fillable": true
+          },
+          "floor_number": {
+            "type": "int",
+            "nullable": false,
+            "index": true,
+            "validation": "required|integer|min:0|max:200",
+            "fillable": true
+          },
+          "area_sqm": {
+            "type": "decimal",
+            "precision": 8,
+            "scale": 2,
+            "nullable": false,
+            "validation": "required|numeric|min:1|max:10000",
+            "fillable": true
+          },
+          "rooms_count": {
+            "type": "int",
+            "nullable": false,
+            "index": true,
+            "validation": "required|integer|min:0|max:20",
+            "fillable": true
+          },
+          "bathrooms_count": {
+            "type": "int",
+            "nullable": false,
+            "validation": "required|integer|min:0|max:10",
+            "fillable": true
+          },
+          "rent_price": {
+            "type": "decimal",
+            "precision": 10,
+            "scale": 2,
+            "nullable": false,
+            "index": true,
+            "validation": "required|numeric|min:0.01",
+            "fillable": true
+          },
+          "unit_type": {
+            "type": "enum",
+            "values": ["studio", "apartment", "duplex", "penthouse", "office", "shop", "warehouse"],
+            "nullable": false,
+            "default": "apartment",
+            "index": true,
+            "validation": "required|in:studio,apartment,duplex,penthouse,office,shop,warehouse",
+            "fillable": true
+          },
+          "unit_ranking": {
+            "type": "enum",
+            "values": ["economy", "standard", "premium", "luxury"],
+            "nullable": true,
+            "index": true,
+            "validation": "nullable|in:economy,standard,premium,luxury",
+            "fillable": true
+          },
+          "direction": {
+            "type": "enum",
+            "values": ["north", "south", "east", "west", "northeast", "northwest", "southeast", "southwest"],
+            "nullable": true,
+            "validation": "nullable|in:north,south,east,west,northeast,northwest,southeast,southwest",
+            "fillable": true
+          },
+          "view_type": {
+            "type": "enum",
+            "values": ["street", "garden", "sea", "city", "mountain", "courtyard"],
+            "nullable": true,
+            "validation": "nullable|in:street,garden,sea,city,mountain,courtyard",
+            "fillable": true
+          },
+          "status_id": {
+            "type": "bigint",
+            "nullable": false,
+            "foreign": "unit_statuses.id",
+            "index": true,
+            "validation": "required|exists:unit_statuses,id",
+            "fillable": true
+          },
+          "current_tenant_id": {
+            "type": "bigint",
+            "nullable": true,
+            "foreign": "users.id",
+            "index": true,
+            "validation": "nullable|exists:users,id",
+            "fillable": true
+          },
+          "furnished": {
+            "type": "bool",
+            "nullable": false,
+            "default": false,
+            "index": true,
+            "validation": "required|boolean",
+            "fillable": true
+          },
+          "has_balcony": {
+            "type": "bool",
+            "nullable": false,
+            "default": false,
+            "validation": "required|boolean",
+            "fillable": true
+          },
+          "has_parking": {
+            "type": "bool",
+            "nullable": false,
+            "default": false,
+            "validation": "required|boolean",
+            "fillable": true
+          },
+          "has_storage": {
+            "type": "bool",
+            "nullable": false,
+            "default": false,
+            "validation": "required|boolean",
+            "fillable": true
+          },
+          "has_maid_room": {
+            "type": "bool",
+            "nullable": false,
+            "default": false,
+            "validation": "required|boolean",
+            "fillable": true
+          },
+          "notes": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string|max:2000",
+            "fillable": true
+          },
+          "available_from": {
+            "type": "date",
+            "nullable": true,
+            "validation": "nullable|date|after_or_equal:today",
+            "fillable": true
+          },
+          "last_maintenance_date": {
+            "type": "date",
+            "nullable": true,
+            "validation": "nullable|date",
+            "fillable": true
+          },
+          "next_maintenance_date": {
+            "type": "date",
+            "nullable": true,
+            "validation": "nullable|date|after:last_maintenance_date",
+            "fillable": true
+          },
+          "is_active": {
+            "type": "bool",
+            "nullable": false,
+            "default": true,
+            "index": true,
+            "validation": "required|boolean",
+            "fillable": true
+          },
+          "created_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          },
+          "updated_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          }
+        },
+        "indexes": {
+          "idx_units_property_unit": ["property_id", "unit_number"],
+          "idx_units_status_active": ["status_id", "is_active"],
+          "idx_units_type_ranking": ["unit_type", "unit_ranking"],
+          "idx_units_rent_range": ["rent_price", "rooms_count"],
+          "idx_units_availability": ["status_id", "available_from", "is_active"],
+          "idx_units_tenant_search": ["current_tenant_id", "is_active"]
+        },
+        "constraints": {
+          "fk_units_property": {
+            "foreign_key": "property_id",
+            "references": "properties(id)",
+            "on_delete": "CASCADE",
+            "on_update": "CASCADE"
+          },
+          "fk_units_status": {
+            "foreign_key": "status_id",
+            "references": "unit_statuses(id)",
+            "on_delete": "RESTRICT",
+            "on_update": "CASCADE"
+          },
+          "fk_units_tenant": {
+            "foreign_key": "current_tenant_id",
+            "references": "users(id)",
+            "on_delete": "SET NULL",
+            "on_update": "CASCADE"
+          },
+          "uk_units_property_number": {
+            "unique": ["property_id", "unit_number"]
+          }
+        }
+      },
+      "tests": {
+        "unit": {
+          "test_unit_has_required_fields": {
+            "description": "Test unit requires property_id, unit_number, floor_number, area, rooms, bathrooms, and rent_price",
+            "input": {
+              "property_id": "",
+              "unit_number": "",
+              "floor_number": "",
+              "area_sqm": "",
+              "rooms_count": "",
+              "bathrooms_count": "",
+              "rent_price": ""
+            },
+            "expected": "validation errors",
+            "assertions": ["assertHasErrors(['property_id', 'unit_number', 'floor_number', 'area_sqm', 'rooms_count', 'bathrooms_count', 'rent_price'])"]
+          },
+          "test_unit_number_uniqueness_per_property": {
+            "description": "Test unit number must be unique within same property",
+            "input": {
+              "property_id": 1,
+              "unit_number": "101"
+            },
+            "expected": "second unit with same number in same property fails",
+            "assertions": ["assertDatabaseMissing('units', ['property_id' => 1, 'unit_number' => '101'])"]
+          },
+          "test_unit_availability_logic": {
+            "description": "Test unit availability based on current_tenant_id and status",
+            "input": {
+              "status_id": "available_status_id",
+              "current_tenant_id": null
+            },
+            "expected": "unit is available",
+            "assertions": ["assertTrue($unit->isAvailable())"]
+          },
+          "test_unit_pricing_calculation": {
+            "description": "Test unit pricing calculations for different periods",
+            "input": {
+              "rent_price": 1000,
+              "period": "quarterly"
+            },
+            "expected": "3000",
+            "assertions": ["assertEquals(3000, $unit->calculatePrice('quarterly'))"]
+          },
+          "test_unit_floor_validation": {
+            "description": "Test floor number validation range",
+            "input": {
+              "floor_number": -1
+            },
+            "expected": "validation error",
+            "assertions": ["assertHasErrors(['floor_number'])"]
+          },
+          "test_unit_tenant_assignment": {
+            "description": "Test tenant assignment updates unit status",
+            "input": {
+              "current_tenant_id": "tenant_user_id",
+              "original_status": "available"
+            },
+            "expected": "status changes to occupied",
+            "assertions": ["assertEquals('occupied', $unit->fresh()->status->slug)"]
+          },
+          "test_unit_feature_relationships": {
+            "description": "Test unit can have multiple features attached",
+            "input": {
+              "features": ["balcony", "parking", "storage"]
+            },
+            "expected": "3 features attached",
+            "assertions": ["assertEquals(3, $unit->features()->count())"]
+          }
+        },
+        "feature": {
+          "test_unit_creation_workflow": {
+            "scenario": "Property manager creates a new unit within existing property",
+            "steps": [
+              "Login as property manager",
+              "Navigate to units page",
+              "Click create unit button",
+              "Select property from dropdown",
+              "Enter unit details (number, floor, area, rooms, etc.)",
+              "Select unit type and ranking",
+              "Set rental price",
+              "Save unit"
+            ],
+            "expected_result": "Unit created successfully and appears in units list with correct property association"
+          },
+          "test_tenant_assignment_workflow": {
+            "scenario": "Property manager assigns tenant to available unit",
+            "steps": [
+              "Login as property manager",
+              "Navigate to available unit details",
+              "Click assign tenant action",
+              "Search and select tenant",
+              "Confirm assignment",
+              "Unit status updates to occupied"
+            ],
+            "expected_result": "Tenant assigned to unit, status changes to occupied, unit no longer appears in available units"
+          },
+          "test_unit_availability_search": {
+            "scenario": "User searches for available units with specific criteria",
+            "steps": [
+              "Navigate to units page",
+              "Apply status filter (available)",
+              "Apply price range filter",
+              "Apply rooms count filter",
+              "Apply area range filter",
+              "View filtered results"
+            ],
+            "expected_result": "Only units matching all criteria are displayed in results"
+          }
+        },
+        "playwright_mcp": {
+          "test_unit_crud_operations": {
+            "tools": ["mcp__playwright__browser_navigate", "mcp__playwright__browser_click", "mcp__playwright__browser_type", "mcp__playwright__browser_snapshot"],
+            "flow": [
+              "Navigate to /admin/units",
+              "Click 'إنشاء وحدة جديدة / Create New Unit' button",
+              "Fill unit form with valid data",
+              "Submit form and verify success",
+              "Navigate back to units list",
+              "Search for created unit",
+              "Edit unit details",
+              "Delete unit with confirmation"
+            ],
+            "validations": [
+              "Unit appears in list after creation",
+              "Unit details display correctly",
+              "Edit form pre-fills with existing data",
+              "Unit removed from list after deletion"
+            ]
+          },
+          "test_unit_filters_and_search": {
+            "tools": ["mcp__playwright__browser_navigate", "mcp__playwright__browser_click", "mcp__playwright__browser_select_option", "mcp__playwright__browser_type"],
+            "flow": [
+              "Navigate to /admin/units",
+              "Apply property filter",
+              "Apply status filter",
+              "Apply unit type filter",
+              "Apply price range filter",
+              "Search by unit number",
+              "Verify filtered results"
+            ],
+            "validations": [
+              "Filters work correctly",
+              "Search returns relevant results",
+              "Filter combinations work properly",
+              "Results update in real-time"
+            ]
+          },
+          "test_tenant_assignment_interface": {
+            "tools": ["mcp__playwright__browser_navigate", "mcp__playwright__browser_click", "mcp__playwright__browser_select_option", "mcp__playwright__browser_wait_for"],
+            "flow": [
+              "Navigate to available unit",
+              "Click assign tenant action",
+              "Search for tenant in dropdown",
+              "Select tenant",
+              "Confirm assignment",
+              "Wait for status update",
+              "Verify tenant appears in unit details"
+            ],
+            "validations": [
+              "Tenant dropdown is searchable",
+              "Assignment confirmation dialog appears",
+              "Unit status updates to occupied",
+              "Tenant information displays correctly"
+            ]
+          }
+        }
+      },
+      "processes": {
+        "custom_crud_operations": {
+          "createUnit": {
+            "description": "Create unit with property validation and unique unit number check",
+            "parameters": ["property_id", "unit_data"],
+            "validation": "Property exists and user has permission, unit number unique within property",
+            "business_logic": "Auto-set status to available, generate unit code, validate property capacity"
+          },
+          "assignTenant": {
+            "description": "Assign tenant to unit and update status",
+            "parameters": ["unit_id", "tenant_id", "start_date"],
+            "validation": "Unit is available, tenant exists and has no active rental",
+            "business_logic": "Update unit status to occupied, set current_tenant_id, create unit contract record"
+          },
+          "releaseTenant": {
+            "description": "Remove tenant from unit and update availability",
+            "parameters": ["unit_id", "end_date", "reason"],
+            "validation": "Unit has current tenant",
+            "business_logic": "Set current_tenant_id to null, update status to available, set available_from date"
+          },
+          "updateUnitStatus": {
+            "description": "Update unit status with business rule validation",
+            "parameters": ["unit_id", "new_status_id", "reason"],
+            "validation": "Status transition is valid, user has permission",
+            "business_logic": "Check tenant occupancy rules, validate status workflow, update availability dates"
+          }
+        },
+        "business_operations": {
+          "checkAvailability": {
+            "description": "Check unit availability for specific date range",
+            "parameters": ["unit_id", "start_date", "end_date"],
+            "return": "boolean with availability status and next available date",
+            "logic": "Check current tenant, status, maintenance schedule, and existing reservations"
+          },
+          "calculatePricing": {
+            "description": "Calculate rental pricing for different periods with discounts",
+            "parameters": ["unit_id", "period_type", "duration", "discount_percentage"],
+            "return": "pricing breakdown with totals and discounts",
+            "logic": "Base rent * duration, apply bulk discounts, calculate taxes and fees"
+          },
+          "generateUnitCode": {
+            "description": "Generate unique unit code based on property and unit number",
+            "parameters": ["property_id", "unit_number"],
+            "return": "formatted unit code (e.g., PROP001-U101)",
+            "logic": "Property code prefix + unit number with validation"
+          },
+          "getOccupancyHistory": {
+            "description": "Get unit occupancy history and statistics",
+            "parameters": ["unit_id", "date_range"],
+            "return": "occupancy periods, vacancy duration, revenue totals",
+            "logic": "Analyze contracts history, calculate occupancy rate and revenue"
+          }
+        },
+        "query_operations": {
+          "getAvailableUnits": {
+            "description": "Get available units with optional filtering",
+            "parameters": ["filters", "sort_options"],
+            "return": "filtered collection of available units",
+            "logic": "Status = available, no current tenant, active units only"
+          },
+          "getUnitsByProperty": {
+            "description": "Get all units for specific property with details",
+            "parameters": ["property_id", "include_relations"],
+            "return": "property units with occupancy status",
+            "logic": "Property units with current tenant, status, and availability info"
+          },
+          "searchUnits": {
+            "description": "Advanced unit search with multiple criteria",
+            "parameters": ["search_criteria"],
+            "return": "matching units with relevance scoring",
+            "logic": "Search by unit number, property name, tenant name, area, price range"
+          },
+          "getUnitsRequiringMaintenance": {
+            "description": "Get units due for maintenance",
+            "parameters": ["maintenance_type", "due_date"],
+            "return": "units requiring maintenance attention",
+            "logic": "Check maintenance schedules, overdue items, and status requirements"
+          }
+        },
+        "integration_operations": {
+          "syncWithPropertySystem": {
+            "description": "Sync unit data with external property management system",
+            "parameters": ["property_id", "sync_options"],
+            "return": "sync status and any conflicts",
+            "logic": "Compare data, identify changes, update units, resolve conflicts"
+          },
+          "exportUnitsData": {
+            "description": "Export units data for reporting or external systems",
+            "parameters": ["export_format", "filter_criteria"],
+            "return": "formatted export file (CSV, Excel, PDF)",
+            "logic": "Apply filters, format data, generate file with proper headers"
+          },
+          "importUnitsFromFile": {
+            "description": "Import units from CSV/Excel file with validation",
+            "parameters": ["file_path", "mapping_config"],
+            "return": "import results with success/error counts",
+            "logic": "Validate file format, check data integrity, create/update units"
+          }
+        }
+      },
+      "screens": {
+        "list": {
+          "permissions": ["view_units"],
+          "filament_template": "resource index",
+          "components": {
+            "table": {
+              "columns": {
+                "unit_code": {
+                  "label": "كود الوحدة / Unit Code",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "format": "PROP-{property.code}-U{unit_number}",
+                  "width": "120px",
+                  "align": "center"
+                },
+                "property_name": {
+                  "label": "العقار / Property",
+                  "type": "link",
+                  "sortable": true,
+                  "searchable": true,
+                  "relationship": "property.name",
+                  "url": "/admin/properties/{property.id}",
+                  "width": "200px"
+                },
+                "unit_number": {
+                  "label": "رقم الوحدة / Unit Number",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "100px",
+                  "align": "center"
+                },
+                "floor_number": {
+                  "label": "الدور / Floor",
+                  "type": "number",
+                  "sortable": true,
+                  "width": "80px",
+                  "align": "center"
+                },
+                "unit_type": {
+                  "label": "النوع / Type",
+                  "type": "badge",
+                  "sortable": true,
+                  "format": "enum_label",
+                  "width": "120px"
+                },
+                "rooms_bathrooms": {
+                  "label": "الغرف/الحمامات / Rooms/Baths",
+                  "type": "text",
+                  "format": "{rooms_count}R/{bathrooms_count}B",
+                  "width": "120px",
+                  "align": "center"
+                },
+                "area_sqm": {
+                  "label": "المساحة / Area",
+                  "type": "text",
+                  "sortable": true,
+                  "format": "{area_sqm} م²",
+                  "width": "100px",
+                  "align": "center"
+                },
+                "rent_price": {
+                  "label": "الإيجار الشهري / Monthly Rent",
+                  "type": "text",
+                  "sortable": true,
+                  "format": "currency:SAR",
+                  "width": "130px",
+                  "align": "right"
+                },
+                "status": {
+                  "label": "الحالة / Status",
+                  "type": "badge",
+                  "sortable": true,
+                  "format": "status_badge",
+                  "width": "100px"
+                },
+                "current_tenant": {
+                  "label": "المستأجر الحالي / Current Tenant",
+                  "type": "link",
+                  "searchable": true,
+                  "relationship": "currentTenant.name",
+                  "url": "/admin/tenants/{currentTenant.id}",
+                  "width": "150px"
+                },
+                "available_from": {
+                  "label": "متاح من / Available From",
+                  "type": "date",
+                  "sortable": true,
+                  "format": "date:d/m/Y",
+                  "width": "120px"
+                }
+              },
+              "filters": {
+                "property_filter": {
+                  "type": "SelectFilter",
+                  "label": "العقار / Property",
+                  "relationship": "property",
+                  "searchable": true,
+                  "multiple": true
+                },
+                "status_filter": {
+                  "type": "SelectFilter", 
+                  "label": "حالة الوحدة / Unit Status",
+                  "relationship": "status",
+                  "multiple": true
+                },
+                "unit_type_filter": {
+                  "type": "SelectFilter",
+                  "label": "نوع الوحدة / Unit Type",
+                  "options": {
+                    "studio": "ستوديو / Studio",
+                    "apartment": "شقة / Apartment",
+                    "duplex": "دوبلكس / Duplex",
+                    "penthouse": "بنت هاوس / Penthouse",
+                    "office": "مكتب / Office",
+                    "shop": "محل تجاري / Shop",
+                    "warehouse": "مستودع / Warehouse"
+                  },
+                  "multiple": true
+                },
+                "price_range_filter": {
+                  "type": "Filter",
+                  "label": "نطاق السعر / Price Range",
+                  "form": [
+                    "TextInput::make('price_from')->numeric()->label('من / From')->prefix('SAR')",
+                    "TextInput::make('price_to')->numeric()->label('إلى / To')->prefix('SAR')"
+                  ],
+                  "query": "whereBetween('rent_price', [$data['price_from'], $data['price_to']])"
+                },
+                "rooms_filter": {
+                  "type": "SelectFilter",
+                  "label": "عدد الغرف / Rooms Count",
+                  "options": {
+                    "0": "ستوديو / Studio",
+                    "1": "غرفة واحدة / 1 Room",
+                    "2": "غرفتان / 2 Rooms",
+                    "3": "3 غرف / 3 Rooms",
+                    "4": "4 غرف / 4 Rooms",
+                    "5": "5+ غرف / 5+ Rooms"
+                  },
+                  "multiple": true
+                },
+                "area_range_filter": {
+                  "type": "Filter",
+                  "label": "نطاق المساحة / Area Range",
+                  "form": [
+                    "TextInput::make('area_from')->numeric()->label('من / From')->suffix('م²')",
+                    "TextInput::make('area_to')->numeric()->label('إلى / To')->suffix('م²')"
+                  ],
+                  "query": "whereBetween('area_sqm', [$data['area_from'], $data['area_to']])"
+                },
+                "furnished_filter": {
+                  "type": "TernaryFilter",
+                  "label": "مفروش / Furnished",
+                  "trueLabel": "مفروش / Furnished",
+                  "falseLabel": "غير مفروش / Unfurnished",
+                  "placeholder": "الكل / All"
+                },
+                "tenant_filter": {
+                  "type": "SelectFilter",
+                  "label": "المستأجر / Tenant",
+                  "relationship": "currentTenant",
+                  "searchable": true,
+                  "multiple": true
+                },
+                "availability_filter": {
+                  "type": "Filter",
+                  "label": "متاح في / Available On",
+                  "form": [
+                    "DatePicker::make('available_date')->label('التاريخ / Date')"
+                  ],
+                  "query": "where('available_from', '<=', $data['available_date'])->whereHas('status', fn($q) => $q->where('is_available', true))"
+                }
+              },
+              "record_actions": [
+                {
+                  "name": "view",
+                  "label": "عرض / View",
+                  "icon": "heroicon-o-eye",
+                  "url": "/admin/units/{record}/view"
+                },
+                {
+                  "name": "edit",
+                  "label": "تعديل / Edit", 
+                  "icon": "heroicon-o-pencil",
+                  "url": "/admin/units/{record}/edit"
+                },
+                {
+                  "name": "assign_tenant",
+                  "label": "تخصيص مستأجر / Assign Tenant",
+                  "icon": "heroicon-o-user-plus",
+                  "action": "assignTenantAction",
+                  "visible": "record.isAvailable()"
+                },
+                {
+                  "name": "release_tenant",
+                  "label": "تحرير الوحدة / Release Unit",
+                  "icon": "heroicon-o-user-minus",
+                  "action": "releaseTenantAction",
+                  "visible": "record.isOccupied()",
+                  "color": "warning"
+                },
+                {
+                  "name": "maintenance",
+                  "label": "صيانة / Maintenance",
+                  "icon": "heroicon-o-wrench-screwdriver",
+                  "url": "/admin/maintenance/units/{record}"
+                }
+              ],
+              "bulk_actions": [
+                {
+                  "name": "bulk_status_update",
+                  "label": "تحديث الحالة / Update Status",
+                  "icon": "heroicon-o-arrow-path",
+                  "action": "bulkStatusUpdate"
+                },
+                {
+                  "name": "bulk_export",
+                  "label": "تصدير / Export",
+                  "icon": "heroicon-o-arrow-down-tray",
+                  "action": "bulkExport"
+                },
+                {
+                  "name": "bulk_delete",
+                  "label": "حذف / Delete",
+                  "icon": "heroicon-o-trash",
+                  "action": "bulkDelete",
+                  "color": "danger",
+                  "requiresConfirmation": true
+                }
+              ],
+              "paginated": true,
+              "default_sort": "property_id,unit_number",
+              "records_per_page": [10, 25, 50, 100]
+            }
+          },
+          "interactions": {
+            "quick_tenant_assignment": {
+              "user_action": "Click assign tenant action",
+              "target": "Open tenant selection modal with available tenants"
+            },
+            "unit_availability_check": {
+              "user_action": "Click on unit row",
+              "target": "Show unit details with availability calendar"
+            }
+          }
+        },
+        "create": {
+          "permissions": ["create_units"],
+          "filament_template": "resource add/edit",
+          "components": {
+            "form": {
+              "sections": {
+                "basic_info_section": {
+                  "type": "section",
+                  "label": "المعلومات الأساسية / Basic Information",
+                  "fields": {
+                    "property_id": {
+                      "type": "select",
+                      "label": "العقار / Property",
+                      "relationship": "property",
+                      "searchable": true,
+                      "required": true,
+                      "reactive": true
+                    },
+                    "unit_number": {
+                      "type": "text",
+                      "label": "رقم الوحدة / Unit Number",
+                      "required": true,
+                      "unique": true,
+                      "placeholder": "مثال: 101, A-5"
+                    },
+                    "floor_number": {
+                      "type": "number",
+                      "label": "الدور / Floor Number",
+                      "required": true,
+                      "min": 0,
+                      "max": 200
+                    },
+                    "unit_type": {
+                      "type": "select",
+                      "label": "نوع الوحدة / Unit Type",
+                      "options": {
+                        "studio": "ستوديو / Studio",
+                        "apartment": "شقة / Apartment",
+                        "duplex": "دوبلكس / Duplex",
+                        "penthouse": "بنت هاوس / Penthouse",
+                        "office": "مكتب / Office",
+                        "shop": "محل تجاري / Shop",
+                        "warehouse": "مستودع / Warehouse"
+                      },
+                      "required": true,
+                      "default": "apartment"
+                    }
+                  }
+                },
+                "specifications_section": {
+                  "type": "section",
+                  "label": "المواصفات / Specifications",
+                  "fields": {
+                    "area_sqm": {
+                      "type": "number",
+                      "label": "المساحة (م²) / Area (sqm)",
+                      "required": true,
+                      "min": 1,
+                      "max": 10000,
+                      "step": 0.01,
+                      "suffix": "م²"
+                    },
+                    "rooms_count": {
+                      "type": "number",
+                      "label": "عدد الغرف / Rooms Count",
+                      "required": true,
+                      "min": 0,
+                      "max": 20
+                    },
+                    "bathrooms_count": {
+                      "type": "number",
+                      "label": "عدد الحمامات / Bathrooms Count",
+                      "required": true,
+                      "min": 0,
+                      "max": 10
+                    },
+                    "direction": {
+                      "type": "select",
+                      "label": "الاتجاه / Direction",
+                      "options": {
+                        "north": "شمال / North",
+                        "south": "جنوب / South",
+                        "east": "شرق / East",
+                        "west": "غرب / West",
+                        "northeast": "شمال شرق / Northeast",
+                        "northwest": "شمال غرب / Northwest",
+                        "southeast": "جنوب شرق / Southeast",
+                        "southwest": "جنوب غرب / Southwest"
+                      },
+                      "required": false
+                    },
+                    "view_type": {
+                      "type": "select",
+                      "label": "نوع الإطلالة / View Type",
+                      "options": {
+                        "street": "شارع / Street",
+                        "garden": "حديقة / Garden",
+                        "sea": "بحر / Sea",
+                        "city": "مدينة / City",
+                        "mountain": "جبل / Mountain",
+                        "courtyard": "فناء داخلي / Courtyard"
+                      },
+                      "required": false
+                    }
+                  }
+                },
+                "features_section": {
+                  "type": "section",
+                  "label": "المميزات / Features",
+                  "fields": {
+                    "furnished": {
+                      "type": "toggle",
+                      "label": "مفروش / Furnished",
+                      "default": false
+                    },
+                    "has_balcony": {
+                      "type": "toggle",
+                      "label": "يوجد بلكونة / Has Balcony",
+                      "default": false
+                    },
+                    "has_parking": {
+                      "type": "toggle",
+                      "label": "يوجد موقف سيارة / Has Parking",
+                      "default": false
+                    },
+                    "has_storage": {
+                      "type": "toggle",
+                      "label": "يوجد مخزن / Has Storage",
+                      "default": false
+                    },
+                    "has_maid_room": {
+                      "type": "toggle",
+                      "label": "يوجد غرفة خادمة / Has Maid Room",
+                      "default": false
+                    },
+                    "features": {
+                      "type": "checkbox_list",
+                      "label": "مميزات إضافية / Additional Features",
+                      "relationship": "features",
+                      "searchable": true
+                    }
+                  }
+                },
+                "pricing_section": {
+                  "type": "section",
+                  "label": "التسعير / Pricing",
+                  "fields": {
+                    "rent_price": {
+                      "type": "number",
+                      "label": "قيمة الإيجار الشهري / Monthly Rent",
+                      "required": true,
+                      "min": 0.01,
+                      "step": 0.01,
+                      "prefix": "SAR"
+                    },
+                    "unit_ranking": {
+                      "type": "select",
+                      "label": "التصنيف / Ranking",
+                      "options": {
+                        "economy": "اقتصادي / Economy",
+                        "standard": "عادي / Standard",
+                        "premium": "مميز / Premium",
+                        "luxury": "فاخر / Luxury"
+                      },
+                      "required": false
+                    }
+                  }
+                },
+                "status_section": {
+                  "type": "section",
+                  "label": "الحالة والإعدادات / Status & Settings",
+                  "fields": {
+                    "status_id": {
+                      "type": "select",
+                      "label": "حالة الوحدة / Unit Status",
+                      "relationship": "status",
+                      "required": true,
+                      "default": "available_status_id"
+                    },
+                    "available_from": {
+                      "type": "date",
+                      "label": "متاح من / Available From",
+                      "required": false,
+                      "format": "Y-m-d",
+                      "displayFormat": "d/m/Y"
+                    },
+                    "is_active": {
+                      "type": "toggle",
+                      "label": "نشط / Active",
+                      "default": true
+                    },
+                    "notes": {
+                      "type": "textarea",
+                      "label": "ملاحظات / Notes",
+                      "rows": 4,
+                      "columnSpanFull": true
+                    }
+                  }
+                }
+              },
+              "actions": {
+                "create": {
+                  "label": "إنشاء الوحدة / Create Unit",
+                  "icon": "heroicon-o-plus"
+                },
+                "create_another": {
+                  "label": "إنشاء وإضافة أخرى / Create & Add Another",
+                  "icon": "heroicon-o-plus"
+                },
+                "cancel": {
+                  "label": "إلغاء / Cancel",
+                  "icon": "heroicon-o-x-mark"
+                }
+              }
+            }
+          },
+          "interactions": {
+            "auto_unit_code_generation": {
+              "user_action": "Select property and enter unit number",
+              "target": "Auto-generate and display unit code preview"
+            },
+            "property_based_validation": {
+              "user_action": "Select property",
+              "target": "Load property-specific unit number format and validation rules"
+            }
+          }
+        },
+        "edit": {
+          "permissions": ["edit_units"],
+          "filament_template": "resource add/edit",
+          "components": {
+            "form": {
+              "fields": "Same as create form with additional tenant assignment section",
+              "sections": {
+                "tenant_assignment_section": {
+                  "type": "section",
+                  "label": "تخصيص المستأجر / Tenant Assignment",
+                  "fields": {
+                    "current_tenant_id": {
+                      "type": "select",
+                      "label": "المستأجر الحالي / Current Tenant",
+                      "relationship": "currentTenant",
+                      "searchable": true,
+                      "required": false
+                    },
+                    "tenant_start_date": {
+                      "type": "date",
+                      "label": "تاريخ بداية الإيجار / Rental Start Date",
+                      "required": false,
+                      "format": "Y-m-d"
+                    }
+                  }
+                }
+              },
+              "actions": {
+                "save": {
+                  "label": "حفظ / Save",
+                  "icon": "heroicon-o-check"
+                },
+                "save_and_continue": {
+                  "label": "حفظ ومتابعة التعديل / Save & Continue Editing",
+                  "icon": "heroicon-o-arrow-path"
+                },
+                "cancel": {
+                  "label": "إلغاء / Cancel",
+                  "icon": "heroicon-o-x-mark"
+                }
+              }
+            }
+          },
+          "interactions": {
+            "tenant_assignment_workflow": {
+              "user_action": "Select new tenant",
+              "target": "Validate tenant availability and update unit status automatically"
+            },
+            "status_transition_validation": {
+              "user_action": "Change unit status",
+              "target": "Validate status transition rules and tenant assignment consistency"
+            }
+          }
+        },
+        "view": {
+          "permissions": ["view_units"],
+          "filament_template": "resource view",
+          "components": {
+            "infolist": {
+              "sections": {
+                "basic_info": {
+                  "label": "المعلومات الأساسية / Basic Information",
+                  "fields": ["property.name", "unit_number", "floor_number", "unit_type", "unit_code"]
+                },
+                "specifications": {
+                  "label": "المواصفات / Specifications",
+                  "fields": ["area_sqm", "rooms_count", "bathrooms_count", "direction", "view_type"]
+                },
+                "features": {
+                  "label": "المميزات / Features", 
+                  "fields": ["furnished", "has_balcony", "has_parking", "has_storage", "has_maid_room", "features"]
+                },
+                "pricing": {
+                  "label": "التسعير / Pricing",
+                  "fields": ["rent_price", "unit_ranking"]
+                },
+                "tenant_info": {
+                  "label": "معلومات المستأجر / Tenant Information",
+                  "fields": ["currentTenant.name", "currentTenant.phone", "tenant_start_date"]
+                },
+                "status": {
+                  "label": "الحالة / Status",
+                  "fields": ["status", "available_from", "is_active"]
+                },
+                "notes": {
+                  "label": "الملاحظات / Notes",
+                  "fields": ["notes"]
+                },
+                "timestamps": {
+                  "label": "التواريخ / Timestamps",
+                  "fields": ["created_at", "updated_at"]
+                }
+              }
+            },
+            "actions": [
+              {
+                "name": "edit",
+                "label": "تعديل / Edit",
+                "icon": "heroicon-o-pencil",
+                "url": "/admin/units/{record}/edit"
+              },
+              {
+                "name": "assign_tenant",
+                "label": "تخصيص مستأجر / Assign Tenant",
+                "icon": "heroicon-o-user-plus",
+                "action": "assignTenantAction",
+                "visible": "record.isAvailable()"
+              },
+              {
+                "name": "view_contracts",
+                "label": "عرض العقود / View Contracts",
+                "icon": "heroicon-o-document-text",
+                "url": "/admin/contracts?unit_id={record}"
+              },
+              {
+                "name": "maintenance_history",
+                "label": "تاريخ الصيانة / Maintenance History",
+                "icon": "heroicon-o-wrench-screwdriver",
+                "url": "/admin/maintenance?unit_id={record}"
+              }
+            ]
+          },
+          "interactions": {}
+        }
+      }
+    },
+    "unit_status": {
+      "database_schema": {
+        "fields": {
+          "id": {
+            "type": "bigint",
+            "auto_increment": true,
+            "primary": true,
+            "fillable": false
+          },
+          "name_ar": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "index": true,
+            "validation": "required|string|max:100|unique:unit_statuses,name_ar",
+            "fillable": true
+          },
+          "name_en": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "index": true,
+            "validation": "required|string|max:100|unique:unit_statuses,name_en",
+            "fillable": true
+          },
+          "slug": {
+            "type": "string",
+            "length": 120,
+            "nullable": false,
+            "unique": true,
+            "index": "unique",
+            "validation": "required|string|max:120|unique:unit_statuses,slug|regex:/^[a-z0-9-]+$/",
+            "fillable": true
+          },
+          "color": {
+            "type": "string",
+            "length": 20,
+            "nullable": false,
+            "default": "gray",
+            "validation": "required|string|max:20|in:gray,red,yellow,green,blue,indigo,purple,pink",
+            "fillable": true
+          },
+          "icon": {
+            "type": "string",
+            "length": 50,
+            "nullable": true,
+            "default": "heroicon-o-home",
+            "validation": "nullable|string|max:50",
+            "fillable": true
+          },
+          "description_ar": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string|max:1000",
+            "fillable": true
+          },
+          "description_en": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string|max:1000",
+            "fillable": true
+          },
+          "is_available": {
+            "type": "bool",
+            "nullable": false,
+            "default": true,
+            "index": true,
+            "validation": "required|boolean",
+            "fillable": true
+          },
+          "allows_tenant_assignment": {
+            "type": "bool",
+            "nullable": false,
+            "default": true,
+            "validation": "required|boolean",
+            "fillable": true
+          },
+          "requires_maintenance": {
+            "type": "bool",
+            "nullable": false,
+            "default": false,
+            "validation": "required|boolean",
+            "fillable": true
+          },
+          "is_active": {
+            "type": "bool",
+            "nullable": false,
+            "default": true,
+            "index": true,
+            "validation": "required|boolean",
+            "fillable": true
+          },
+          "sort_order": {
+            "type": "int",
+            "nullable": false,
+            "default": 0,
+            "index": true,
+            "validation": "required|integer|min:0",
+            "fillable": true
+          },
+          "units_count": {
+            "type": "int",
+            "nullable": false,
+            "default": 0,
+            "validation": "integer|min:0",
+            "fillable": false
+          },
+          "created_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          },
+          "updated_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          }
+        },
+        "indexes": {
+          "idx_unit_statuses_active_sort": ["is_active", "sort_order"],
+          "idx_unit_statuses_availability": ["is_available", "allows_tenant_assignment"],
+          "idx_unit_statuses_name_search": ["name_ar", "name_en"]
+        },
+        "constraints": {}
+      },
+      "tests": {
+        "unit": {
+          "test_unit_status_has_required_fields": {
+            "description": "Test unit status requires name_ar, name_en, slug, and color",
+            "input": {
+              "name_ar": "",
+              "name_en": "",
+              "slug": "",
+              "color": ""
+            },
+            "expected": "validation errors",
+            "assertions": ["assertHasErrors(['name_ar', 'name_en', 'slug', 'color'])"]
+          },
+          "test_unit_status_color_validation": {
+            "description": "Test unit status color is validated against allowed values",
+            "input": {
+              "color": "invalid_color"
+            },
+            "expected": "validation error",
+            "assertions": ["assertHasErrors(['color'])"]
+          },
+          "test_unit_status_transition_rules": {
+            "description": "Test status transition business rules",
+            "input": {
+              "from_status": "occupied",
+              "to_status": "maintenance"
+            },
+            "expected": "transition allowed",
+            "assertions": ["assertTrue($fromStatus->canTransitionTo($toStatus))"]
+          },
+          "test_unit_status_badge_rendering": {
+            "description": "Test status badge rendering with correct color and label",
+            "input": {
+              "status": "available",
+              "locale": "ar"
+            },
+            "expected": "green badge with Arabic label",
+            "assertions": ["assertEquals('green', $status->getBadgeColor())", "assertEquals('متاح', $status->name)"]
+          }
+        },
+        "feature": {
+          "test_unit_status_workflow_transitions": {
+            "scenario": "Manager changes unit status through workflow",
+            "steps": [
+              "Create unit with available status",
+              "Assign tenant to unit",
+              "Status automatically changes to occupied",
+              "Release tenant from unit", 
+              "Status changes back to available"
+            ],
+            "expected_result": "Status transitions follow business rules and update automatically"
+          },
+          "test_unit_status_affects_availability": {
+            "scenario": "Unit availability is controlled by status settings",
+            "steps": [
+              "Create status with is_available = false",
+              "Assign status to unit",
+              "Try to assign tenant to unit",
+              "Assignment should be blocked"
+            ],
+            "expected_result": "Unit availability is properly controlled by status configuration"
+          }
+        },
+        "playwright_mcp": {
+          "test_unit_status_management": {
+            "tools": ["mcp__playwright__browser_navigate", "mcp__playwright__browser_click", "mcp__playwright__browser_type"],
+            "flow": [
+              "Navigate to /admin/unit-statuses",
+              "Create new status with specific rules",
+              "Edit status configuration",
+              "Test status assignment to units",
+              "Verify status transition workflow"
+            ],
+            "validations": [
+              "Status appears in unit forms",
+              "Status rules are enforced",
+              "Badge colors display correctly",
+              "Workflow transitions work properly"
+            ]
+          }
+        }
+      },
+      "processes": {
+        "custom_crud_operations": {
+          "createStatus": {
+            "description": "Create unit status with workflow rules validation",
+            "parameters": ["status_data", "workflow_rules"],
+            "validation": "Status name uniqueness, valid color, workflow consistency",
+            "business_logic": "Auto-generate slug, validate workflow rules, set default sort order"
+          },
+          "updateStatusRules": {
+            "description": "Update status workflow rules with impact validation",
+            "parameters": ["status_id", "new_rules"],
+            "validation": "Check impact on existing units, validate rule consistency",
+            "business_logic": "Update rules, notify affected units, maintain workflow integrity"
+          }
+        },
+        "business_operations": {
+          "validateStatusTransition": {
+            "description": "Validate status transition against business rules",
+            "parameters": ["from_status_id", "to_status_id", "unit_context"],
+            "return": "boolean with validation result and reasons",
+            "logic": "Check workflow rules, tenant occupancy, maintenance requirements"
+          },
+          "getAvailableStatuses": {
+            "description": "Get available statuses for unit based on current state",
+            "parameters": ["unit_id", "user_permissions"],
+            "return": "filtered list of allowed status transitions",
+            "logic": "Apply workflow rules, check permissions, filter based on unit state"
+          }
+        },
+        "query_operations": {
+          "getStatusUsageStatistics": {
+            "description": "Get status usage statistics across units",
+            "parameters": ["date_range", "property_filter"],
+            "return": "status distribution and trends",
+            "logic": "Count units by status, calculate percentages, identify trends"
+          }
+        },
+        "integration_operations": {
+          "syncStatusWorkflow": {
+            "description": "Sync status workflow with external systems",
+            "parameters": ["external_system", "mapping_config"],
+            "return": "sync status and mapping results",
+            "logic": "Map status values, sync workflow rules, resolve conflicts"
+          }
+        }
+      },
+      "screens": {
+        "list": {
+          "permissions": ["view_unit_statuses"],
+          "filament_template": "resource index",
+          "components": {
+            "table": {
+              "columns": {
+                "name_display": {
+                  "label": "الاسم / Name",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "format": "{name_ar} / {name_en}",
+                  "width": "200px"
+                },
+                "slug": {
+                  "label": "المعرف / Slug",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "150px"
+                },
+                "badge_preview": {
+                  "label": "شكل الحالة / Badge Preview",
+                  "type": "badge",
+                  "format": "status_badge_preview",
+                  "width": "120px"
+                },
+                "availability_settings": {
+                  "label": "إعدادات الإتاحة / Availability Settings",
+                  "type": "text",
+                  "format": "availability_summary",
+                  "width": "200px"
+                },
+                "units_count": {
+                  "label": "عدد الوحدات / Units Count",
+                  "type": "number",
+                  "sortable": true,
+                  "width": "100px",
+                  "align": "center"
+                },
+                "sort_order": {
+                  "label": "الترتيب / Order",
+                  "type": "number",
+                  "sortable": true,
+                  "width": "80px",
+                  "align": "center"
+                },
+                "is_active": {
+                  "label": "نشط / Active",
+                  "type": "boolean",
+                  "sortable": true,
+                  "width": "80px"
+                }
+              },
+              "filters": {
+                "active_filter": {
+                  "type": "TernaryFilter",
+                  "label": "نشط / Active",
+                  "trueLabel": "نشط / Active",
+                  "falseLabel": "غير نشط / Inactive",
+                  "placeholder": "الكل / All"
+                },
+                "availability_filter": {
+                  "type": "TernaryFilter",
+                  "label": "متاح للتأجير / Available for Rent",
+                  "trueLabel": "متاح / Available",
+                  "falseLabel": "غير متاح / Unavailable",
+                  "placeholder": "الكل / All"
+                },
+                "color_filter": {
+                  "type": "SelectFilter",
+                  "label": "اللون / Color",
+                  "options": {
+                    "gray": "رمادي / Gray",
+                    "red": "أحمر / Red",
+                    "yellow": "أصفر / Yellow",
+                    "green": "أخضر / Green",
+                    "blue": "أزرق / Blue",
+                    "indigo": "نيلي / Indigo",
+                    "purple": "بنفسجي / Purple",
+                    "pink": "وردي / Pink"
+                  }
+                }
+              },
+              "record_actions": [
+                {
+                  "name": "view",
+                  "label": "عرض / View",
+                  "icon": "heroicon-o-eye"
+                },
+                {
+                  "name": "edit",
+                  "label": "تعديل / Edit",
+                  "icon": "heroicon-o-pencil"
+                }
+              ],
+              "bulk_actions": [
+                {
+                  "name": "bulk_activate",
+                  "label": "تفعيل / Activate",
+                  "icon": "heroicon-o-check",
+                  "action": "bulkActivate"
+                },
+                {
+                  "name": "bulk_deactivate",
+                  "label": "إلغاء تفعيل / Deactivate",
+                  "icon": "heroicon-o-x-mark",
+                  "action": "bulkDeactivate"
+                }
+              ],
+              "paginated": true,
+              "default_sort": "sort_order,name_ar"
+            }
+          },
+          "interactions": {}
+        }
+      }
+    },
+    "unit_feature": {
+      "database_schema": {
+        "fields": {
+          "id": {
+            "type": "bigint",
+            "auto_increment": true,
+            "primary": true,
+            "fillable": false
+          },
+          "name_ar": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "index": true,
+            "validation": "required|string|max:100|unique:unit_features,name_ar",
+            "fillable": true
+          },
+          "name_en": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "index": true,
+            "validation": "required|string|max:100|unique:unit_features,name_en",
+            "fillable": true
+          },
+          "slug": {
+            "type": "string",
+            "length": 120,
+            "nullable": false,
+            "unique": true,
+            "index": "unique",
+            "validation": "required|string|max:120|unique:unit_features,slug|regex:/^[a-z0-9-]+$/",
+            "fillable": true
+          },
+          "category": {
+            "type": "enum",
+            "values": ["basic", "amenities", "safety", "luxury", "services"],
+            "nullable": false,
+            "default": "basic",
+            "index": true,
+            "validation": "required|in:basic,amenities,safety,luxury,services",
+            "fillable": true
+          },
+          "icon": {
+            "type": "string",
+            "length": 50,
+            "nullable": true,
+            "default": "heroicon-o-star",
+            "validation": "nullable|string|max:50",
+            "fillable": true
+          },
+          "description_ar": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string|max:1000",
+            "fillable": true
+          },
+          "description_en": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string|max:1000",
+            "fillable": true
+          },
+          "requires_value": {
+            "type": "bool",
+            "nullable": false,
+            "default": false,
+            "validation": "required|boolean",
+            "fillable": true
+          },
+          "value_type": {
+            "type": "enum",
+            "values": ["boolean", "number", "text", "select"],
+            "nullable": true,
+            "validation": "nullable|in:boolean,number,text,select|required_if:requires_value,true",
+            "fillable": true
+          },
+          "value_options": {
+            "type": "json",
+            "nullable": true,
+            "validation": "nullable|json|required_if:value_type,select",
+            "fillable": true
+          },
+          "is_active": {
+            "type": "bool",
+            "nullable": false,
+            "default": true,
+            "index": true,
+            "validation": "required|boolean",
+            "fillable": true
+          },
+          "sort_order": {
+            "type": "int",
+            "nullable": false,
+            "default": 0,
+            "index": true,
+            "validation": "required|integer|min:0",
+            "fillable": true
+          },
+          "created_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          },
+          "updated_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          }
+        },
+        "indexes": {
+          "idx_unit_features_category_sort": ["category", "sort_order"],
+          "idx_unit_features_active": ["is_active", "category"],
+          "idx_unit_features_name_search": ["name_ar", "name_en"]
+        },
+        "constraints": {}
+      },
+      "tests": {
+        "unit": {
+          "test_unit_feature_has_required_fields": {
+            "description": "Test unit feature requires name_ar, name_en, slug, and category",
+            "input": {
+              "name_ar": "",
+              "name_en": "",
+              "slug": "",
+              "category": ""
+            },
+            "expected": "validation errors",
+            "assertions": ["assertHasErrors(['name_ar', 'name_en', 'slug', 'category'])"]
+          },
+          "test_feature_value_type_validation": {
+            "description": "Test feature value type validation when requires_value is true",
+            "input": {
+              "requires_value": true,
+              "value_type": null
+            },
+            "expected": "validation error",
+            "assertions": ["assertHasErrors(['value_type'])"]
+          },
+          "test_feature_category_grouping": {
+            "description": "Test features are properly grouped by category",
+            "input": {
+              "category": "amenities"
+            },
+            "expected": "feature grouped under amenities",
+            "assertions": ["assertEquals('amenities', $feature->category)"]
+          },
+          "test_feature_value_formatting": {
+            "description": "Test feature value formatting based on type",
+            "input": {
+              "value_type": "number",
+              "pivot_value": "5"
+            },
+            "expected": "formatted as number",
+            "assertions": ["assertEquals(5, $feature->getFormattedValue('5'))"]
+          }
+        },
+        "feature": {
+          "test_unit_can_attach_multiple_features": {
+            "scenario": "Unit can have multiple features attached with different values",
+            "steps": [
+              "Create unit",
+              "Create multiple features with different value types",
+              "Attach features to unit with appropriate values",
+              "Verify feature attachment and values"
+            ],
+            "expected_result": "Unit has all features attached with correct values"
+          },
+          "test_feature_values_are_validated_by_type": {
+            "scenario": "Feature values are validated based on their defined type",
+            "steps": [
+              "Create feature with number value type",
+              "Try to attach feature with text value",
+              "Validation should fail",
+              "Attach feature with numeric value",
+              "Validation should pass"
+            ],
+            "expected_result": "Feature values are properly validated based on their type"
+          },
+          "test_feature_filtering_in_unit_search": {
+            "scenario": "Units can be filtered by attached features",
+            "steps": [
+              "Create units with different features",
+              "Search units by specific feature",
+              "Verify only units with that feature are returned",
+              "Search units by feature value",
+              "Verify filtering by feature values works"
+            ],
+            "expected_result": "Unit search correctly filters by features and feature values"
+          }
+        },
+        "playwright_mcp": {
+          "test_unit_feature_management": {
+            "tools": ["mcp__playwright__browser_navigate", "mcp__playwright__browser_click", "mcp__playwright__browser_type"],
+            "flow": [
+              "Navigate to /admin/unit-features",
+              "Create new feature with value requirements",
+              "Test feature assignment to units",
+              "Verify feature appears in unit forms",
+              "Test feature value validation"
+            ],
+            "validations": [
+              "Feature appears in unit feature lists",
+              "Value type validation works correctly",
+              "Feature categories organize properly",
+              "Feature search and filtering works"
+            ]
+          }
+        }
+      },
+      "processes": {
+        "custom_crud_operations": {
+          "createFeature": {
+            "description": "Create unit feature with value type configuration",
+            "parameters": ["feature_data", "value_config"],
+            "validation": "Feature name uniqueness, valid category, value type consistency",
+            "business_logic": "Auto-generate slug, validate value configuration, set category sort order"
+          },
+          "attachFeatureToUnit": {
+            "description": "Attach feature to unit with value validation",
+            "parameters": ["unit_id", "feature_id", "value"],
+            "validation": "Unit exists, feature exists, value matches feature type",
+            "business_logic": "Validate value type, store feature value, update unit features"
+          }
+        },
+        "business_operations": {
+          "validateFeatureValue": {
+            "description": "Validate feature value against feature type requirements",
+            "parameters": ["feature_id", "value"],
+            "return": "boolean with validation result and formatted value",
+            "logic": "Check value type, validate against options, format value appropriately"
+          },
+          "getFeaturesByCategory": {
+            "description": "Get features grouped by category for forms",
+            "parameters": ["include_inactive"],
+            "return": "features grouped by category with proper sorting",
+            "logic": "Group by category, sort within categories, filter by active status"
+          }
+        },
+        "query_operations": {
+          "searchUnitsByFeatures": {
+            "description": "Search units by attached features and values",
+            "parameters": ["feature_criteria", "value_filters"],
+            "return": "units matching feature criteria",
+            "logic": "Join with feature pivot, apply feature filters, match values"
+          },
+          "getFeatureUsageStatistics": {
+            "description": "Get feature usage statistics across units",
+            "parameters": ["category_filter"],
+            "return": "feature usage counts and percentages",
+            "logic": "Count feature usage, calculate percentages, group by category"
+          }
+        },
+        "integration_operations": {
+          "importFeaturesFromProperty": {
+            "description": "Import available features from property management system",
+            "parameters": ["property_id", "mapping_config"],
+            "return": "imported features and mapping results",
+            "logic": "Map property features to unit features, handle value types, sync data"
+          }
+        }
+      },
+      "screens": {
+        "list": {
+          "permissions": ["view_unit_features"],
+          "filament_template": "resource index",
+          "components": {
+            "table": {
+              "columns": {
+                "name_display": {
+                  "label": "الاسم / Name",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "format": "{name_ar} / {name_en}",
+                  "width": "200px"
+                },
+                "category": {
+                  "label": "الفئة / Category",
+                  "type": "badge",
+                  "sortable": true,
+                  "format": "category_badge",
+                  "width": "120px"
+                },
+                "value_type": {
+                  "label": "نوع القيمة / Value Type",
+                  "type": "text",
+                  "sortable": true,
+                  "format": "value_type_label",
+                  "width": "120px"
+                },
+                "requires_value": {
+                  "label": "يتطلب قيمة / Requires Value",
+                  "type": "boolean",
+                  "sortable": true,
+                  "width": "120px"
+                },
+                "usage_count": {
+                  "label": "عدد الاستخدام / Usage Count",
+                  "type": "number",
+                  "sortable": true,
+                  "width": "100px",
+                  "align": "center"
+                },
+                "sort_order": {
+                  "label": "الترتيب / Order",
+                  "type": "number",
+                  "sortable": true,
+                  "width": "80px",
+                  "align": "center"
+                },
+                "is_active": {
+                  "label": "نشط / Active",
+                  "type": "boolean",
+                  "sortable": true,
+                  "width": "80px"
+                }
+              },
+              "filters": {
+                "category_filter": {
+                  "type": "SelectFilter",
+                  "label": "الفئة / Category",
+                  "options": {
+                    "basic": "أساسية / Basic",
+                    "amenities": "مرافق / Amenities",
+                    "safety": "أمان / Safety",
+                    "luxury": "فاخرة / Luxury",
+                    "services": "خدمات / Services"
+                  },
+                  "multiple": true
+                },
+                "value_type_filter": {
+                  "type": "SelectFilter",
+                  "label": "نوع القيمة / Value Type",
+                  "options": {
+                    "boolean": "منطقي / Boolean",
+                    "number": "رقمي / Number",
+                    "text": "نصي / Text",
+                    "select": "اختيار / Select"
+                  },
+                  "multiple": true
+                },
+                "active_filter": {
+                  "type": "TernaryFilter",
+                  "label": "نشط / Active",
+                  "trueLabel": "نشط / Active",
+                  "falseLabel": "غير نشط / Inactive",
+                  "placeholder": "الكل / All"
+                }
+              },
+              "record_actions": [
+                {
+                  "name": "view",
+                  "label": "عرض / View",
+                  "icon": "heroicon-o-eye"
+                },
+                {
+                  "name": "edit",
+                  "label": "تعديل / Edit",
+                  "icon": "heroicon-o-pencil"
+                }
+              ],
+              "bulk_actions": [
+                {
+                  "name": "bulk_activate",
+                  "label": "تفعيل / Activate",
+                  "icon": "heroicon-o-check"
+                },
+                {
+                  "name": "bulk_categorize",
+                  "label": "تصنيف / Categorize",
+                  "icon": "heroicon-o-tag"
+                }
+              ],
+              "paginated": true,
+              "default_sort": "category,sort_order"
+            }
+          },
+          "interactions": {}
+        }
+      }
+    }
+  },
+  "shared": {
+    "processes": {
+      "unit_availability_service": {
+        "checkUnitAvailability": {
+          "description": "Comprehensive unit availability checking with date range",
+          "parameters": ["unit_id", "start_date", "end_date", "exclude_contract_id"],
+          "return": "availability status with details and suggestions",
+          "logic": "Check current tenant, status rules, maintenance schedule, existing reservations"
+        },
+        "getAvailabilityCalendar": {
+          "description": "Generate availability calendar for unit",
+          "parameters": ["unit_id", "date_range", "view_type"],
+          "return": "calendar data with availability periods and bookings",
+          "logic": "Build calendar with occupancy periods, maintenance blocks, available dates"
+        },
+        "calculateNextAvailableDate": {
+          "description": "Calculate next available date for unit rental",
+          "parameters": ["unit_id", "minimum_notice_days"],
+          "return": "next available date with reasoning",
+          "logic": "Consider current contracts, notice periods, maintenance schedules"
+        }
+      },
+      "tenant_assignment_service": {
+        "assignTenantToUnit": {
+          "description": "Complete tenant assignment workflow with validation",
+          "parameters": ["unit_id", "tenant_id", "contract_data", "start_date"],
+          "return": "assignment result with contract details",
+          "logic": "Validate availability, check tenant eligibility, create contract, update statuses"
+        },
+        "transferTenantBetweenUnits": {
+          "description": "Transfer tenant from one unit to another",
+          "parameters": ["from_unit_id", "to_unit_id", "tenant_id", "transfer_date"],
+          "return": "transfer result with updated contracts",
+          "logic": "End current contract, validate new unit, create new contract, update statuses"
+        },
+        "releaseTenantFromUnit": {
+          "description": "Release tenant from unit with proper workflow",
+          "parameters": ["unit_id", "tenant_id", "end_date", "reason"],
+          "return": "release result with final settlements",
+          "logic": "End contract, calculate settlements, update unit status, clear tenant assignment"
+        }
+      },
+      "unit_pricing_service": {
+        "calculateRentalPrice": {
+          "description": "Calculate rental price for different periods with discounts",
+          "parameters": ["unit_id", "period_type", "duration", "discount_rules"],
+          "return": "detailed pricing breakdown",
+          "logic": "Base rent × duration, apply discounts, add fees, calculate taxes"
+        },
+        "getMarketComparison": {
+          "description": "Compare unit pricing with market rates",
+          "parameters": ["unit_id", "comparison_criteria"],
+          "return": "market analysis with recommendations",
+          "logic": "Compare with similar units, analyze market trends, suggest optimizations"
+        },
+        "calculatePricingTiers": {
+          "description": "Calculate pricing tiers for different rental periods",
+          "parameters": ["unit_id", "tier_configuration"],
+          "return": "pricing tiers with discounts and incentives",
+          "logic": "Create pricing tiers, apply bulk discounts, consider seasonal adjustments"
+        }
+      },
+      "unit_search_service": {
+        "advancedUnitSearch": {
+          "description": "Advanced unit search with multiple criteria and filters",
+          "parameters": ["search_criteria", "filters", "sort_options"],
+          "return": "search results with relevance scoring and facets",
+          "logic": "Apply all filters, score relevance, provide faceted navigation"
+        },
+        "getSimilarUnits": {
+          "description": "Find units similar to given unit based on characteristics",
+          "parameters": ["reference_unit_id", "similarity_criteria", "max_results"],
+          "return": "similar units ranked by similarity score",
+          "logic": "Compare features, pricing, location, ranking to find similar units"
+        },
+        "getRecommendedUnits": {
+          "description": "Get recommended units for tenant based on preferences",
+          "parameters": ["tenant_id", "preferences", "budget_range"],
+          "return": "recommended units with match scores",
+          "logic": "Analyze tenant history, match preferences, consider budget constraints"
+        }
+      }
+    },
+    "validation_rules": {
+      "unit_business_rules": {
+        "unique_unit_number_per_property": "Unit number must be unique within the same property",
+        "floor_number_logical": "Floor number must be logical (basement = -1, ground = 0, etc.)",
+        "area_reasonable": "Unit area must be reasonable (minimum 10 sqm, maximum 10,000 sqm)",
+        "rooms_bathrooms_logical": "Bathroom count should not exceed room count + 2",
+        "rent_price_reasonable": "Rent price should be within market range for unit type and area",
+        "tenant_assignment_rules": "Unit must be available and tenant must not have active rental",
+        "status_transition_rules": "Status transitions must follow defined workflow rules"
+      },
+      "data_integrity_rules": {
+        "property_unit_consistency": "Unit must belong to active property with valid owner",
+        "tenant_single_occupancy": "Tenant can only occupy one unit at a time",
+        "status_availability_consistency": "Unit status must align with availability and tenant assignment",
+        "feature_value_validation": "Feature values must match feature type requirements",
+        "contract_unit_alignment": "Active contracts must reference valid units and tenants"
+      }
+    },
+    "seeder_data": {
+      "unit_statuses": [
+        {
+          "name_ar": "متاح",
+          "name_en": "Available",
+          "slug": "available",
+          "color": "green",
+          "icon": "heroicon-o-home",
+          "is_available": true,
+          "allows_tenant_assignment": true,
+          "sort_order": 1
+        },
+        {
+          "name_ar": "مؤجر",
+          "name_en": "Occupied",
+          "slug": "occupied",
+          "color": "blue",
+          "icon": "heroicon-o-user",
+          "is_available": false,
+          "allows_tenant_assignment": false,
+          "sort_order": 2
+        },
+        {
+          "name_ar": "تحت الصيانة",
+          "name_en": "Under Maintenance",
+          "slug": "maintenance",
+          "color": "yellow",
+          "icon": "heroicon-o-wrench-screwdriver",
+          "is_available": false,
+          "allows_tenant_assignment": false,
+          "requires_maintenance": true,
+          "sort_order": 3
+        },
+        {
+          "name_ar": "محجوز",
+          "name_en": "Reserved",
+          "slug": "reserved",
+          "color": "purple",
+          "icon": "heroicon-o-bookmark",
+          "is_available": false,
+          "allows_tenant_assignment": true,
+          "sort_order": 4
+        },
+        {
+          "name_ar": "غير متاح",
+          "name_en": "Unavailable",
+          "slug": "unavailable",
+          "color": "red",
+          "icon": "heroicon-o-x-circle",
+          "is_available": false,
+          "allows_tenant_assignment": false,
+          "sort_order": 5
+        }
+      ],
+      "unit_features": [
+        {
+          "name_ar": "بلكونة",
+          "name_en": "Balcony",
+          "slug": "balcony",
+          "category": "basic",
+          "icon": "heroicon-o-sun",
+          "requires_value": false,
+          "sort_order": 1
+        },
+        {
+          "name_ar": "موقف سيارة",
+          "name_en": "Parking",
+          "slug": "parking",
+          "category": "basic",
+          "icon": "heroicon-o-truck",
+          "requires_value": true,
+          "value_type": "number",
+          "sort_order": 2
+        },
+        {
+          "name_ar": "مخزن",
+          "name_en": "Storage",
+          "slug": "storage",
+          "category": "basic",
+          "icon": "heroicon-o-archive-box",
+          "requires_value": false,
+          "sort_order": 3
+        },
+        {
+          "name_ar": "حديقة",
+          "name_en": "Garden",
+          "slug": "garden",
+          "category": "amenities",
+          "icon": "heroicon-o-leaf",
+          "requires_value": true,
+          "value_type": "text",
+          "sort_order": 4
+        },
+        {
+          "name_ar": "غرفة خادمة",
+          "name_en": "Maid Room",
+          "slug": "maid-room",
+          "category": "amenities",
+          "icon": "heroicon-o-home",
+          "requires_value": false,
+          "sort_order": 5
+        },
+        {
+          "name_ar": "غرفة غسيل",
+          "name_en": "Laundry Room",
+          "slug": "laundry-room",
+          "category": "amenities",
+          "icon": "heroicon-o-sparkles",
+          "requires_value": false,
+          "sort_order": 6
+        },
+        {
+          "name_ar": "مصعد",
+          "name_en": "Elevator",
+          "slug": "elevator",
+          "category": "amenities",
+          "icon": "heroicon-o-arrow-up",
+          "requires_value": false,
+          "sort_order": 7
+        },
+        {
+          "name_ar": "نظام أمني",
+          "name_en": "Security System",
+          "slug": "security-system",
+          "category": "safety",
+          "icon": "heroicon-o-shield-check",
+          "requires_value": true,
+          "value_type": "select",
+          "value_options": {
+            "cameras": "كاميرات / Cameras",
+            "alarm": "إنذار / Alarm",
+            "access_control": "التحكم في الدخول / Access Control",
+            "full_system": "نظام متكامل / Full System"
+          },
+          "sort_order": 8
+        },
+        {
+          "name_ar": "مسبح",
+          "name_en": "Swimming Pool",
+          "slug": "swimming-pool",
+          "category": "luxury",
+          "icon": "heroicon-o-beaker",
+          "requires_value": true,
+          "value_type": "select",
+          "value_options": {
+            "private": "خاص / Private",
+            "shared": "مشترك / Shared"
+          },
+          "sort_order": 9
+        },
+        {
+          "name_ar": "خدمة تنظيف",
+          "name_en": "Cleaning Service",
+          "slug": "cleaning-service",
+          "category": "services",
+          "icon": "heroicon-o-sparkles",
+          "requires_value": true,
+          "value_type": "select",
+          "value_options": {
+            "weekly": "أسبوعي / Weekly",
+            "bi_weekly": "كل أسبوعين / Bi-weekly",
+            "monthly": "شهري / Monthly"
+          },
+          "sort_order": 10
+        }
+      ]
+    }
+  },
+  "tests": {
+    "integration": {
+      "test_unit_property_relationship_integrity": {
+        "description": "Test unit-property relationship maintains data integrity",
+        "scenario": "Verify units are properly linked to properties and follow business rules",
+        "test_cases": [
+          "Unit cannot exist without valid property",
+          "Property deletion cascades to units properly",
+          "Unit count updates when units are added/removed",
+          "Property capacity constraints are enforced"
+        ]
+      },
+      "test_unit_tenant_assignment_workflow": {
+        "description": "Test complete tenant assignment and release workflow",
+        "scenario": "Verify tenant assignment follows business rules and updates all related data",
+        "test_cases": [
+          "Available unit can be assigned to eligible tenant",
+          "Occupied unit cannot be assigned to another tenant",
+          "Tenant assignment updates unit status automatically",
+          "Tenant release makes unit available again",
+          "Contract creation follows assignment",
+          "Payment schedule generation works correctly"
+        ]
+      },
+      "test_unit_availability_and_status_management": {
+        "description": "Test unit availability checking and status management",
+        "scenario": "Verify availability logic works correctly across different scenarios",
+        "test_cases": [
+          "Status determines availability correctly",
+          "Maintenance status blocks tenant assignment",
+          "Reserved status allows specific tenant assignment",
+          "Availability dates are respected",
+          "Status transitions follow workflow rules"
+        ]
+      },
+      "test_unit_feature_and_pricing_system": {
+        "description": "Test unit features and pricing calculations",
+        "scenario": "Verify features can be attached and pricing calculated correctly",
+        "test_cases": [
+          "Features can be attached with proper values",
+          "Feature values are validated by type",
+          "Pricing calculations include feature premiums",
+          "Bulk pricing discounts work correctly",
+          "Market comparison provides accurate data"
+        ]
+      },
+      "test_unit_search_and_filtering": {
+        "description": "Test unit search and filtering functionality",
+        "scenario": "Verify search works correctly with complex criteria",
+        "test_cases": [
+          "Basic search by unit number works",
+          "Advanced filters combine properly",
+          "Feature-based filtering works correctly",
+          "Price range filtering is accurate",
+          "Availability filtering respects dates",
+          "Similar unit recommendations are relevant"
+        ]
+      }
+    },
+    "performance": {
+      "test_unit_listing_performance": {
+        "description": "Test unit listing performance with large datasets",
+        "scenario": "Ensure unit listing loads quickly with thousands of records",
+        "metrics": [
+          "Page load time < 500ms for 1000 units",
+          "Filter application < 200ms",
+          "Search response < 300ms",
+          "Memory usage remains under 128MB"
+        ]
+      },
+      "test_availability_checking_performance": {
+        "description": "Test availability checking performance",
+        "scenario": "Ensure availability checks are fast even with complex criteria",
+        "metrics": [
+          "Single unit availability check < 50ms",
+          "Bulk availability check for 100 units < 500ms",
+          "Calendar generation < 200ms",
+          "Database query optimization maintained"
+        ]
+      }
+    },
+    "security": {
+      "test_unit_access_permissions": {
+        "description": "Test unit access permissions and data security",
+        "scenario": "Verify users can only access units they have permission for",
+        "test_cases": [
+          "Property managers see only their property units",
+          "Tenants see only their own unit details",
+          "Owners see only units in their properties",
+          "Admin users have full access",
+          "Sensitive data is protected in API responses"
+        ]
+      },
+      "test_tenant_data_privacy": {
+        "description": "Test tenant data privacy and GDPR compliance",
+        "scenario": "Verify tenant personal data is properly protected",
+        "test_cases": [
+          "Tenant data not exposed in public listings",
+          "Historical tenant data properly anonymized",
+          "Data export respects privacy settings",
+          "Audit logs track data access"
+        ]
+      }
+    }
+  }
+}

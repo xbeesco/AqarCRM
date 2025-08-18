@@ -19,6 +19,9 @@ class DatabaseSeeder extends Seeder
             PropertyTypeSeeder::class,
             PropertyStatusSeeder::class,
             PropertyFeatureSeeder::class,
+            UnitStatusSeeder::class,
+            UnitFeatureSeeder::class,
+            UnitSeeder::class,
         ]);
 
         User::factory()->create([
