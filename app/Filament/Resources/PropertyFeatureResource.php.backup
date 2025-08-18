@@ -1,0 +1,239 @@
+<?php
+
+namespace App\Filament\Resources;
+
+use App\Filament\Resources\PropertyFeatureResource\Pages;
+use App\Models\PropertyFeature;
+use Filament\Forms;
+use Filament\Forms\Form;
+use Filament\Resources\Resource;
+use Filament\Tables;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+
+class PropertyFeatureResource extends Resource
+{
+    protected static ?string $model = PropertyFeature::class;
+
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-star';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Property Management';
+
+    protected static ?int $navigationSort = 3;
+
+    public static function getNavigationLabel(): string
+    {
+        return __('Property Features');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('Property Feature');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Property Features');
+    }
+
+    public static function form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                Forms\Components\Section::make('Basic Information')
+                    ->schema([
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('name_ar')
+                                    ->label('Arabic Name')
+                                    ->required()
+                                    ->maxLength(100),
+                                Forms\Components\TextInput::make('name_en')
+                                    ->label('English Name')
+                                    ->required()
+                                    ->maxLength(100),
+                            ]),
+                        Forms\Components\TextInput::make('slug')
+                            ->label('Slug')
+                            ->required()
+                            ->maxLength(120)
+                            ->unique(PropertyFeature::class, 'slug', ignoreRecord: true)
+                            ->regex('/^[a-z0-9-]+$/'),
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\Select::make('category')
+                                    ->label('Category')
+                                    ->required()
+                                    ->options([
+                                        'basics' => 'Basics',
+                                        'amenities' => 'Amenities',
+                                        'security' => 'Security',
+                                        'extras' => 'Extras',
+                                    ])
+                                    ->default('basics'),
+                                Forms\Components\TextInput::make('icon')
+                                    ->label('Icon')
+                                    ->maxLength(50)
+                                    ->default('heroicon-o-star'),
+                            ]),
+                    ]),
+                Forms\Components\Section::make('Value Configuration')
+                    ->schema([
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\Toggle::make('requires_value')
+                                    ->label('Requires Value')
+                                    ->default(false)
+                                    ->live(),
+                                Forms\Components\Select::make('value_type')
+                                    ->label('Value Type')
+                                    ->required()
+                                    ->options([
+                                        'boolean' => 'Yes/No',
+                                        'number' => 'Number',
+                                        'text' => 'Text',
+                                        'select' => 'Select from List',
+                                    ])
+                                    ->default('boolean')
+                                    ->live(),
+                            ]),
+                        Forms\Components\KeyValue::make('value_options')
+                            ->label('Value Options')
+                            ->keyLabel('Option Key')
+                            ->valueLabel('Option Label')
+                            ->visible(fn (Forms\Get $get): bool => $get('value_type') === 'select'),
+                    ]),
+                Forms\Components\Section::make('Descriptions')
+                    ->schema([
+                        Forms\Components\Textarea::make('description_ar')
+                            ->label('Arabic Description')
+                            ->maxLength(1000),
+                        Forms\Components\Textarea::make('description_en')
+                            ->label('English Description')
+                            ->maxLength(1000),
+                    ]),
+                Forms\Components\Section::make('Settings')
+                    ->schema([
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\Toggle::make('is_active')
+                                    ->label('Active')
+                                    ->default(true),
+                                Forms\Components\TextInput::make('sort_order')
+                                    ->label('Sort Order')
+                                    ->numeric()
+                                    ->default(0)
+                                    ->minValue(0),
+                            ]),
+                    ]),
+            ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('name_ar')
+                    ->label('Arabic Name')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('name_en')
+                    ->label('English Name')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('slug')
+                    ->label('Slug')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('category')
+                    ->label('Category')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'basics' => 'gray',
+                        'amenities' => 'green',
+                        'security' => 'red',
+                        'extras' => 'blue',
+                        default => 'gray',
+                    })
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('value_type')
+                    ->label('Value Type')
+                    ->badge()
+                    ->sortable(),
+                Tables\Columns\IconColumn::make('requires_value')
+                    ->label('Requires Value')
+                    ->boolean()
+                    ->sortable(),
+                Tables\Columns\IconColumn::make('is_active')
+                    ->label('Active')
+                    ->boolean()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('sort_order')
+                    ->label('Sort Order')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('properties_count')
+                    ->label('Properties Count')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Created At')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('updated_at')
+                    ->label('Updated At')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                Tables\Filters\TernaryFilter::make('is_active')
+                    ->label('Active Status'),
+                Tables\Filters\SelectFilter::make('category')
+                    ->label('Category')
+                    ->options([
+                        'basics' => 'Basics',
+                        'amenities' => 'Amenities',
+                        'security' => 'Security',
+                        'extras' => 'Extras',
+                    ]),
+                Tables\Filters\SelectFilter::make('value_type')
+                    ->label('Value Type')
+                    ->options([
+                        'boolean' => 'Yes/No',
+                        'number' => 'Number',
+                        'text' => 'Text',
+                        'select' => 'Select from List',
+                    ]),
+                Tables\Filters\TernaryFilter::make('requires_value')
+                    ->label('Requires Value'),
+            ])
+            ->filtersAboveTableColumns()
+            ->actions([
+                Tables\Actions\ViewAction::make(),
+                Tables\Actions\EditAction::make(),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                ]),
+            ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            //
+        ];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListPropertyFeatures::route('/'),
+            'create' => Pages\CreatePropertyFeature::route('/create'),
+            'view' => Pages\ViewPropertyFeature::route('/{record}'),
+            'edit' => Pages\EditPropertyFeature::route('/{record}/edit'),
+        ];
+    }
+}

@@ -1,0 +1,3307 @@
+{
+  "meta": {
+    "module": "property_types",
+    "description": "Property Types, Statuses, and Features management module - Core reference data for property classification, status tracking, and feature management migrated from WordPress CRM taxonomies. Based on comprehensive analysis of ACF JSON field configurations from the original system with exact field mapping for forms and table filters.",
+    "schema_definition": {
+      "models.property_type.database_schema.fields.fillable": "All display and configuration fields are fillable",
+      "models.property_type.tests": "Comprehensive model tests for property type CRUD, scopes, and relationships",
+      "models.property_type.processes": "Business logic for type management, slug generation, and hierarchy",
+      "models.property_type.screens": "Filament resource for property types with Arabic/English support",
+      "models.property_type.screens.components": "Standard Filament table with filters above, form components with validation",
+      "models.property_type.screens.interactions": "Bulk operations, status toggling, and type hierarchy management",
+      "models.property_status.database_schema.fields.fillable": "All display and workflow fields are fillable",
+      "models.property_status.tests": "Status transition tests, workflow validation, and color/badge tests",
+      "models.property_status.processes": "Status workflow management, transition validation, and availability checks",
+      "models.property_status.screens": "Filament resource for property statuses with workflow management",
+      "models.property_feature.database_schema.fields.fillable": "All feature definition and categorization fields are fillable",
+      "models.property_feature.tests": "Feature categorization tests, value type validation, and property relationship tests",
+      "models.property_feature.processes": "Feature management, value validation by type, and property feature assignment",
+      "models.property_feature.screens": "Filament resource for property features with category management",
+      "shared.processes": "Common reference data utilities, seeding services, and migration helpers",
+      "tests": "Module integration tests covering all entities and their interactions"
+    }
+  },
+  "acf_field_analysis": {
+    "description": "Complete analysis of ACF JSON fields from WordPress system and their Filament equivalents",
+    "property_fields_from_group_6306387af3214": {
+      "post_title": {
+        "acf_config": {
+          "label": "اسم العقار",
+          "type": "post_title",
+          "required": true,
+          "width": "60"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "label": "اسم العقار / Property Name",
+          "required": true,
+          "validation": "required|string|max:255",
+          "grid_width": "md:col-span-2"
+        }
+      },
+      "owner": {
+        "acf_config": {
+          "label": "المالك",
+          "type": "user",
+          "role": ["alh_owner"],
+          "required": true,
+          "width": "40"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "المالك / Owner",
+          "relationship": "owner",
+          "searchable": true,
+          "required": true,
+          "validation": "required|exists:users,id"
+        }
+      },
+      "propery_status": {
+        "acf_config": {
+          "label": "حالة العقار",
+          "type": "taxonomy",
+          "taxonomy": "prop_status",
+          "field_type": "select",
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "حالة العقار / Property Status",
+          "relationship": "propertyStatus",
+          "options_from": "PropertyStatus::active()->pluck('name', 'id')",
+          "required": true,
+          "validation": "required|exists:property_statuses,id"
+        }
+      },
+      "property_type": {
+        "acf_config": {
+          "label": "نوع العقار",
+          "type": "taxonomy",
+          "taxonomy": "prop_type",
+          "field_type": "select",
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "نوع العقار / Property Type",
+          "relationship": "propertyType",
+          "options_from": "PropertyType::active()->pluck('name', 'id')",
+          "required": true,
+          "validation": "required|exists:property_types,id"
+        }
+      },
+      "property_lable": {
+        "acf_config": {
+          "label": "تصنيف العقار",
+          "type": "text",
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "label": "تصنيف العقار / Property Classification",
+          "required": true,
+          "validation": "required|string|max:100"
+        }
+      },
+      "number_of_parking": {
+        "acf_config": {
+          "label": "عدد المواقف",
+          "type": "number",
+          "required": false,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "عدد المواقف / Parking Spots",
+          "validation": "nullable|integer|min:0",
+          "numeric": true
+        }
+      },
+      "number_of_lifts": {
+        "acf_config": {
+          "label": "عدد المصاعد",
+          "type": "number",
+          "required": false,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "عدد المصاعد / Number of Elevators",
+          "validation": "nullable|integer|min:0",
+          "numeric": true
+        }
+      },
+      "elevator_maintenance_contract": {
+        "acf_config": {
+          "label": "عقد صيانه المصاعد",
+          "type": "file",
+          "mime_types": "pdf",
+          "required": false,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "FileUpload",
+          "label": "عقد صيانة المصاعد / Elevator Maintenance Contract",
+          "acceptedFileTypes": [".pdf"],
+          "validation": "nullable|file|mimes:pdf|max:10240",
+          "disk": "public",
+          "directory": "elevator-contracts"
+        }
+      },
+      "property_address": {
+        "acf_config": {
+          "label": "رقم المبني, اسم الشارع",
+          "type": "text",
+          "required": true,
+          "width": "60"
+        },
+        "filament_equivalent": {
+          "component": "Textarea",
+          "label": "العنوان / Address",
+          "required": true,
+          "validation": "required|string|max:500",
+          "rows": 2
+        }
+      },
+      "postal_code": {
+        "acf_config": {
+          "label": "الرمز البريدي",
+          "type": "text",
+          "required": false,
+          "width": "20"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "label": "الرمز البريدي / Postal Code",
+          "validation": "nullable|string|max:20"
+        }
+      },
+      "property_state": {
+        "acf_config": {
+          "label": "المنطقة",
+          "type": "taxonmy_level_selector",
+          "post_type": "alh_locations",
+          "page_type": 3,
+          "required": true,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "المنطقة / State",
+          "relationship": "state",
+          "options_from": "Location::where('level', 1)->pluck('name', 'id')",
+          "required": true,
+          "validation": "required|exists:locations,id",
+          "reactive": true,
+          "affects": ["city", "center", "area"]
+        }
+      },
+      "property_city": {
+        "acf_config": {
+          "label": "المدينة",
+          "type": "taxonmy_level_selector",
+          "post_type": "alh_locations",
+          "page_type": 4,
+          "required": true,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "المدينة / City",
+          "relationship": "city",
+          "options_from": "Location::where('level', 2)->where('parent_id', $get('state'))->pluck('name', 'id')",
+          "required": true,
+          "validation": "required|exists:locations,id",
+          "reactive": true,
+          "depends_on": "state"
+        }
+      },
+      "city_center": {
+        "acf_config": {
+          "label": "المركز",
+          "type": "taxonmy_level_selector",
+          "post_type": "alh_locations",
+          "page_type": 5,
+          "required": true,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "المركز / Center",
+          "relationship": "center",
+          "options_from": "Location::where('level', 3)->where('parent_id', $get('city'))->pluck('name', 'id')",
+          "required": true,
+          "validation": "required|exists:locations,id",
+          "reactive": true,
+          "depends_on": "city"
+        }
+      },
+      "property_area": {
+        "acf_config": {
+          "label": "الحي",
+          "type": "taxonmy_level_selector",
+          "post_type": "alh_locations",
+          "page_type": 8,
+          "required": true,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "الحي / Area",
+          "relationship": "area",
+          "options_from": "Location::where('level', 4)->where('parent_id', $get('center'))->pluck('name', 'id')",
+          "required": true,
+          "validation": "required|exists:locations,id",
+          "depends_on": "center"
+        }
+      },
+      "special_note": {
+        "acf_config": {
+          "label": "ملاحظة خاصة",
+          "type": "textarea",
+          "required": false,
+          "full_width": true
+        },
+        "filament_equivalent": {
+          "component": "Textarea",
+          "label": "ملاحظة خاصة / Special Notes",
+          "validation": "nullable|string|max:1000",
+          "rows": 4,
+          "columnSpanFull": true
+        }
+      }
+    },
+    "unit_fields_from_group_630c853edd12a": {
+      "post_title": {
+        "acf_config": {
+          "label": "عنوان الوحدة",
+          "type": "post_title",
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "label": "عنوان الوحدة / Unit Title",
+          "required": true,
+          "validation": "required|string|max:255"
+        }
+      },
+      "unit_in_property": {
+        "acf_config": {
+          "label": "تابعة الي عقار",
+          "type": "post_object",
+          "post_type": ["alh_property"],
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "تابعة لعقار / Property",
+          "relationship": "property",
+          "searchable": true,
+          "required": true,
+          "validation": "required|exists:properties,id"
+        }
+      },
+      "apartment_tenant": {
+        "acf_config": {
+          "label": "المستأجر",
+          "type": "user",
+          "role": ["alh_tenant"],
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "المستأجر / Tenant",
+          "relationship": "tenant",
+          "searchable": true,
+          "validation": "nullable|exists:users,id"
+        }
+      },
+      "rant_price": {
+        "acf_config": {
+          "label": "سعر الايجار",
+          "type": "text",
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "سعر الإيجار / Rent Price",
+          "required": true,
+          "validation": "required|numeric|min:0",
+          "step": "0.01",
+          "prefix": "SAR"
+        }
+      },
+      "unit_type": {
+        "acf_config": {
+          "label": "نوع الوحدة",
+          "type": "taxonomy",
+          "taxonomy": "prop_type",
+          "field_type": "select",
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "نوع الوحدة / Unit Type",
+          "relationship": "unitType",
+          "options_from": "PropertyType::active()->pluck('name', 'id')",
+          "required": true,
+          "validation": "required|exists:property_types,id"
+        }
+      },
+      "unit_status": {
+        "acf_config": {
+          "label": "تصنيف الوحدة",
+          "type": "taxonomy",
+          "taxonomy": "prop_status",
+          "field_type": "select",
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "حالة الوحدة / Unit Status",
+          "relationship": "status",
+          "options_from": "PropertyStatus::active()->pluck('name', 'id')",
+          "required": true,
+          "validation": "required|exists:property_statuses,id"
+        }
+      },
+      "rooms_number": {
+        "acf_config": {
+          "label": "عدد الغرف",
+          "type": "number",
+          "required": false,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "عدد الغرف / Number of Rooms",
+          "validation": "nullable|integer|min:0",
+          "numeric": true
+        }
+      },
+      "bathroom_number": {
+        "acf_config": {
+          "label": "عدد دورات المياة",
+          "type": "number",
+          "required": false,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "عدد دورات المياه / Number of Bathrooms",
+          "validation": "nullable|integer|min:0",
+          "numeric": true
+        }
+      },
+      "balconies_number": {
+        "acf_config": {
+          "label": "عدد الشرفات",
+          "type": "number",
+          "required": false,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "عدد الشرفات / Number of Balconies",
+          "validation": "nullable|integer|min:0",
+          "numeric": true
+        }
+      },
+      "unit_floor": {
+        "acf_config": {
+          "label": "طابق الوحدة",
+          "type": "text",
+          "required": false,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "label": "طابق الوحدة / Unit Floor",
+          "validation": "nullable|string|max:20"
+        }
+      },
+      "Laundry_Room": {
+        "acf_config": {
+          "label": "غرفة غسيل",
+          "type": "number",
+          "required": false,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "غرفة غسيل / Laundry Room",
+          "validation": "nullable|integer|min:0",
+          "numeric": true
+        }
+      },
+      "Insurance": {
+        "acf_config": {
+          "label": "التامين",
+          "type": "number",
+          "required": false,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "التأمين / Insurance",
+          "validation": "nullable|numeric|min:0",
+          "step": "0.01",
+          "prefix": "SAR"
+        }
+      },
+      "Electricity_account_number": {
+        "acf_config": {
+          "label": "رقم حساب الكهرباء",
+          "type": "number",
+          "required": false,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "label": "رقم حساب الكهرباء / Electricity Account Number",
+          "validation": "nullable|string|max:50"
+        }
+      },
+      "water_expense": {
+        "acf_config": {
+          "label": "مصروف المياه",
+          "type": "number",
+          "required": false,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "مصروف المياه / Water Expense",
+          "validation": "nullable|numeric|min:0",
+          "step": "0.01",
+          "prefix": "SAR"
+        }
+      },
+      "storehouse": {
+        "acf_config": {
+          "label": "مستودع",
+          "type": "select",
+          "choices": {"1": "لا يوجد", "2": "يوجد"},
+          "required": false,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "مستودع / Storage",
+          "options": {"0": "لا يوجد / No", "1": "يوجد / Yes"},
+          "validation": "nullable|in:0,1"
+        }
+      },
+      "Balance": {
+        "acf_config": {
+          "label": "ميزان",
+          "type": "select",
+          "choices": {"1": "لا يوجد", "2": "يوجد"},
+          "required": false,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "ميزان / Scale",
+          "options": {"0": "لا يوجد / No", "1": "يوجد / Yes"},
+          "validation": "nullable|in:0,1"
+        }
+      },
+      "unit_features": {
+        "acf_config": {
+          "label": "المميزات",
+          "type": "acfe_taxonomy_terms",
+          "taxonomy": ["prop_feature"],
+          "field_type": "checkbox",
+          "required": false,
+          "full_width": true
+        },
+        "filament_equivalent": {
+          "component": "CheckboxList",
+          "label": "مميزات الوحدة / Unit Features",
+          "relationship": "features",
+          "options_from": "PropertyFeature::active()->pluck('name', 'id')",
+          "validation": "nullable|array",
+          "columnSpanFull": true
+        }
+      },
+      "unit_plan": {
+        "acf_config": {
+          "label": "مخطط الوحدة",
+          "type": "image",
+          "required": false,
+          "full_width": true
+        },
+        "filament_equivalent": {
+          "component": "FileUpload",
+          "label": "مخطط الوحدة / Unit Plan",
+          "acceptedFileTypes": [".jpg", ".jpeg", ".png", ".pdf"],
+          "validation": "nullable|file|mimes:jpg,jpeg,png,pdf|max:10240",
+          "disk": "public",
+          "directory": "unit-plans",
+          "image": true,
+          "columnSpanFull": true
+        }
+      }
+    },
+    "owner_fields_from_group_630c8f600ac1a": {
+      "first_name": {
+        "acf_config": {
+          "label": "الاسم الاول",
+          "type": "first_name",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "label": "الاسم الأول / First Name",
+          "required": true,
+          "validation": "required|string|max:50"
+        }
+      },
+      "last_name": {
+        "acf_config": {
+          "label": "الاسم الثاني",
+          "type": "last_name",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "label": "الاسم الأخير / Last Name",
+          "required": true,
+          "validation": "required|string|max:50"
+        }
+      },
+      "username": {
+        "acf_config": {
+          "label": "اسم المستخدم",
+          "type": "username",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "label": "اسم المستخدم / Username",
+          "required": true,
+          "validation": "required|string|max:50|unique:users,username",
+          "alphaDash": true
+        }
+      },
+      "owner_email": {
+        "acf_config": {
+          "label": "الايميل",
+          "type": "text",
+          "required": false,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "email",
+          "label": "البريد الإلكتروني / Email",
+          "validation": "nullable|email|max:255|unique:users,email",
+          "email": true
+        }
+      },
+      "owner_id_file": {
+        "acf_config": {
+          "label": "ملف الهوية",
+          "type": "file",
+          "mime_types": "pdf",
+          "required": false,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "FileUpload",
+          "label": "ملف الهوية / ID File",
+          "acceptedFileTypes": [".pdf"],
+          "validation": "nullable|file|mimes:pdf|max:10240",
+          "disk": "public",
+          "directory": "owner-ids"
+        }
+      },
+      "user_password": {
+        "acf_config": {
+          "label": "الباسورد",
+          "type": "password",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "password",
+          "label": "كلمة المرور / Password",
+          "required": true,
+          "validation": "required|string|min:8|confirmed",
+          "password": true,
+          "revealable": true
+        }
+      },
+      "owner_phone": {
+        "acf_config": {
+          "label": "رقم الهاتف 1",
+          "type": "text",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "tel",
+          "label": "رقم الهاتف الأساسي / Primary Phone",
+          "required": true,
+          "validation": "required|string|max:20",
+          "tel": true
+        }
+      },
+      "owner_phone_2": {
+        "acf_config": {
+          "label": "رقم الهاتف 2",
+          "type": "text",
+          "required": false,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "tel",
+          "label": "رقم الهاتف الثانوي / Secondary Phone",
+          "validation": "nullable|string|max:20",
+          "tel": true
+        }
+      }
+    },
+    "tenant_fields_from_group_630c941bf169f": {
+      "first_name": {
+        "acf_config": {
+          "label": "الاسم الاول",
+          "type": "first_name",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "label": "الاسم الأول / First Name",
+          "required": true,
+          "validation": "required|string|max:50"
+        }
+      },
+      "last_name": {
+        "acf_config": {
+          "label": "الاسم الثاني",
+          "type": "last_name",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "label": "الاسم الأخير / Last Name",
+          "required": true,
+          "validation": "required|string|max:50"
+        }
+      },
+      "user_email": {
+        "acf_config": {
+          "label": "الايميل",
+          "type": "email",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "email",
+          "label": "البريد الإلكتروني / Email",
+          "required": true,
+          "validation": "required|email|max:255|unique:users,email",
+          "email": true
+        }
+      },
+      "tenant_phone": {
+        "acf_config": {
+          "label": "رقم الهاتف 1",
+          "type": "text",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "tel",
+          "label": "رقم الهاتف الأساسي / Primary Phone",
+          "required": true,
+          "validation": "required|string|max:20",
+          "tel": true
+        }
+      },
+      "tenant_phone_2": {
+        "acf_config": {
+          "label": "رقم الهاتف 2",
+          "type": "text",
+          "required": false,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "tel",
+          "label": "رقم الهاتف الثانوي / Secondary Phone",
+          "validation": "nullable|string|max:20",
+          "tel": true
+        }
+      },
+      "tenant_id_file": {
+        "acf_config": {
+          "label": "ملف الهوية",
+          "type": "file",
+          "mime_types": "pdf",
+          "required": false,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "FileUpload",
+          "label": "ملف الهوية / ID File",
+          "acceptedFileTypes": [".pdf"],
+          "validation": "nullable|file|mimes:pdf|max:10240",
+          "disk": "public",
+          "directory": "tenant-ids"
+        }
+      }
+    },
+    "property_contract_fields_from_group_630c9940e912f": {
+      "post_title": {
+        "acf_config": {
+          "label": "اسم العقد",
+          "type": "post_title",
+          "required": true,
+          "width": "60"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "label": "اسم العقد / Contract Name",
+          "required": true,
+          "validation": "required|string|max:255"
+        }
+      },
+      "property": {
+        "acf_config": {
+          "label": "العقار",
+          "type": "post_object",
+          "post_type": ["alh_property"],
+          "required": true,
+          "width": "40"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "العقار / Property",
+          "relationship": "property",
+          "searchable": true,
+          "required": true,
+          "validation": "required|exists:properties,id"
+        }
+      },
+      "date_creation_contract": {
+        "acf_config": {
+          "label": "تاريخ انشاء العقد",
+          "type": "date_picker",
+          "display_format": "Y-m-d",
+          "return_format": "Y-m-d",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "DatePicker",
+          "label": "تاريخ إنشاء العقد / Contract Creation Date",
+          "required": true,
+          "validation": "required|date",
+          "format": "Y-m-d",
+          "displayFormat": "d/m/Y"
+        }
+      },
+      "contract_duration_per_month": {
+        "acf_config": {
+          "label": "مدة التعاقد بالشهر",
+          "type": "number",
+          "default_value": 12,
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "مدة التعاقد بالشهر / Contract Duration (Months)",
+          "required": true,
+          "validation": "required|integer|min:1|max:120",
+          "default": 12,
+          "numeric": true
+        }
+      },
+      "owner": {
+        "acf_config": {
+          "label": "المالك",
+          "type": "user",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "المالك / Owner",
+          "relationship": "owner",
+          "searchable": true,
+          "required": true,
+          "validation": "required|exists:users,id"
+        }
+      },
+      "agreed_to_rate": {
+        "acf_config": {
+          "label": "النسبة المتفق عليها %",
+          "type": "number",
+          "min": 1,
+          "max": 100,
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "النسبة المتفق عليها % / Agreed Rate %",
+          "required": true,
+          "validation": "required|numeric|min:0.01|max:100",
+          "step": "0.01",
+          "suffix": "%"
+        }
+      },
+      "payment_payments": {
+        "acf_config": {
+          "label": "سداد الدفعات",
+          "type": "select",
+          "choices": {
+            "month": "شهريا",
+            "three_month": "ربع سنوي",
+            "six_month": "نصف سنوي",
+            "year": "سنوي"
+          },
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "سداد الدفعات / Payment Schedule",
+          "options": {
+            "monthly": "شهرياً / Monthly",
+            "quarterly": "ربع سنوي / Quarterly",
+            "semi_annually": "نصف سنوي / Semi-Annually",
+            "annually": "سنوي / Annually"
+          },
+          "required": true,
+          "validation": "required|in:monthly,quarterly,semi_annually,annually"
+        }
+      },
+      "contract_image_file": {
+        "acf_config": {
+          "label": "ملف صوره العقد",
+          "type": "file",
+          "mime_types": "pdf",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "FileUpload",
+          "label": "ملف صورة العقد / Contract Image File",
+          "acceptedFileTypes": [".pdf"],
+          "required": true,
+          "validation": "required|file|mimes:pdf|max:10240",
+          "disk": "public",
+          "directory": "property-contracts"
+        }
+      },
+      "other_note": {
+        "acf_config": {
+          "label": "ملاحظات اخري",
+          "type": "textarea",
+          "required": false,
+          "full_width": true
+        },
+        "filament_equivalent": {
+          "component": "Textarea",
+          "label": "ملاحظات أخرى / Other Notes",
+          "validation": "nullable|string|max:1000",
+          "rows": 4,
+          "columnSpanFull": true
+        }
+      }
+    },
+    "unit_contract_fields_from_group_630ca4c5c2a48": {
+      "post_title": {
+        "acf_config": {
+          "label": "اسم العقد",
+          "type": "post_title",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "label": "اسم العقد / Contract Name",
+          "required": true,
+          "validation": "required|string|max:255"
+        }
+      },
+      "contract_status": {
+        "acf_config": {
+          "label": "حالة العقد",
+          "type": "true_false",
+          "default_value": 1,
+          "ui_on_text": "نشط",
+          "ui_off_text": "غير نشط",
+          "required": false,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Toggle",
+          "label": "حالة العقد / Contract Status",
+          "default": true,
+          "validation": "boolean",
+          "onLabel": "نشط / Active",
+          "offLabel": "غير نشط / Inactive"
+        }
+      },
+      "unit": {
+        "acf_config": {
+          "label": "الوحدة",
+          "type": "post_object",
+          "post_type": ["alh_unit"],
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "الوحدة / Unit",
+          "relationship": "unit",
+          "searchable": true,
+          "required": true,
+          "validation": "required|exists:units,id"
+        }
+      },
+      "unit_property": {
+        "acf_config": {
+          "label": "العقار",
+          "type": "post_object",
+          "post_type": ["alh_property"],
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "العقار / Property",
+          "relationship": "property",
+          "searchable": true,
+          "required": true,
+          "validation": "required|exists:properties,id"
+        }
+      },
+      "tenant": {
+        "acf_config": {
+          "label": "المستأجر",
+          "type": "user",
+          "role": ["alh_tenant"],
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "المستأجر / Tenant",
+          "relationship": "tenant",
+          "searchable": true,
+          "required": true,
+          "validation": "required|exists:users,id"
+        }
+      },
+      "date_creation_contract": {
+        "acf_config": {
+          "label": "تاريخ بدأ العقد",
+          "type": "date_picker",
+          "display_format": "d/m/Y",
+          "return_format": "Y-m-d",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "DatePicker",
+          "label": "تاريخ بدء العقد / Contract Start Date",
+          "required": true,
+          "validation": "required|date",
+          "format": "Y-m-d",
+          "displayFormat": "d/m/Y"
+        }
+      },
+      "contract_duration_per_month": {
+        "acf_config": {
+          "label": "مدة التعاقد بالشهر",
+          "type": "number",
+          "default_value": 12,
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "مدة التعاقد بالشهر / Contract Duration (Months)",
+          "required": true,
+          "validation": "required|integer|min:1|max:120",
+          "default": 12,
+          "numeric": true
+        }
+      },
+      "rent_price": {
+        "acf_config": {
+          "label": "قيمة الإيجار بالشهر",
+          "type": "number",
+          "min": 1,
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "قيمة الإيجار بالشهر / Monthly Rent",
+          "required": true,
+          "validation": "required|numeric|min:0.01",
+          "step": "0.01",
+          "prefix": "SAR"
+        }
+      },
+      "payment_payments": {
+        "acf_config": {
+          "label": "سداد الدفعات",
+          "type": "select",
+          "choices": {
+            "month": "شهريا",
+            "three_month": "ربع سنوي",
+            "six_month": "نصف سنوي",
+            "year": "سنوي"
+          },
+          "required": true,
+          "width": "33"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "سداد الدفعات / Payment Schedule",
+          "options": {
+            "monthly": "شهرياً / Monthly",
+            "quarterly": "ربع سنوي / Quarterly",
+            "semi_annually": "نصف سنوي / Semi-Annually",
+            "annually": "سنوي / Annually"
+          },
+          "required": true,
+          "validation": "required|in:monthly,quarterly,semi_annually,annually"
+        }
+      },
+      "contract_image": {
+        "acf_config": {
+          "label": "صورة العقد",
+          "type": "image",
+          "mime_types": "pdf",
+          "required": false,
+          "full_width": true
+        },
+        "filament_equivalent": {
+          "component": "FileUpload",
+          "label": "صورة العقد / Contract Image",
+          "acceptedFileTypes": [".pdf", ".jpg", ".jpeg", ".png"],
+          "validation": "nullable|file|mimes:pdf,jpg,jpeg,png|max:10240",
+          "disk": "public",
+          "directory": "unit-contracts",
+          "columnSpanFull": true
+        }
+      },
+      "other_nots": {
+        "acf_config": {
+          "label": "ملاحظات اخري",
+          "type": "textarea",
+          "required": false,
+          "full_width": true
+        },
+        "filament_equivalent": {
+          "component": "Textarea",
+          "label": "ملاحظات أخرى / Other Notes",
+          "validation": "nullable|string|max:1000",
+          "rows": 4,
+          "columnSpanFull": true
+        }
+      }
+    },
+    "maintenance_fields_from_group_630cb0f029b36": {
+      "post_title": {
+        "acf_config": {
+          "label": "اسم الصيانة",
+          "type": "post_title",
+          "required": true,
+          "full_width": true
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "label": "اسم الصيانة / Maintenance Name",
+          "required": true,
+          "validation": "required|string|max:255",
+          "columnSpanFull": true
+        }
+      },
+      "maintenance_type": {
+        "acf_config": {
+          "label": "نوع الصيانة",
+          "type": "select",
+          "choices": {
+            "general_maintenance": "عملية عامة",
+            "special_maintenance": "عملية خاصة"
+          },
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "نوع الصيانة / Maintenance Type",
+          "options": {
+            "general": "عملية عامة / General Maintenance",
+            "specific": "عملية خاصة / Specific Maintenance",
+            "government_unit": "التزامات حكومية للوحدة / Government Unit Obligations",
+            "government_property": "التزامات حكومية للعقار / Government Property Obligations"
+          },
+          "required": true,
+          "validation": "required|in:general,specific,government_unit,government_property",
+          "reactive": true
+        }
+      },
+      "maintenance_property": {
+        "acf_config": {
+          "label": "صيانة العقار",
+          "type": "post_object",
+          "post_type": ["alh_property"],
+          "required": true,
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "صيانة العقار / Property Maintenance",
+          "relationship": "property",
+          "searchable": true,
+          "required": true,
+          "validation": "required|exists:properties,id",
+          "reactive": true
+        }
+      },
+      "maintenance_unit": {
+        "acf_config": {
+          "label": "صيانة الوحدة",
+          "type": "post_object",
+          "post_type": ["alh_unit"],
+          "required": true,
+          "conditional_logic": "maintenance_type == special_maintenance",
+          "width": "25"
+        },
+        "filament_equivalent": {
+          "component": "Select",
+          "label": "صيانة الوحدة / Unit Maintenance",
+          "relationship": "unit",
+          "searchable": true,
+          "validation": "nullable|exists:units,id",
+          "visible": "fn ($get) => in_array($get('maintenance_type'), ['specific', 'government_unit'])",
+          "options_from": "Unit::where('property_id', $get('property_id'))->pluck('title', 'id')"
+        }
+      },
+      "total_maintenance_cost": {
+        "acf_config": {
+          "label": "اجمالي تكلفة الصيانة",
+          "type": "number",
+          "required": true,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "TextInput",
+          "type": "number",
+          "label": "إجمالي تكلفة الصيانة / Total Maintenance Cost",
+          "required": true,
+          "validation": "required|numeric|min:0",
+          "step": "0.01",
+          "prefix": "SAR"
+        }
+      },
+      "maintenance_date": {
+        "acf_config": {
+          "label": "تاريخ الصيانة",
+          "type": "date_picker",
+          "display_format": "d/m/Y",
+          "return_format": "d/m/Y",
+          "required": false,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "DatePicker",
+          "label": "تاريخ الصيانة / Maintenance Date",
+          "validation": "nullable|date",
+          "format": "Y-m-d",
+          "displayFormat": "d/m/Y"
+        }
+      },
+      "purchase_invoice_image_file": {
+        "acf_config": {
+          "label": "ملف صورة فاتوره المشتريات",
+          "type": "file",
+          "mime_types": "pdf",
+          "required": false,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "FileUpload",
+          "label": "ملف صورة فاتورة المشتريات / Purchase Invoice File",
+          "acceptedFileTypes": [".pdf"],
+          "validation": "nullable|file|mimes:pdf|max:10240",
+          "disk": "public",
+          "directory": "maintenance-invoices"
+        }
+      },
+      "hand_work_invoice_image_file": {
+        "acf_config": {
+          "label": "ملف صورة فاتوره عمل اليد",
+          "type": "file",
+          "mime_types": "pdf",
+          "required": false,
+          "width": "50"
+        },
+        "filament_equivalent": {
+          "component": "FileUpload",
+          "label": "ملف صورة فاتورة عمل اليد / Hand Work Invoice File",
+          "acceptedFileTypes": [".pdf"],
+          "validation": "nullable|file|mimes:pdf|max:10240",
+          "disk": "public",
+          "directory": "maintenance-invoices"
+        }
+      },
+      "post_content": {
+        "acf_config": {
+          "label": "وصف الصيانة",
+          "type": "textarea",
+          "required": true,
+          "full_width": true
+        },
+        "filament_equivalent": {
+          "component": "Textarea",
+          "label": "وصف الصيانة / Maintenance Description",
+          "required": true,
+          "validation": "required|string|max:2000",
+          "rows": 4,
+          "columnSpanFull": true
+        }
+      }
+    },
+    "table_filters_mapping": {
+      "description": "Mapping of ACF fields to Filament table filters positioned above table content",
+      "property_table_filters": {
+        "owner_filter": {
+          "acf_source": "owner field from property form",
+          "filament_filter": {
+            "type": "SelectFilter",
+            "label": "المالك / Owner",
+            "relationship": "owner",
+            "options_from": "User::role('owner')->pluck('name', 'id')",
+            "multiple": false
+          }
+        },
+        "property_status_filter": {
+          "acf_source": "propery_status taxonomy field",
+          "filament_filter": {
+            "type": "SelectFilter",
+            "label": "حالة العقار / Property Status",
+            "relationship": "propertyStatus",
+            "options_from": "PropertyStatus::active()->pluck('name', 'id')",
+            "multiple": true
+          }
+        },
+        "property_type_filter": {
+          "acf_source": "property_type taxonomy field",
+          "filament_filter": {
+            "type": "SelectFilter",
+            "label": "نوع العقار / Property Type",
+            "relationship": "propertyType",
+            "options_from": "PropertyType::active()->pluck('name', 'id')",
+            "multiple": true
+          }
+        },
+        "location_filters": {
+          "acf_source": "property_state, property_city, city_center, property_area",
+          "filament_filter": {
+            "type": "SelectFilter",
+            "label": "الموقع / Location",
+            "multiple_filters": {
+              "state": "State filter",
+              "city": "City filter", 
+              "center": "Center filter",
+              "area": "Area filter"
+            },
+            "cascading": true
+          }
+        }
+      },
+      "unit_table_filters": {
+        "property_filter": {
+          "acf_source": "unit_in_property field",
+          "filament_filter": {
+            "type": "SelectFilter",
+            "label": "العقار / Property",
+            "relationship": "property",
+            "searchable": true
+          }
+        },
+        "tenant_filter": {
+          "acf_source": "apartment_tenant field",
+          "filament_filter": {
+            "type": "SelectFilter",
+            "label": "المستأجر / Tenant",
+            "relationship": "tenant",
+            "searchable": true
+          }
+        },
+        "unit_type_filter": {
+          "acf_source": "unit_type taxonomy field",
+          "filament_filter": {
+            "type": "SelectFilter",
+            "label": "نوع الوحدة / Unit Type",
+            "relationship": "unitType",
+            "options_from": "PropertyType::active()->pluck('name', 'id')"
+          }
+        },
+        "unit_status_filter": {
+          "acf_source": "unit_status taxonomy field",
+          "filament_filter": {
+            "type": "SelectFilter",
+            "label": "حالة الوحدة / Unit Status",
+            "relationship": "status",
+            "options_from": "PropertyStatus::active()->pluck('name', 'id')"
+          }
+        },
+        "rent_price_filter": {
+          "acf_source": "rant_price field",
+          "filament_filter": {
+            "type": "Filter",
+            "label": "سعر الإيجار / Rent Price",
+            "form": [
+              "TextInput::make('rent_from')->numeric()->label('من / From')",
+              "TextInput::make('rent_to')->numeric()->label('إلى / To')"
+            ],
+            "query": "range filter on rent_price"
+          }
+        },
+        "rooms_filter": {
+          "acf_source": "rooms_number field",
+          "filament_filter": {
+            "type": "SelectFilter",
+            "label": "عدد الغرف / Number of Rooms",
+            "options": "range 1-10",
+            "multiple": true
+          }
+        },
+        "floor_filter": {
+          "acf_source": "unit_floor field",
+          "filament_filter": {
+            "type": "SelectFilter",
+            "label": "الطابق / Floor",
+            "options_from": "Unit::distinct()->pluck('floor_number', 'floor_number')"
+          }
+        },
+        "features_filter": {
+          "acf_source": "unit_features taxonomy field",
+          "filament_filter": {
+            "type": "SelectFilter",
+            "label": "المميزات / Features",
+            "relationship": "features",
+            "options_from": "PropertyFeature::active()->pluck('name', 'id')",
+            "multiple": true
+          }
+        }
+      },
+      "contract_table_filters": {
+        "owner_filter": {
+          "acf_source": "owner field from property contracts",
+          "filament_filter": {
+            "type": "SelectFilter",
+            "label": "المالك / Owner",
+            "relationship": "owner",
+            "searchable": true
+          }
+        },
+        "property_filter": {
+          "acf_source": "property field",
+          "filament_filter": {
+            "type": "SelectFilter",
+            "label": "العقار / Property",
+            "relationship": "property",
+            "searchable": true
+          }
+        },
+        "contract_status_filter": {
+          "acf_source": "contract_status true_false field",
+          "filament_filter": {
+            "type": "TernaryFilter",
+            "label": "حالة العقد / Contract Status",
+            "trueLabel": "نشط / Active",
+            "falseLabel": "غير نشط / Inactive",
+            "placeholder": "الكل / All"
+          }
+        },
+        "duration_filter": {
+          "acf_source": "contract_duration_per_month field",
+          "filament_filter": {
+            "type": "SelectFilter",
+            "label": "مدة العقد / Contract Duration",
+            "options": {
+              "12": "سنة واحدة / 1 Year",
+              "24": "سنتان / 2 Years",
+              "36": "ثلاث سنوات / 3 Years"
+            }
+          }
+        },
+        "payment_schedule_filter": {
+          "acf_source": "payment_payments select field",
+          "filament_filter": {
+            "type": "SelectFilter",
+            "label": "سداد الدفعات / Payment Schedule",
+            "options": {
+              "monthly": "شهرياً / Monthly",
+              "quarterly": "ربع سنوي / Quarterly",
+              "semi_annually": "نصف سنوي / Semi-Annually",
+              "annually": "سنوي / Annually"
+            }
+          }
+        },
+        "creation_date_filter": {
+          "acf_source": "date_creation_contract date field",
+          "filament_filter": {
+            "type": "Filter",
+            "label": "تاريخ الإنشاء / Creation Date",
+            "form": [
+              "DatePicker::make('created_from')->label('من / From')",
+              "DatePicker::make('created_to')->label('إلى / To')"
+            ],
+            "query": "date range filter"
+          }
+        }
+      },
+      "maintenance_table_filters": {
+        "maintenance_type_filter": {
+          "acf_source": "maintenance_type select field",
+          "filament_filter": {
+            "type": "SelectFilter",
+            "label": "نوع الصيانة / Maintenance Type",
+            "options": {
+              "general": "عملية عامة / General",
+              "specific": "عملية خاصة / Specific",
+              "government_unit": "التزامات حكومية للوحدة / Government Unit",
+              "government_property": "التزامات حكومية للعقار / Government Property"
+            }
+          }
+        },
+        "property_filter": {
+          "acf_source": "maintenance_property post_object field",
+          "filament_filter": {
+            "type": "SelectFilter",
+            "label": "العقار / Property",
+            "relationship": "property",
+            "searchable": true
+          }
+        },
+        "unit_filter": {
+          "acf_source": "maintenance_unit post_object field",
+          "filament_filter": {
+            "type": "SelectFilter",
+            "label": "الوحدة / Unit",
+            "relationship": "unit",
+            "searchable": true
+          }
+        },
+        "cost_filter": {
+          "acf_source": "total_maintenance_cost number field",
+          "filament_filter": {
+            "type": "Filter",
+            "label": "التكلفة / Cost",
+            "form": [
+              "TextInput::make('cost_from')->numeric()->label('من / From')",
+              "TextInput::make('cost_to')->numeric()->label('إلى / To')"
+            ],
+            "query": "range filter on total_cost"
+          }
+        },
+        "date_filter": {
+          "acf_source": "maintenance_date date_picker field",
+          "filament_filter": {
+            "type": "Filter",
+            "label": "تاريخ الصيانة / Maintenance Date",
+            "form": [
+              "DatePicker::make('date_from')->label('من / From')",
+              "DatePicker::make('date_to')->label('إلى / To')"
+            ],
+            "query": "date range filter"
+          }
+        }
+      }
+    }
+  },
+  "models": {
+    "property_type": {
+      "database_schema": {
+        "fields": {
+          "id": {
+            "type": "bigint",
+            "auto_increment": true,
+            "primary": true,
+            "fillable": false
+          },
+          "name_ar": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "index": true,
+            "validation": "required|string|max:100|unique:property_types,name_ar",
+            "fillable": true
+          },
+          "name_en": {
+            "type": "string", 
+            "length": 100,
+            "nullable": false,
+            "index": true,
+            "validation": "required|string|max:100|unique:property_types,name_en",
+            "fillable": true
+          },
+          "slug": {
+            "type": "string",
+            "length": 120,
+            "nullable": false,
+            "unique": true,
+            "index": "unique",
+            "validation": "required|string|max:120|unique:property_types,slug|regex:/^[a-z0-9-]+$/",
+            "fillable": true
+          },
+          "icon": {
+            "type": "string",
+            "length": 50,
+            "nullable": true,
+            "default": "heroicon-o-building-office",
+            "validation": "nullable|string|max:50",
+            "fillable": true
+          },
+          "description_ar": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string|max:1000",
+            "fillable": true
+          },
+          "description_en": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string|max:1000",
+            "fillable": true
+          },
+          "parent_id": {
+            "type": "bigint",
+            "nullable": true,
+            "foreign": "property_types.id",
+            "index": true,
+            "validation": "nullable|exists:property_types,id|different:id",
+            "fillable": true
+          },
+          "is_active": {
+            "type": "bool",
+            "nullable": false,
+            "default": true,
+            "index": true,
+            "validation": "required|boolean",
+            "fillable": true
+          },
+          "sort_order": {
+            "type": "int",
+            "nullable": false,
+            "default": 0,
+            "index": true,
+            "validation": "required|integer|min:0",
+            "fillable": true
+          },
+          "properties_count": {
+            "type": "int",
+            "nullable": false,
+            "default": 0,
+            "validation": "integer|min:0",
+            "fillable": false
+          },
+          "created_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          },
+          "updated_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          }
+        },
+        "indexes": {
+          "idx_property_types_active_sort": ["is_active", "sort_order"],
+          "idx_property_types_parent": ["parent_id"],
+          "idx_property_types_name_search": ["name_ar", "name_en"]
+        },
+        "constraints": {
+          "fk_property_types_parent": {
+            "foreign_key": "parent_id",
+            "references": "property_types(id)",
+            "on_delete": "SET NULL",
+            "on_update": "CASCADE"
+          }
+        }
+      },
+      "tests": {
+        "unit": {
+          "test_property_type_has_required_fields": {
+            "description": "Test property type requires name_ar, name_en, and slug",
+            "input": {
+              "name_ar": "",
+              "name_en": "",
+              "slug": ""
+            },
+            "expected": "validation errors",
+            "assertions": ["assertHasErrors(['name_ar', 'name_en', 'slug'])"]
+          },
+          "test_property_type_name_localization": {
+            "description": "Test property type returns correct name based on locale",
+            "input": {
+              "name_ar": "فيلا",
+              "name_en": "Villa",
+              "locale": "ar"
+            },
+            "expected": "فيلا",
+            "assertions": ["assertEquals('فيلا', $propertyType->name)"]
+          },
+          "test_property_type_slug_generation": {
+            "description": "Test automatic slug generation from name_en",
+            "input": {
+              "name_en": "Commercial Store"
+            },
+            "expected": "commercial-store",
+            "assertions": ["assertEquals('commercial-store', $propertyType->slug)"]
+          },
+          "test_property_type_active_scope": {
+            "description": "Test active scope returns only active property types",
+            "input": {
+              "active_types": 3,
+              "inactive_types": 2
+            },
+            "expected": 3,
+            "assertions": ["assertEquals(3, PropertyType::active()->count())"]
+          },
+          "test_property_type_hierarchy_validation": {
+            "description": "Test property type cannot be its own parent",
+            "input": {
+              "id": 1,
+              "parent_id": 1
+            },
+            "expected": "validation error",
+            "assertions": ["assertHasErrors(['parent_id'])"]
+          },
+          "test_property_type_children_relationship": {
+            "description": "Test property type children relationship",
+            "input": {
+              "parent_with_children": true
+            },
+            "expected": "collection of children",
+            "assertions": ["assertInstanceOf(Collection::class, $parent->children)"]
+          }
+        },
+        "feature": {
+          "test_property_type_seeder_creates_default_types": {
+            "scenario": "Test that seeder creates all default property types from old system",
+            "steps": [
+              "Run PropertyTypeSeeder",
+              "Check for فيلا, شقة, محل تجاري, مكتب, مستودع, أرض, عمارة",
+              "Verify Arabic and English names",
+              "Check proper sort order"
+            ],
+            "expected_result": "All 7 default property types created with correct data"
+          },
+          "test_property_type_api_crud_operations": {
+            "scenario": "Test CRUD operations through Filament API",
+            "steps": [
+              "Create property type via API",
+              "Update property type",
+              "List property types with filters",
+              "Delete property type"
+            ],
+            "expected_result": "All CRUD operations work correctly with validation"
+          },
+          "test_property_type_relationships_with_properties": {
+            "scenario": "Test property type relationships and cascading",
+            "steps": [
+              "Create property type",
+              "Assign to properties",
+              "Check properties_count update",
+              "Test deletion restrictions"
+            ],
+            "expected_result": "Relationships work correctly with proper constraints"
+          }
+        },
+        "playwright_mcp": {
+          "test_property_types_management_interface": {
+            "tools": ["mcp__playwright__browser_navigate", "mcp__playwright__browser_snapshot", "mcp__playwright__browser_click"],
+            "flow": [
+              "Navigate to property types management",
+              "Take snapshot of table interface", 
+              "Test filters above table functionality",
+              "Create new property type",
+              "Edit existing property type",
+              "Test bulk operations"
+            ],
+            "validations": [
+              "Table displays with filters above content",
+              "Arabic text displays correctly",
+              "Form validation works",
+              "Success notifications appear"
+            ]
+          }
+        }
+      },
+      "processes": {
+        "custom_crud_operations": {
+          "generateSlugFromName": {
+            "description": "Generate unique slug from English name",
+            "parameters": ["name_en", "id?"],
+            "returns": "string",
+            "business_rules": ["Lowercase", "Replace spaces with hyphens", "Remove special characters", "Ensure uniqueness"]
+          },
+          "reorderTypes": {
+            "description": "Reorder property types by sort_order",
+            "parameters": ["type_ids_array"],
+            "returns": "bool",
+            "business_rules": ["Update sort_order based on array position", "Maintain gaps of 10"]
+          }
+        },
+        "business_operations": {
+          "activateType": {
+            "description": "Activate property type and all properties using it",
+            "parameters": ["type_id"],
+            "returns": "bool",
+            "business_rules": ["Set is_active = true", "Update related properties status"]
+          },
+          "deactivateType": {
+            "description": "Deactivate property type if no active properties use it",
+            "parameters": ["type_id"],
+            "returns": "bool",
+            "business_rules": ["Check for active properties", "Prevent deactivation if in use", "Set is_active = false"]
+          },
+          "getTypeHierarchy": {
+            "description": "Get hierarchical tree of property types",
+            "parameters": ["include_inactive?"],
+            "returns": "array",
+            "business_rules": ["Build parent-child tree", "Include children count", "Respect active status"]
+          }
+        },
+        "query_operations": {
+          "getActiveTypesForSelect": {
+            "description": "Get property types formatted for select dropdown",
+            "parameters": ["locale?"],
+            "returns": "array",
+            "business_rules": ["Only active types", "Localized names", "Ordered by sort_order"]
+          },
+          "searchTypes": {
+            "description": "Search property types by name in both languages",
+            "parameters": ["search_term", "active_only?"],
+            "returns": "Collection",
+            "business_rules": ["Search in name_ar and name_en", "Fuzzy matching", "Ordered by relevance"]
+          }
+        },
+        "integration_operations": {
+          "syncFromOldSystem": {
+            "description": "Import property types from WordPress taxonomies",
+            "parameters": ["wp_terms_data"],
+            "returns": "array",
+            "business_rules": ["Map taxonomy terms to models", "Preserve relationships", "Handle duplicates"]
+          }
+        }
+      },
+      "screens": {
+        "index": {
+          "permissions": ["view_property_types"],
+          "filament_template": "resource index",
+          "components": {
+            "table": {
+              "columns": {
+                "name": {
+                  "label": "الاسم / Name",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "format": "localized",
+                  "width": "200px",
+                  "align": "right"
+                },
+                "slug": {
+                  "label": "الرمز / Slug",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "width": "150px",
+                  "align": "left"
+                },
+                "parent": {
+                  "label": "النوع الرئيسي / Parent Type",
+                  "type": "text",
+                  "sortable": true,
+                  "width": "150px",
+                  "align": "right"
+                },
+                "properties_count": {
+                  "label": "عدد العقارات / Properties Count",
+                  "type": "number",
+                  "sortable": true,
+                  "width": "120px",
+                  "align": "center"
+                },
+                "is_active": {
+                  "label": "الحالة / Status",
+                  "type": "badge",
+                  "sortable": true,
+                  "format": "boolean",
+                  "width": "100px",
+                  "align": "center"
+                },
+                "sort_order": {
+                  "label": "الترتيب / Order",
+                  "type": "number",
+                  "sortable": true,
+                  "width": "80px",
+                  "align": "center"
+                }
+              },
+              "filters": {
+                "is_active": {
+                  "label": "الحالة / Status",
+                  "type": "select",
+                  "options": {
+                    "1": "نشط / Active",
+                    "0": "غير نشط / Inactive"
+                  }
+                },
+                "parent_id": {
+                  "label": "النوع الرئيسي / Parent Type",
+                  "type": "select",
+                  "relationship": "parent"
+                },
+                "has_properties": {
+                  "label": "يحتوي على عقارات / Has Properties",
+                  "type": "boolean"
+                }
+              },
+              "record_actions": {
+                "view": {
+                  "label": "عرض / View",
+                  "icon": "heroicon-o-eye"
+                },
+                "edit": {
+                  "label": "تعديل / Edit", 
+                  "icon": "heroicon-o-pencil"
+                },
+                "delete": {
+                  "label": "حذف / Delete",
+                  "icon": "heroicon-o-trash",
+                  "requires_confirmation": true
+                }
+              },
+              "bulk_actions": {
+                "activate": {
+                  "label": "تفعيل المحدد / Activate Selected",
+                  "icon": "heroicon-o-check"
+                },
+                "deactivate": {
+                  "label": "إلغاء تفعيل المحدد / Deactivate Selected",
+                  "icon": "heroicon-o-x-mark"
+                },
+                "delete": {
+                  "label": "حذف المحدد / Delete Selected",
+                  "icon": "heroicon-o-trash",
+                  "requires_confirmation": true
+                }
+              },
+              "paginated": {
+                "per_page": 25,
+                "per_page_options": [10, 25, 50, 100]
+              }
+            }
+          },
+          "interactions": {
+            "reorder_types": {
+              "user_action": "Drag and drop table rows",
+              "target": "sort_order field update"
+            },
+            "toggle_status": {
+              "user_action": "Click status badge",
+              "target": "is_active field toggle"
+            }
+          }
+        },
+        "create": {
+          "permissions": ["create_property_types"],
+          "filament_template": "resource add/edit",
+          "components": {
+            "form": {
+              "fields": {
+                "name_section": {
+                  "type": "section",
+                  "label": "معلومات الاسم / Name Information",
+                  "fields": {
+                    "name_ar": {
+                      "type": "text",
+                      "label": "الاسم بالعربية / Arabic Name",
+                      "required": true,
+                      "placeholder": "مثال: فيلا"
+                    },
+                    "name_en": {
+                      "type": "text",
+                      "label": "الاسم بالإنجليزية / English Name", 
+                      "required": true,
+                      "placeholder": "Example: Villa"
+                    },
+                    "slug": {
+                      "type": "text",
+                      "label": "الرمز / Slug",
+                      "hint": "سيتم إنشاؤه تلقائياً من الاسم الإنجليزي / Auto-generated from English name"
+                    }
+                  }
+                },
+                "details_section": {
+                  "type": "section", 
+                  "label": "التفاصيل / Details",
+                  "fields": {
+                    "parent_id": {
+                      "type": "select",
+                      "label": "النوع الرئيسي / Parent Type",
+                      "relationship": "parent",
+                      "searchable": true
+                    },
+                    "icon": {
+                      "type": "select",
+                      "label": "الأيقونة / Icon",
+                      "options": "heroicons",
+                      "default": "heroicon-o-building-office"
+                    },
+                    "description_ar": {
+                      "type": "textarea",
+                      "label": "الوصف بالعربية / Arabic Description",
+                      "rows": 3
+                    },
+                    "description_en": {
+                      "type": "textarea",
+                      "label": "الوصف بالإنجليزية / English Description",
+                      "rows": 3
+                    }
+                  }
+                },
+                "settings_section": {
+                  "type": "section",
+                  "label": "الإعدادات / Settings",
+                  "fields": {
+                    "is_active": {
+                      "type": "toggle",
+                      "label": "نشط / Active",
+                      "default": true
+                    },
+                    "sort_order": {
+                      "type": "number",
+                      "label": "ترتيب العرض / Display Order",
+                      "default": 0,
+                      "min": 0
+                    }
+                  }
+                }
+              },
+              "actions": {
+                "create": {
+                  "label": "إنشاء / Create",
+                  "icon": "heroicon-o-plus"
+                },
+                "create_another": {
+                  "label": "إنشاء وإضافة آخر / Create & Add Another",
+                  "icon": "heroicon-o-plus"
+                },
+                "cancel": {
+                  "label": "إلغاء / Cancel",
+                  "icon": "heroicon-o-x-mark"
+                }
+              }
+            }
+          },
+          "interactions": {
+            "auto_slug_generation": {
+              "user_action": "Type in name_en field",
+              "target": "Auto-fill slug field"
+            }
+          }
+        },
+        "edit": {
+          "permissions": ["edit_property_types"],
+          "filament_template": "resource add/edit",
+          "components": {
+            "form": {
+              "fields": "Same as create form",
+              "actions": {
+                "save": {
+                  "label": "حفظ / Save",
+                  "icon": "heroicon-o-check"
+                },
+                "save_and_continue": {
+                  "label": "حفظ ومتابعة التعديل / Save & Continue Editing",
+                  "icon": "heroicon-o-arrow-path"
+                },
+                "cancel": {
+                  "label": "إلغاء / Cancel",
+                  "icon": "heroicon-o-x-mark"
+                }
+              }
+            }
+          },
+          "interactions": {
+            "prevent_slug_change": {
+              "user_action": "Attempt to modify slug on existing record",
+              "target": "Show warning about URL impact"
+            }
+          }
+        },
+        "view": {
+          "permissions": ["view_property_types"],
+          "filament_template": "resource view",
+          "components": {
+            "infolist": {
+              "sections": {
+                "basic_info": {
+                  "label": "المعلومات الأساسية / Basic Information",
+                  "fields": ["name_ar", "name_en", "slug", "parent", "icon"]
+                },
+                "descriptions": {
+                  "label": "الأوصاف / Descriptions", 
+                  "fields": ["description_ar", "description_en"]
+                },
+                "settings": {
+                  "label": "الإعدادات / Settings",
+                  "fields": ["is_active", "sort_order", "properties_count"]
+                },
+                "timestamps": {
+                  "label": "التواريخ / Timestamps",
+                  "fields": ["created_at", "updated_at"]
+                }
+              }
+            }
+          },
+          "interactions": {}
+        }
+      }
+    },
+    "property_status": {
+      "database_schema": {
+        "fields": {
+          "id": {
+            "type": "bigint",
+            "auto_increment": true,
+            "primary": true,
+            "fillable": false
+          },
+          "name_ar": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "index": true,
+            "validation": "required|string|max:100|unique:property_statuses,name_ar",
+            "fillable": true
+          },
+          "name_en": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "index": true,
+            "validation": "required|string|max:100|unique:property_statuses,name_en",
+            "fillable": true
+          },
+          "slug": {
+            "type": "string",
+            "length": 120,
+            "nullable": false,
+            "unique": true,
+            "index": "unique",
+            "validation": "required|string|max:120|unique:property_statuses,slug|regex:/^[a-z0-9-]+$/",
+            "fillable": true
+          },
+          "color": {
+            "type": "string",
+            "length": 20,
+            "nullable": false,
+            "default": "gray",
+            "validation": "required|string|max:20|in:gray,red,yellow,green,blue,indigo,purple,pink",
+            "fillable": true
+          },
+          "icon": {
+            "type": "string",
+            "length": 50,
+            "nullable": true,
+            "default": "heroicon-o-home",
+            "validation": "nullable|string|max:50",
+            "fillable": true
+          },
+          "description_ar": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string|max:1000",
+            "fillable": true
+          },
+          "description_en": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string|max:1000", 
+            "fillable": true
+          },
+          "is_available": {
+            "type": "bool",
+            "nullable": false,
+            "default": true,
+            "index": true,
+            "validation": "required|boolean",
+            "fillable": true
+          },
+          "is_active": {
+            "type": "bool",
+            "nullable": false,
+            "default": true,
+            "index": true,
+            "validation": "required|boolean",
+            "fillable": true
+          },
+          "sort_order": {
+            "type": "int",
+            "nullable": false,
+            "default": 0,
+            "index": true,
+            "validation": "required|integer|min:0",
+            "fillable": true
+          },
+          "properties_count": {
+            "type": "int",
+            "nullable": false,
+            "default": 0,
+            "validation": "integer|min:0",
+            "fillable": false
+          },
+          "created_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          },
+          "updated_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          }
+        },
+        "indexes": {
+          "idx_property_statuses_active_sort": ["is_active", "sort_order"],
+          "idx_property_statuses_available": ["is_available"],
+          "idx_property_statuses_name_search": ["name_ar", "name_en"]
+        },
+        "constraints": {}
+      },
+      "tests": {
+        "unit": {
+          "test_property_status_color_validation": {
+            "description": "Test property status color field accepts only valid Tailwind colors",
+            "input": {
+              "valid_colors": ["gray", "red", "green", "blue"],
+              "invalid_colors": ["orange", "black", "white"]
+            },
+            "expected": "validation passes for valid colors, fails for invalid",
+            "assertions": ["assertValidationPasses($validColors)", "assertValidationFails($invalidColors)"]
+          },
+          "test_property_status_transition_rules": {
+            "description": "Test property status transition business rules",
+            "input": {
+              "from_status": "available", 
+              "to_status": "rented"
+            },
+            "expected": "transition allowed",
+            "assertions": ["assertTrue($status->canTransitionTo('rented'))"]
+          },
+          "test_property_status_badge_rendering": {
+            "description": "Test property status badge color and label rendering",
+            "input": {
+              "status": "available",
+              "color": "green"
+            },
+            "expected": "correct badge HTML",
+            "assertions": ["assertStringContains('bg-green-100', $status->badge)"]
+          },
+          "test_property_status_availability_logic": {
+            "description": "Test is_available field affects property availability calculations",
+            "input": {
+              "status": "under_maintenance",
+              "is_available": false
+            },
+            "expected": "property not available for rent",
+            "assertions": ["assertFalse($status->isAvailableForRent())"]
+          }
+        },
+        "feature": {
+          "test_property_status_workflow_transitions": {
+            "scenario": "Test complete property status workflow from available to rented to maintenance",
+            "steps": [
+              "Create property with 'available' status",
+              "Transition to 'rented' status",
+              "Transition to 'under_maintenance' status",
+              "Return to 'available' status"
+            ],
+            "expected_result": "All transitions work correctly with proper validation"
+          },
+          "test_property_status_affects_availability": {
+            "scenario": "Test that property status affects unit availability calculations",
+            "steps": [
+              "Create property with units",
+              "Set property status to 'under_maintenance'",
+              "Check that units are marked unavailable",
+              "Change status back to 'available'",
+              "Verify units become available again"
+            ],
+            "expected_result": "Property status correctly cascades to unit availability"
+          }
+        },
+        "playwright_mcp": {
+          "test_property_status_management_interface": {
+            "tools": ["mcp__playwright__browser_navigate", "mcp__playwright__browser_click", "mcp__playwright__browser_type"],
+            "flow": [
+              "Navigate to property statuses management",
+              "Test status color picker functionality",
+              "Create new status with custom color",
+              "Test status transition workflow",
+              "Verify badge rendering in table"
+            ],
+            "validations": [
+              "Color picker displays correctly",
+              "Status badges show correct colors",
+              "Transition rules are enforced in UI",
+              "Arabic/English names display properly"
+            ]
+          }
+        }
+      },
+      "processes": {
+        "custom_crud_operations": {
+          "getBadgeHtml": {
+            "description": "Generate HTML badge for status display",
+            "parameters": ["size?", "show_icon?"],
+            "returns": "string",
+            "business_rules": ["Use status color", "Include icon if specified", "Localized text"]
+          },
+          "updateStatusOrder": {
+            "description": "Update display order of statuses",
+            "parameters": ["status_ids_ordered"],
+            "returns": "bool",
+            "business_rules": ["Maintain workflow logic", "Preserve sort gaps"]
+          }
+        },
+        "business_operations": {
+          "canTransitionTo": {
+            "description": "Check if status can transition to another status",
+            "parameters": ["target_status_id"],
+            "returns": "bool",
+            "business_rules": ["Follow workflow rules", "Check business constraints", "Validate state machine"]
+          },
+          "getAvailableTransitions": {
+            "description": "Get list of valid status transitions",
+            "parameters": [],
+            "returns": "Collection",
+            "business_rules": ["Return only valid next states", "Include transition reasons"]
+          },
+          "applyStatusToProperty": {
+            "description": "Apply status to property and handle side effects",
+            "parameters": ["property_id", "status_id", "reason?"],
+            "returns": "bool",
+            "business_rules": ["Update property status", "Handle unit cascading", "Log status change"]
+          }
+        },
+        "query_operations": {
+          "getAvailableStatuses": {
+            "description": "Get statuses that indicate property availability",
+            "parameters": [],
+            "returns": "Collection",
+            "business_rules": ["Only statuses with is_available = true", "Ordered by sort_order"]
+          },
+          "getStatusesForSelect": {
+            "description": "Get statuses formatted for select dropdown",
+            "parameters": ["available_only?", "locale?"],
+            "returns": "array",
+            "business_rules": ["Localized names", "Include color indicators", "Respect active status"]
+          }
+        },
+        "integration_operations": {
+          "syncStatusCounts": {
+            "description": "Update properties_count for all statuses",
+            "parameters": [],
+            "returns": "bool",
+            "business_rules": ["Count active properties only", "Update all statuses", "Handle orphaned records"]
+          }
+        }
+      },
+      "screens": {
+        "index": {
+          "permissions": ["view_property_statuses"],
+          "filament_template": "resource index",
+          "components": {
+            "table": {
+              "columns": {
+                "name": {
+                  "label": "الاسم / Name",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "format": "localized",
+                  "width": "200px",
+                  "align": "right"
+                },
+                "badge": {
+                  "label": "الشارة / Badge",
+                  "type": "badge",
+                  "sortable": false,
+                  "width": "120px",
+                  "align": "center"
+                },
+                "is_available": {
+                  "label": "متاح للإيجار / Available for Rent",
+                  "type": "boolean",
+                  "sortable": true,
+                  "width": "150px",
+                  "align": "center"
+                },
+                "properties_count": {
+                  "label": "عدد العقارات / Properties Count",
+                  "type": "number",
+                  "sortable": true,
+                  "width": "120px",
+                  "align": "center"
+                },
+                "is_active": {
+                  "label": "الحالة / Status",
+                  "type": "badge",
+                  "sortable": true,
+                  "format": "boolean",
+                  "width": "100px",
+                  "align": "center"
+                },
+                "sort_order": {
+                  "label": "الترتيب / Order",
+                  "type": "number",
+                  "sortable": true,
+                  "width": "80px",
+                  "align": "center"
+                }
+              },
+              "filters": {
+                "is_active": {
+                  "label": "الحالة / Status",
+                  "type": "select",
+                  "options": {
+                    "1": "نشط / Active",
+                    "0": "غير نشط / Inactive"
+                  }
+                },
+                "is_available": {
+                  "label": "متاح للإيجار / Available for Rent",
+                  "type": "boolean"
+                },
+                "color": {
+                  "label": "اللون / Color",
+                  "type": "select",
+                  "options": {
+                    "gray": "رمادي / Gray",
+                    "red": "أحمر / Red", 
+                    "yellow": "أصفر / Yellow",
+                    "green": "أخضر / Green",
+                    "blue": "أزرق / Blue"
+                  }
+                }
+              },
+              "record_actions": {
+                "view": {
+                  "label": "عرض / View",
+                  "icon": "heroicon-o-eye"
+                },
+                "edit": {
+                  "label": "تعديل / Edit",
+                  "icon": "heroicon-o-pencil"
+                },
+                "delete": {
+                  "label": "حذف / Delete",
+                  "icon": "heroicon-o-trash",
+                  "requires_confirmation": true
+                }
+              },
+              "bulk_actions": {
+                "activate": {
+                  "label": "تفعيل المحدد / Activate Selected",
+                  "icon": "heroicon-o-check"
+                },
+                "deactivate": {
+                  "label": "إلغاء تفعيل المحدد / Deactivate Selected",
+                  "icon": "heroicon-o-x-mark"
+                }
+              },
+              "paginated": {
+                "per_page": 25,
+                "per_page_options": [10, 25, 50]
+              }
+            }
+          },
+          "interactions": {
+            "preview_badge": {
+              "user_action": "Hover over badge column",
+              "target": "Show badge preview with icon"
+            }
+          }
+        },
+        "create": {
+          "permissions": ["create_property_statuses"],
+          "filament_template": "resource add/edit",
+          "components": {
+            "form": {
+              "fields": {
+                "name_section": {
+                  "type": "section",
+                  "label": "معلومات الاسم / Name Information",
+                  "fields": {
+                    "name_ar": {
+                      "type": "text",
+                      "label": "الاسم بالعربية / Arabic Name",
+                      "required": true,
+                      "placeholder": "مثال: متاح"
+                    },
+                    "name_en": {
+                      "type": "text",
+                      "label": "الاسم بالإنجليزية / English Name",
+                      "required": true,
+                      "placeholder": "Example: Available"
+                    },
+                    "slug": {
+                      "type": "text",
+                      "label": "الرمز / Slug",
+                      "hint": "سيتم إنشاؤه تلقائياً / Auto-generated"
+                    }
+                  }
+                },
+                "appearance_section": {
+                  "type": "section",
+                  "label": "المظهر / Appearance",
+                  "fields": {
+                    "color": {
+                      "type": "select",
+                      "label": "لون الشارة / Badge Color",
+                      "required": true,
+                      "options": {
+                        "gray": "رمادي / Gray",
+                        "red": "أحمر / Red",
+                        "yellow": "أصفر / Yellow", 
+                        "green": "أخضر / Green",
+                        "blue": "أزرق / Blue",
+                        "indigo": "نيلي / Indigo",
+                        "purple": "بنفسجي / Purple",
+                        "pink": "وردي / Pink"
+                      }
+                    },
+                    "icon": {
+                      "type": "select",
+                      "label": "الأيقونة / Icon",
+                      "options": "heroicons",
+                      "default": "heroicon-o-home"
+                    }
+                  }
+                },
+                "settings_section": {
+                  "type": "section",
+                  "label": "الإعدادات / Settings",
+                  "fields": {
+                    "is_available": {
+                      "type": "toggle",
+                      "label": "متاح للإيجار / Available for Rent",
+                      "default": true,
+                      "hint": "هل العقارات بهذه الحالة متاحة للإيجار؟"
+                    },
+                    "is_active": {
+                      "type": "toggle",
+                      "label": "نشط / Active",
+                      "default": true
+                    },
+                    "sort_order": {
+                      "type": "number",
+                      "label": "ترتيب العرض / Display Order",
+                      "default": 0,
+                      "min": 0
+                    }
+                  }
+                },
+                "description_section": {
+                  "type": "section",
+                  "label": "الوصف / Description",
+                  "fields": {
+                    "description_ar": {
+                      "type": "textarea",
+                      "label": "الوصف بالعربية / Arabic Description",
+                      "rows": 3
+                    },
+                    "description_en": {
+                      "type": "textarea",
+                      "label": "الوصف بالإنجليزية / English Description",
+                      "rows": 3
+                    }
+                  }
+                }
+              },
+              "actions": {
+                "create": {
+                  "label": "إنشاء / Create",
+                  "icon": "heroicon-o-plus"
+                },
+                "create_another": {
+                  "label": "إنشاء وإضافة آخر / Create & Add Another",
+                  "icon": "heroicon-o-plus"
+                },
+                "cancel": {
+                  "label": "إلغاء / Cancel",
+                  "icon": "heroicon-o-x-mark"
+                }
+              }
+            }
+          },
+          "interactions": {
+            "color_preview": {
+              "user_action": "Select color from dropdown",
+              "target": "Show badge preview with selected color"
+            }
+          }
+        }
+      }
+    },
+    "property_feature": {
+      "database_schema": {
+        "fields": {
+          "id": {
+            "type": "bigint",
+            "auto_increment": true,
+            "primary": true,
+            "fillable": false
+          },
+          "name_ar": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "index": true,
+            "validation": "required|string|max:100",
+            "fillable": true
+          },
+          "name_en": {
+            "type": "string",
+            "length": 100,
+            "nullable": false,
+            "index": true,
+            "validation": "required|string|max:100",
+            "fillable": true
+          },
+          "slug": {
+            "type": "string",
+            "length": 120,
+            "nullable": false,
+            "unique": true,
+            "index": "unique",
+            "validation": "required|string|max:120|unique:property_features,slug|regex:/^[a-z0-9-]+$/",
+            "fillable": true
+          },
+          "category": {
+            "type": "enum",
+            "values": ["basics", "amenities", "security", "extras"],
+            "nullable": false,
+            "default": "basics",
+            "index": true,
+            "validation": "required|in:basics,amenities,security,extras",
+            "fillable": true
+          },
+          "icon": {
+            "type": "string",
+            "length": 50,
+            "nullable": true,
+            "default": "heroicon-o-star",
+            "validation": "nullable|string|max:50",
+            "fillable": true
+          },
+          "requires_value": {
+            "type": "bool",
+            "nullable": false,
+            "default": false,
+            "index": true,
+            "validation": "required|boolean",
+            "fillable": true
+          },
+          "value_type": {
+            "type": "enum",
+            "values": ["boolean", "number", "text", "select"],
+            "nullable": false,
+            "default": "boolean",
+            "validation": "required|in:boolean,number,text,select",
+            "fillable": true
+          },
+          "value_options": {
+            "type": "json",
+            "nullable": true,
+            "validation": "nullable|array",
+            "fillable": true
+          },
+          "description_ar": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string|max:1000",
+            "fillable": true
+          },
+          "description_en": {
+            "type": "text",
+            "nullable": true,
+            "validation": "nullable|string|max:1000",
+            "fillable": true
+          },
+          "is_active": {
+            "type": "bool",
+            "nullable": false,
+            "default": true,
+            "index": true,
+            "validation": "required|boolean",
+            "fillable": true
+          },
+          "sort_order": {
+            "type": "int",
+            "nullable": false,
+            "default": 0,
+            "index": true,
+            "validation": "required|integer|min:0",
+            "fillable": true
+          },
+          "properties_count": {
+            "type": "int",
+            "nullable": false,
+            "default": 0,
+            "validation": "integer|min:0",
+            "fillable": false
+          },
+          "created_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          },
+          "updated_at": {
+            "type": "timestamp",
+            "nullable": true,
+            "fillable": false
+          }
+        },
+        "indexes": {
+          "idx_property_features_category": ["category", "sort_order"],
+          "idx_property_features_active": ["is_active"],
+          "idx_property_features_value_type": ["value_type"],
+          "idx_property_features_name_search": ["name_ar", "name_en"]
+        },
+        "constraints": {}
+      },
+      "tests": {
+        "unit": {
+          "test_feature_value_type_validation": {
+            "description": "Test feature value type validation and options requirement",
+            "input": {
+              "value_type": "select",
+              "value_options": null
+            },
+            "expected": "validation error for missing options",
+            "assertions": ["assertHasErrors(['value_options'])"]
+          },
+          "test_feature_category_grouping": {
+            "description": "Test feature category grouping and ordering",
+            "input": {
+              "category": "amenities"
+            },
+            "expected": "features grouped by category",
+            "assertions": ["assertEquals('amenities', $feature->category)"]
+          },
+          "test_feature_value_formatting": {
+            "description": "Test feature value formatting based on type",
+            "input": {
+              "value_type": "number",
+              "value": "5"
+            },
+            "expected": "properly formatted value",
+            "assertions": ["assertEquals(5, $feature->getFormattedValue('5'))"]
+          },
+          "test_feature_slug_uniqueness": {
+            "description": "Test feature slug uniqueness validation",
+            "input": {
+              "existing_slug": "elevator",
+              "new_slug": "elevator"
+            },
+            "expected": "validation error",
+            "assertions": ["assertHasErrors(['slug'])"]
+          }
+        },
+        "feature": {
+          "test_property_can_attach_multiple_features": {
+            "scenario": "Test property can have multiple features with values",
+            "steps": [
+              "Create property",
+              "Attach multiple features with different value types",
+              "Verify feature values are stored correctly",
+              "Test feature filtering and searching"
+            ],
+            "expected_result": "Property features work correctly with all value types"
+          },
+          "test_feature_values_are_validated_by_type": {
+            "scenario": "Test feature values are validated according to their type",
+            "steps": [
+              "Create features with different value types",
+              "Attempt to assign invalid values",
+              "Verify validation prevents invalid assignments",
+              "Test valid value assignments"
+            ],
+            "expected_result": "Feature value validation works correctly for all types"
+          },
+          "test_feature_filtering_in_property_search": {
+            "scenario": "Test property search and filtering by features",
+            "steps": [
+              "Create properties with various features",
+              "Search properties by single feature",
+              "Search properties by multiple features",
+              "Test feature value range filtering"
+            ],
+            "expected_result": "Property search by features works accurately"
+          }
+        },
+        "playwright_mcp": {
+          "test_property_features_management_interface": {
+            "tools": ["mcp__playwright__browser_navigate", "mcp__playwright__browser_click", "mcp__playwright__browser_type"],
+            "flow": [
+              "Navigate to property features management",
+              "Test category filtering",
+              "Create feature with value options",
+              "Test value type switching",
+              "Verify feature assignment to properties"
+            ],
+            "validations": [
+              "Category tabs work correctly",
+              "Value type options appear/disappear based on selection",
+              "JSON value options are validated",
+              "Feature icons display properly"
+            ]
+          }
+        }
+      },
+      "processes": {
+        "custom_crud_operations": {
+          "validateFeatureValue": {
+            "description": "Validate feature value based on its type and options",
+            "parameters": ["value", "feature_id"],
+            "returns": "bool",
+            "business_rules": ["Check value_type constraints", "Validate against value_options", "Handle type conversion"]
+          },
+          "getFormattedValue": {
+            "description": "Format feature value for display",
+            "parameters": ["value", "locale?"],
+            "returns": "string",
+            "business_rules": ["Format based on value_type", "Localize if applicable", "Handle null values"]
+          }
+        },
+        "business_operations": {
+          "groupByCategory": {
+            "description": "Group features by category for organized display",
+            "parameters": ["active_only?"],
+            "returns": "array",
+            "business_rules": ["Group by category enum", "Sort by sort_order", "Include feature counts"]
+          },
+          "getFeatureOptions": {
+            "description": "Get feature options for property assignment",
+            "parameters": ["category?", "property_type_id?"],
+            "returns": "Collection",
+            "business_rules": ["Filter by category", "Consider property type compatibility", "Include value requirements"]
+          },
+          "syncPropertyFeatures": {
+            "description": "Sync features for a property with values",
+            "parameters": ["property_id", "features_data"],
+            "returns": "bool",
+            "business_rules": ["Validate all feature values", "Remove unselected features", "Preserve value history"]
+          }
+        },
+        "query_operations": {
+          "searchProperties": {
+            "description": "Search properties by features",
+            "parameters": ["feature_criteria"],
+            "returns": "Collection",
+            "business_rules": ["Support multiple feature filters", "Handle value range queries", "Optimize with indexes"]
+          },
+          "getFeaturesForSelect": {
+            "description": "Get features formatted for select components",
+            "parameters": ["category?", "locale?"],
+            "returns": "array",
+            "business_rules": ["Group by category", "Localized names", "Include value type indicators"]
+          }
+        },
+        "integration_operations": {
+          "importFromTaxonomy": {
+            "description": "Import features from WordPress taxonomy",
+            "parameters": ["wp_terms"],
+            "returns": "array",
+            "business_rules": ["Map taxonomy to features", "Preserve relationships", "Handle custom fields"]
+          }
+        }
+      },
+      "screens": {
+        "index": {
+          "permissions": ["view_property_features"],
+          "filament_template": "resource index",
+          "components": {
+            "table": {
+              "columns": {
+                "name": {
+                  "label": "الاسم / Name",
+                  "type": "text",
+                  "sortable": true,
+                  "searchable": true,
+                  "format": "localized",
+                  "width": "200px",
+                  "align": "right"
+                },
+                "category": {
+                  "label": "الفئة / Category",
+                  "type": "badge",
+                  "sortable": true,
+                  "width": "120px",
+                  "align": "center"
+                },
+                "value_type": {
+                  "label": "نوع القيمة / Value Type",
+                  "type": "badge",
+                  "sortable": true,
+                  "width": "120px",
+                  "align": "center"
+                },
+                "requires_value": {
+                  "label": "يتطلب قيمة / Requires Value",
+                  "type": "boolean",
+                  "sortable": true,
+                  "width": "130px",
+                  "align": "center"
+                },
+                "properties_count": {
+                  "label": "عدد العقارات / Properties Count",
+                  "type": "number",
+                  "sortable": true,
+                  "width": "120px",
+                  "align": "center"
+                },
+                "is_active": {
+                  "label": "الحالة / Status",
+                  "type": "badge",
+                  "sortable": true,
+                  "format": "boolean",
+                  "width": "100px",
+                  "align": "center"
+                }
+              },
+              "filters": {
+                "category": {
+                  "label": "الفئة / Category",
+                  "type": "select",
+                  "options": {
+                    "basics": "أساسيات / Basics",
+                    "amenities": "مرافق / Amenities",
+                    "security": "أمان / Security",
+                    "extras": "إضافات / Extras"
+                  }
+                },
+                "value_type": {
+                  "label": "نوع القيمة / Value Type",
+                  "type": "select",
+                  "options": {
+                    "boolean": "منطقي / Boolean",
+                    "number": "رقم / Number",
+                    "text": "نص / Text",
+                    "select": "قائمة خيارات / Select"
+                  }
+                },
+                "requires_value": {
+                  "label": "يتطلب قيمة / Requires Value",
+                  "type": "boolean"
+                },
+                "is_active": {
+                  "label": "الحالة / Status",
+                  "type": "select",
+                  "options": {
+                    "1": "نشط / Active",
+                    "0": "غير نشط / Inactive"
+                  }
+                }
+              },
+              "record_actions": {
+                "view": {
+                  "label": "عرض / View",
+                  "icon": "heroicon-o-eye"
+                },
+                "edit": {
+                  "label": "تعديل / Edit",
+                  "icon": "heroicon-o-pencil"
+                },
+                "delete": {
+                  "label": "حذف / Delete",
+                  "icon": "heroicon-o-trash",
+                  "requires_confirmation": true
+                }
+              },
+              "bulk_actions": {
+                "activate": {
+                  "label": "تفعيل المحدد / Activate Selected",
+                  "icon": "heroicon-o-check"
+                },
+                "deactivate": {
+                  "label": "إلغاء تفعيل المحدد / Deactivate Selected",
+                  "icon": "heroicon-o-x-mark"
+                },
+                "change_category": {
+                  "label": "تغيير الفئة / Change Category",
+                  "icon": "heroicon-o-folder"
+                }
+              },
+              "paginated": {
+                "per_page": 25,
+                "per_page_options": [10, 25, 50, 100]
+              }
+            }
+          },
+          "interactions": {
+            "category_filter_tabs": {
+              "user_action": "Click category tabs above table",
+              "target": "Filter table by category"
+            }
+          }
+        },
+        "create": {
+          "permissions": ["create_property_features"],
+          "filament_template": "resource add/edit",
+          "components": {
+            "form": {
+              "fields": {
+                "basic_info_section": {
+                  "type": "section",
+                  "label": "المعلومات الأساسية / Basic Information",
+                  "fields": {
+                    "name_ar": {
+                      "type": "text",
+                      "label": "الاسم بالعربية / Arabic Name",
+                      "required": true,
+                      "placeholder": "مثال: مصعد"
+                    },
+                    "name_en": {
+                      "type": "text",
+                      "label": "الاسم بالإنجليزية / English Name",
+                      "required": true,
+                      "placeholder": "Example: Elevator"
+                    },
+                    "slug": {
+                      "type": "text",
+                      "label": "الرمز / Slug",
+                      "hint": "سيتم إنشاؤه تلقائياً / Auto-generated"
+                    },
+                    "category": {
+                      "type": "select",
+                      "label": "الفئة / Category",
+                      "required": true,
+                      "options": {
+                        "basics": "أساسيات / Basics",
+                        "amenities": "مرافق / Amenities", 
+                        "security": "أمان / Security",
+                        "extras": "إضافات / Extras"
+                      }
+                    },
+                    "icon": {
+                      "type": "select",
+                      "label": "الأيقونة / Icon",
+                      "options": "heroicons",
+                      "default": "heroicon-o-star"
+                    }
+                  }
+                },
+                "value_configuration_section": {
+                  "type": "section",
+                  "label": "إعدادات القيمة / Value Configuration",
+                  "fields": {
+                    "requires_value": {
+                      "type": "toggle",
+                      "label": "يتطلب قيمة / Requires Value",
+                      "default": false,
+                      "hint": "هل هذه الميزة تتطلب قيمة محددة؟"
+                    },
+                    "value_type": {
+                      "type": "select",
+                      "label": "نوع القيمة / Value Type",
+                      "required": true,
+                      "options": {
+                        "boolean": "منطقي (نعم/لا) / Boolean (Yes/No)",
+                        "number": "رقم / Number",
+                        "text": "نص / Text",
+                        "select": "قائمة خيارات / Select Options"
+                      },
+                      "reactive": true
+                    },
+                    "value_options": {
+                      "type": "key_value",
+                      "label": "خيارات القيمة / Value Options",
+                      "visible": "value_type === 'select'",
+                      "hint": "المفتاح: القيمة المخزنة، القيمة: النص المعروض"
+                    }
+                  }
+                },
+                "description_section": {
+                  "type": "section",
+                  "label": "الوصف / Description",
+                  "fields": {
+                    "description_ar": {
+                      "type": "textarea",
+                      "label": "الوصف بالعربية / Arabic Description",
+                      "rows": 3
+                    },
+                    "description_en": {
+                      "type": "textarea",
+                      "label": "الوصف بالإنجليزية / English Description",
+                      "rows": 3
+                    }
+                  }
+                },
+                "settings_section": {
+                  "type": "section",
+                  "label": "الإعدادات / Settings",
+                  "fields": {
+                    "is_active": {
+                      "type": "toggle",
+                      "label": "نشط / Active",
+                      "default": true
+                    },
+                    "sort_order": {
+                      "type": "number",
+                      "label": "ترتيب العرض / Display Order",
+                      "default": 0,
+                      "min": 0
+                    }
+                  }
+                }
+              },
+              "actions": {
+                "create": {
+                  "label": "إنشاء / Create",
+                  "icon": "heroicon-o-plus"
+                },
+                "create_another": {
+                  "label": "إنشاء وإضافة آخر / Create & Add Another",
+                  "icon": "heroicon-o-plus"
+                },
+                "cancel": {
+                  "label": "إلغاء / Cancel",
+                  "icon": "heroicon-o-x-mark"
+                }
+              }
+            }
+          },
+          "interactions": {
+            "value_type_toggle": {
+              "user_action": "Change value_type selection",
+              "target": "Show/hide value_options field"
+            },
+            "requires_value_toggle": {
+              "user_action": "Toggle requires_value",
+              "target": "Enable/disable value configuration fields"
+            }
+          }
+        }
+      }
+    }
+  },
+  "relationships": {
+    "property_type_hierarchy": {
+      "type": "one_to_many",
+      "1st_side": "property_type",
+      "2nd_side": "property_type",
+      "constraints": {
+        "self_referencing": true,
+        "foreign_key": "parent_id",
+        "on_delete": "SET NULL"
+      }
+    },
+    "property_type_properties": {
+      "type": "one_to_many",
+      "1st_side": "property_type",
+      "2nd_side": "property",
+      "constraints": {
+        "foreign_key": "property_type_id",
+        "on_delete": "RESTRICT"
+      }
+    },
+    "property_status_properties": {
+      "type": "one_to_many",
+      "1st_side": "property_status",
+      "2nd_side": "property",
+      "constraints": {
+        "foreign_key": "property_status_id",
+        "on_delete": "RESTRICT"
+      }
+    },
+    "property_feature_properties": {
+      "type": "many_to_many",
+      "1st_side": "property_feature",
+      "2nd_side": "property",
+      "constraints": {
+        "pivot_table": "property_feature_property",
+        "pivot_fields": ["value", "created_at", "updated_at"],
+        "foreign_keys": ["property_feature_id", "property_id"]
+      }
+    }
+  },
+  "shared": {
+    "processes": {
+      "ReferenceDataService": {
+        "description": "Common service for all reference data operations",
+        "methods": {
+          "seedDefaultData": "Seed all default reference data",
+          "validateReferenceIntegrity": "Validate reference data relationships",
+          "getSelectOptions": "Get formatted options for select components",
+          "syncCounts": "Update relationship counts for all entities"
+        }
+      },
+      "LocalizationService": {
+        "description": "Handle Arabic/English localization for all entities",
+        "methods": {
+          "getLocalizedName": "Get name based on current locale",
+          "validateBilingualFields": "Validate both Arabic and English fields",
+          "generateSlugFromEnglish": "Generate URL-safe slug from English name"
+        }
+      }
+    },
+    "screens": {
+      "dashboard_widgets": {
+        "reference_data_overview": {
+          "title": "البيانات المرجعية / Reference Data Overview",
+          "stats": [
+            "Property Types Count",
+            "Property Statuses Count", 
+            "Property Features Count",
+            "Active vs Inactive counts"
+          ]
+        }
+      }
+    },
+    "utilities": {
+      "helpers": {
+        "SlugGenerator": "Generate unique slugs for all entities",
+        "IconHelper": "Manage Heroicon selections and validation",
+        "ColorHelper": "Manage Tailwind color selections and validation"
+      },
+      "validators": {
+        "BilingualNameValidator": "Validate Arabic and English name fields",
+        "SlugValidator": "Validate slug format and uniqueness",
+        "FeatureValueValidator": "Validate feature values based on type"
+      },
+      "transformers": {
+        "OldSystemMapper": "Map WordPress taxonomy data to Laravel models",
+        "SelectOptionsTransformer": "Transform data for Filament select components",
+        "ExportTransformer": "Transform data for export functionality"
+      }
+    }
+  },
+  "tests": {
+    "integration": {
+      "test_complete_property_classification_workflow": {
+        "description": "Test complete workflow from property type creation to property assignment",
+        "steps": [
+          "Create property type, status, and features",
+          "Create property with all classifications",
+          "Test property search by classifications",
+          "Test statistics and reporting",
+          "Test data export functionality"
+        ],
+        "expected_result": "Complete classification system works end-to-end"
+      },
+      "test_migration_from_wordpress": {
+        "description": "Test complete migration from WordPress taxonomy system",
+        "steps": [
+          "Import old taxonomy data",
+          "Verify data integrity after import",
+          "Test relationships preservation",
+          "Validate Arabic/English content",
+          "Test search and filtering on migrated data"
+        ],
+        "expected_result": "All WordPress data migrated correctly with full functionality"
+      },
+      "test_reference_data_performance": {
+        "description": "Test performance with large datasets",
+        "steps": [
+          "Create large number of reference data records",
+          "Test table loading performance",
+          "Test search and filter performance",
+          "Test property assignment performance",
+          "Test dashboard statistics performance"
+        ],
+        "expected_result": "System performs well with production-level data volumes"
+      }
+    },
+    "seeder_verification": {
+      "test_default_property_types_seeded": {
+        "description": "Verify all default property types from old system are seeded",
+        "expected_data": [
+          {"name_ar": "فيلا", "name_en": "Villa", "slug": "villa"},
+          {"name_ar": "شقة", "name_en": "Apartment", "slug": "apartment"},
+          {"name_ar": "محل تجاري", "name_en": "Commercial Store", "slug": "commercial-store"},
+          {"name_ar": "مكتب", "name_en": "Office", "slug": "office"},
+          {"name_ar": "مستودع", "name_en": "Warehouse", "slug": "warehouse"},
+          {"name_ar": "أرض", "name_en": "Land", "slug": "land"},
+          {"name_ar": "عمارة", "name_en": "Building", "slug": "building"}
+        ]
+      },
+      "test_default_property_statuses_seeded": {
+        "description": "Verify all default property statuses from old system are seeded",
+        "expected_data": [
+          {"name_ar": "متاح", "name_en": "Available", "slug": "available", "color": "green", "is_available": true},
+          {"name_ar": "مؤجر", "name_en": "Rented", "slug": "rented", "color": "blue", "is_available": false},
+          {"name_ar": "قيد الصيانة", "name_en": "Under Maintenance", "slug": "under-maintenance", "color": "yellow", "is_available": false},
+          {"name_ar": "محجوز", "name_en": "Reserved", "slug": "reserved", "color": "orange", "is_available": false},
+          {"name_ar": "غير متاح", "name_en": "Unavailable", "slug": "unavailable", "color": "red", "is_available": false}
+        ]
+      },
+      "test_default_property_features_seeded": {
+        "description": "Verify all default property features from old system are seeded",
+        "expected_data": [
+          {"name_ar": "مصعد", "name_en": "Elevator", "category": "basics", "value_type": "boolean"},
+          {"name_ar": "موقف سيارات", "name_en": "Parking", "category": "basics", "value_type": "number"},
+          {"name_ar": "حديقة", "name_en": "Garden", "category": "amenities", "value_type": "boolean"},
+          {"name_ar": "مسبح", "name_en": "Swimming Pool", "category": "amenities", "value_type": "boolean"},
+          {"name_ar": "نظام أمني", "name_en": "Security System", "category": "security", "value_type": "boolean"},
+          {"name_ar": "مطبخ مجهز", "name_en": "Equipped Kitchen", "category": "extras", "value_type": "boolean"}
+        ]
+      }
+    }
+  }
+}

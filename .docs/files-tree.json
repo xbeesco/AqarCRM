@@ -1,0 +1,785 @@
+{
+    "app\/Console\/Commands": {
+        "GenerateFilesTree.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Eloquent model class for database entity",
+                "functions": [
+                    "handle()"
+                ]
+            }
+        }
+    },
+    "app\/Filament\/Resources\/EmployeeResource\/Pages": {
+        "CreateEmployee.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        },
+        "EditEmployee.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        },
+        "ListEmployees.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        },
+        "ViewEmployee.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        }
+    },
+    "app\/Filament\/Resources": {
+        "EmployeeResource.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": [
+                    "form()",
+                    "table()",
+                    "getEloquentQuery()",
+                    "getRelations()",
+                    "getPages()"
+                ]
+            }
+        },
+        "OwnerResource.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": [
+                    "form()",
+                    "table()",
+                    "getEloquentQuery()",
+                    "getRelations()",
+                    "getPages()"
+                ]
+            }
+        },
+        "PropertyResource.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": [
+                    "form()",
+                    "table()",
+                    "getRelations()",
+                    "getPages()"
+                ]
+            }
+        },
+        "TenantResource.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": [
+                    "form()",
+                    "table()",
+                    "getEloquentQuery()",
+                    "getRelations()",
+                    "getPages()"
+                ]
+            }
+        },
+        "UserResource.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": [
+                    "form()",
+                    "table()",
+                    "getRelations()",
+                    "getPages()"
+                ]
+            }
+        }
+    },
+    "app\/Filament\/Resources\/OwnerResource\/Pages": {
+        "CreateOwner.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        },
+        "EditOwner.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        },
+        "ListOwners.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        },
+        "ViewOwner.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        }
+    },
+    "app\/Filament\/Resources\/PropertyResource\/Pages": {
+        "CreateProperty.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        },
+        "EditProperty.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        },
+        "ListProperties.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        }
+    },
+    "app\/Filament\/Resources\/TenantResource\/Pages": {
+        "CreateTenant.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        },
+        "EditTenant.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        },
+        "ListTenants.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        },
+        "ViewTenant.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        }
+    },
+    "app\/Filament\/Resources\/UserResource\/Pages": {
+        "CreateUser.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        },
+        "EditUser.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        },
+        "ListOwners.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        },
+        "ListTenants.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        },
+        "ListUsers.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Filament admin panel resource definition",
+                "functions": []
+            }
+        }
+    },
+    "app\/Http\/Controllers": {
+        "Controller.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "PHP source file",
+                "functions": []
+            }
+        }
+    },
+    "app\/Models": {
+        "Employee.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "PHP class extending framework functionality",
+                "functions": [
+                    "managedProperties()",
+                    "tasks()",
+                    "forceDelete()",
+                    "forceDestroy()",
+                    "factory()",
+                    "bootSoftDeletes()",
+                    "initializeSoftDeletes()",
+                    "forceDeleteQuietly()",
+                    "restore()",
+                    "restoreQuietly()",
+                    "trashed()",
+                    "softDeleted()",
+                    "restoring()",
+                    "restored()",
+                    "forceDeleting()",
+                    "forceDeleted()",
+                    "isForceDeleting()",
+                    "getDeletedAtColumn()",
+                    "getQualifiedDeletedAtColumn()"
+                ]
+            }
+        },
+        "Location.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Eloquent model class for database entity",
+                "functions": [
+                    "parent()",
+                    "children()",
+                    "properties()",
+                    "scopeLevel()",
+                    "scopeActive()"
+                ]
+            }
+        },
+        "Owner.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "PHP class extending framework functionality",
+                "functions": [
+                    "properties()",
+                    "rentalContracts()",
+                    "payments()",
+                    "maintenanceRequests()",
+                    "financialStatements()",
+                    "propertyValuations()",
+                    "getActivePropertiesCountAttribute()",
+                    "getTotalRentalIncomeAttribute()",
+                    "getVacantPropertiesAttribute()",
+                    "forceDelete()",
+                    "forceDestroy()",
+                    "factory()",
+                    "bootSoftDeletes()",
+                    "initializeSoftDeletes()",
+                    "forceDeleteQuietly()",
+                    "restore()",
+                    "restoreQuietly()",
+                    "trashed()",
+                    "softDeleted()",
+                    "restoring()",
+                    "restored()",
+                    "forceDeleting()",
+                    "forceDeleted()",
+                    "isForceDeleting()",
+                    "getDeletedAtColumn()",
+                    "getQualifiedDeletedAtColumn()"
+                ]
+            }
+        },
+        "Property.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Eloquent model class for database entity",
+                "functions": [
+                    "owner()",
+                    "location()",
+                    "units()",
+                    "contracts()",
+                    "getOccupancyRate()",
+                    "getMonthlyRevenue()",
+                    "getAvailableUnits()"
+                ]
+            }
+        },
+        "Tenant.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "PHP class extending framework functionality",
+                "functions": [
+                    "currentProperty()",
+                    "currentContract()",
+                    "rentalContracts()",
+                    "paymentHistory()",
+                    "complaints()",
+                    "maintenanceRequests()",
+                    "leaseRenewals()",
+                    "evaluations()",
+                    "utilityBills()",
+                    "hasActiveContract()",
+                    "getTotalAmountPaidAttribute()",
+                    "getOutstandingBalanceAttribute()",
+                    "isInGoodStanding()",
+                    "forceDelete()",
+                    "forceDestroy()",
+                    "factory()",
+                    "bootSoftDeletes()",
+                    "initializeSoftDeletes()",
+                    "forceDeleteQuietly()",
+                    "restore()",
+                    "restoreQuietly()",
+                    "trashed()",
+                    "softDeleted()",
+                    "restoring()",
+                    "restored()",
+                    "forceDeleting()",
+                    "forceDeleted()",
+                    "isForceDeleting()",
+                    "getDeletedAtColumn()",
+                    "getQualifiedDeletedAtColumn()"
+                ]
+            }
+        },
+        "User.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "PHP class extending framework functionality",
+                "functions": [
+                    "scopeEmployees()",
+                    "scopeOwners()",
+                    "scopeTenants()",
+                    "canAccessPanel()",
+                    "forceDelete()",
+                    "forceDestroy()",
+                    "factory()",
+                    "notifications()",
+                    "readNotifications()",
+                    "unreadNotifications()",
+                    "notify()",
+                    "notifyNow()",
+                    "routeNotificationFor()",
+                    "bootHasRoles()",
+                    "getRoleClass()",
+                    "roles()",
+                    "scopeRole()",
+                    "scopeWithoutRole()",
+                    "assignRole()",
+                    "removeRole()",
+                    "syncRoles()",
+                    "hasRole()",
+                    "hasAnyRole()",
+                    "hasAllRoles()",
+                    "hasExactRoles()",
+                    "getDirectPermissions()",
+                    "getRoleNames()",
+                    "bootHasPermissions()",
+                    "getPermissionClass()",
+                    "getWildcardClass()",
+                    "permissions()",
+                    "scopePermission()",
+                    "scopeWithoutPermission()",
+                    "filterPermission()",
+                    "hasPermissionTo()",
+                    "checkPermissionTo()",
+                    "hasAnyPermission()",
+                    "hasAllPermissions()",
+                    "hasDirectPermission()",
+                    "getPermissionsViaRoles()",
+                    "getAllPermissions()",
+                    "givePermissionTo()",
+                    "forgetWildcardPermissionIndex()",
+                    "syncPermissions()",
+                    "revokePermissionTo()",
+                    "getPermissionNames()",
+                    "forgetCachedPermissions()",
+                    "hasAllDirectPermissions()",
+                    "hasAnyDirectPermission()",
+                    "bootSoftDeletes()",
+                    "initializeSoftDeletes()",
+                    "forceDeleteQuietly()",
+                    "restore()",
+                    "restoreQuietly()",
+                    "trashed()",
+                    "softDeleted()",
+                    "restoring()",
+                    "restored()",
+                    "forceDeleting()",
+                    "forceDeleted()",
+                    "isForceDeleting()",
+                    "getDeletedAtColumn()",
+                    "getQualifiedDeletedAtColumn()"
+                ]
+            }
+        }
+    },
+    "app\/Providers": {
+        "AppServiceProvider.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Laravel service provider for dependency injection",
+                "functions": [
+                    "register()",
+                    "boot()"
+                ]
+            }
+        }
+    },
+    "app\/Providers\/Filament": {
+        "AdminPanelProvider.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "PHP class extending framework functionality",
+                "functions": [
+                    "panel()"
+                ]
+            }
+        }
+    },
+    "database\/migrations": {
+        "0001_01_01_000000_create_users_table.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Database migration file for schema changes",
+                "functions": [
+                    "up()",
+                    "down()"
+                ]
+            }
+        },
+        "0001_01_01_000001_create_cache_table.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Database migration file for schema changes",
+                "functions": [
+                    "up()",
+                    "down()"
+                ]
+            }
+        },
+        "0001_01_01_000002_create_jobs_table.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Database migration file for schema changes",
+                "functions": [
+                    "up()",
+                    "down()"
+                ]
+            }
+        },
+        "2025_08_17_013356_create_locations_table.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Database migration file for schema changes",
+                "functions": [
+                    "up()",
+                    "down()"
+                ]
+            }
+        },
+        "2025_08_17_013357_add_fields_to_users_table.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Database migration file for schema changes",
+                "functions": [
+                    "up()",
+                    "down()"
+                ]
+            }
+        },
+        "2025_08_17_013526_create_permission_tables.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Database migration file for schema changes",
+                "functions": [
+                    "up()",
+                    "down()"
+                ]
+            }
+        },
+        "2025_08_17_022134_create_properties_table.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Database migration file for schema changes",
+                "functions": [
+                    "up()",
+                    "down()"
+                ]
+            }
+        },
+        "2025_08_17_162834_add_deleted_at_to_users_table.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Database migration file for schema changes",
+                "functions": [
+                    "up()",
+                    "down()"
+                ]
+            }
+        },
+        "2025_08_17_163527_add_extended_fields_to_users_table.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Database migration file for schema changes",
+                "functions": [
+                    "up()",
+                    "down()"
+                ]
+            }
+        },
+        "2025_08_17_171056_clean_users_table_fields.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Database migration file for schema changes",
+                "functions": [
+                    "up()",
+                    "down()"
+                ]
+            }
+        }
+    },
+    "database\/seeders": {
+        "DatabaseSeeder.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Database seeder for populating initial data",
+                "functions": [
+                    "run()"
+                ]
+            }
+        },
+        "RolesAndPermissionsSeeder.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Database seeder for populating initial data",
+                "functions": [
+                    "run()"
+                ]
+            }
+        },
+        "UserTypesSeeder.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Database seeder for populating initial data",
+                "functions": [
+                    "run()"
+                ]
+            }
+        }
+    },
+    "tests\/Feature": {
+        "ExampleTest.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": [
+                    "test_the_application_returns_a_successful_response()"
+                ]
+            }
+        }
+    },
+    "tests": {
+        "TestCase.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        }
+    },
+    "tests\/Unit": {
+        "ExampleTest.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": [
+                    "test_that_true_is_true()"
+                ]
+            }
+        }
+    },
+    "tests\/development": {
+        "check-columns.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "clean-test-data.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "create-test-login-users.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "fix-user-roles.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "get_database_schema.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "test-access-properties.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "test-actual-pages.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "test-admin-access.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "test-backdoor-access.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "test-backdoor.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "test-crud-operations.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "test-employees.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "test-filament-pages.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "test-login-verify.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "test-page-content.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "test-pages-simple.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "test-property-backdoor.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "test-resource-pages.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "test-resources.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "test-user-models-simple.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "test-user-models.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "test-users-list.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        },
+        "update-admin-password.php": {
+            "summarized": false,
+            "content": {
+                "file_use": "Test file for automated testing",
+                "functions": []
+            }
+        }
+    }
+}

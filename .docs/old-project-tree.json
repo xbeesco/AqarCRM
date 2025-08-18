@@ -1,0 +1,375 @@
+{
+  "analysis_status": "complete",
+  "total_files_analyzed": 25,
+  "last_updated": "2025-01-18",
+  "project_overview": {
+    "project_type": "WordPress Property Management CRM",
+    "theme_name": "alhiaa-system",
+    "base_url": "http://crm.test/",
+    "admin_credentials": {
+      "username": "admin",
+      "password": "123@alhiaa_admin"
+    },
+    "description": "Comprehensive WordPress-based CRM system for property management built using ACF Pro and custom child theme with extensive financial tracking and reporting features"
+  },
+  "custom_post_types": {
+    "alh_property": {
+      "description": "Main property entities",
+      "taxonomies": ["prop_status", "prop_type", "prop_feature", "alh_locations", "prop_rank"],
+      "acf_fields": {
+        "owner": "Property owner (user ID)",
+        "property_state": "State location (term ID)",
+        "property_city": "City location (term ID)",
+        "city_center": "City center location (term ID)",
+        "property_area": "Area/neighborhood location (term ID)",
+        "property_address": "Full address",
+        "property_lable": "Property classification label"
+      }
+    },
+    "alh_unit": {
+      "description": "Individual rental units within properties",
+      "taxonomies": ["unit_type", "unit_rank", "alh_locations"],
+      "acf_fields": {
+        "unit_in_property": "Parent property ID",
+        "rooms_number": "Number of rooms",
+        "bathroom_number": "Number of bathrooms",
+        "rant_price": "Rental price per month",
+        "apartment_tenant": "Current tenant (user ID)"
+      }
+    },
+    "property_contract": {
+      "description": "Owner property management contracts",
+      "acf_fields": {
+        "owner": "Property owner (user ID)",
+        "property": "Property ID",
+        "agreed_to_rate": "Management commission percentage",
+        "contract_duration_per_month": "Contract duration in months",
+        "date_creation_contract": "Contract start date"
+      }
+    },
+    "unit_contract": {
+      "description": "Tenant rental contracts",
+      "acf_fields": {
+        "tenant": "Tenant user ID",
+        "unit": "Unit ID",
+        "unit_property": "Property ID",
+        "rent_price": "Monthly rent amount",
+        "contract_duration_per_month": "Contract duration in months",
+        "date_creation_contract": "Contract start date"
+      },
+      "post_statuses": ["publish", "expired"]
+    },
+    "collection_payment": {
+      "description": "Rent collection payments tracking",
+      "custom_table": "wp_unit_collection",
+      "fields": {
+        "contract": "Unit contract ID",
+        "contract_sell": "Payment amount",
+        "contract_status": "Payment status (collected, worth_collecting, delayed, overdue)",
+        "collection_date_start": "Payment period start date",
+        "collection_date_end": "Payment period end date",
+        "notes_of_exceeding_the_payment_period": "Late payment notes",
+        "uint_id": "Unit ID",
+        "delay_duration": "Delay duration for delayed payments",
+        "delay_reason": "Reason for payment delay"
+      },
+      "statuses": {
+        "collected": "Payment collected",
+        "worth_collecting": "Due for collection",
+        "delayed": "Payment delayed",
+        "overdue": "Payment overdue"
+      }
+    },
+    "supply_payment": {
+      "description": "Owner payment distributions",
+      "custom_table": "wp_supply_payment",
+      "fields": {
+        "contract": "Property contract ID",
+        "contract_sell": "Total payment amount",
+        "supply_status": "Payment status (pending, collected, worth_collecting)",
+        "supply_date_worthy": "Date payment is due",
+        "supply_date": "Actual payment date",
+        "owner": "Property owner ID"
+      },
+      "acf_fields": {
+        "invoice_detail": "Selected transactions for invoice generation"
+      },
+      "statuses": {
+        "pending": "Waiting for processing",
+        "collected": "Payment made to owner",
+        "worth_collecting": "Due for payment"
+      }
+    },
+    "property_repair": {
+      "description": "Property maintenance and repair tracking",
+      "acf_fields": {
+        "maintenance_type": "Type of maintenance (general_maintenance, special_maintenance, government_payment_unit, government_payment_prop)",
+        "maintenance_property": "Property ID (for general maintenance)",
+        "maintenance_unit": "Unit ID (for specific unit maintenance)",
+        "total_maintenance_cost": "Total cost of maintenance",
+        "maintenance_date": "Date of maintenance",
+        "post_content": "Maintenance description"
+      },
+      "maintenance_types": {
+        "general_maintenance": "General property maintenance",
+        "special_maintenance": "Specific unit maintenance",
+        "government_payment_unit": "Unit-specific government obligations",
+        "government_payment_prop": "Property-wide government obligations"
+      }
+    }
+  },
+  "taxonomies": {
+    "prop_status": {
+      "description": "Property status (available, rented, under maintenance, reserved, unavailable)",
+      "hierarchical": false,
+      "applies_to": ["alh_property"]
+    },
+    "prop_type": {
+      "description": "Property types (villa, apartment, commercial store, office, warehouse, land)",
+      "hierarchical": true,
+      "applies_to": ["alh_property"]
+    },
+    "prop_feature": {
+      "description": "Property features (elevator, parking, garden, pool, security system)",
+      "hierarchical": false,
+      "applies_to": ["alh_property"]
+    },
+    "alh_locations": {
+      "description": "Hierarchical location taxonomy (State > City > Center > Neighborhood)",
+      "hierarchical": true,
+      "applies_to": ["alh_property", "alh_unit"],
+      "levels": {
+        "1": "State/Region",
+        "2": "City",
+        "3": "City Center",
+        "4": "Neighborhood/Area"
+      }
+    },
+    "unit_type": {
+      "description": "Unit types classification",
+      "hierarchical": false,
+      "applies_to": ["alh_unit"]
+    },
+    "unit_rank": {
+      "description": "Unit classification/ranking",
+      "hierarchical": false,
+      "applies_to": ["alh_unit"]
+    },
+    "prop_rank": {
+      "description": "Property classification/ranking",
+      "hierarchical": true,
+      "applies_to": ["alh_property"]
+    }
+  },
+  "user_roles": {
+    "alh_owner": {
+      "description": "Property owners",
+      "capabilities": "View own properties and financial reports",
+      "meta_fields": {
+        "owner_phone": "Primary phone number",
+        "owner_phone_2": "Secondary phone number",
+        "owner_adress": "Owner address",
+        "user_property": "Associated property IDs"
+      }
+    },
+    "alh_tenant": {
+      "description": "Property tenants",
+      "capabilities": "View own rental information",
+      "meta_fields": {
+        "tenant_phone": "Tenant phone number"
+      }
+    },
+    "generalmanager": {
+      "description": "General managers with elevated permissions",
+      "capabilities": "Manage properties, contracts, and payments"
+    },
+    "operationalmanager": {
+      "description": "Operational managers",
+      "capabilities": "Day-to-day operations management"
+    }
+  },
+  "custom_database_tables": {
+    "wp_property_transactions": {
+      "description": "Central transaction tracking table",
+      "columns": {
+        "id": "Primary key",
+        "transaction_type": "Type: collection, maintenance, rent",
+        "transaction_id": "Related post ID",
+        "related_id": "Property/Unit ID",
+        "unit_id": "Specific unit ID",
+        "amount": "Transaction amount",
+        "transaction_date": "Transaction date",
+        "invoice_id": "Associated invoice ID",
+        "invoice_status": "Payment status (paid/unpaid)"
+      },
+      "managed_by": "PropertyManagementHelper class"
+    },
+    "wp_unit_collection": {
+      "description": "Collection payment tracking",
+      "linked_to": "collection_payment post type"
+    },
+    "wp_supply_payment": {
+      "description": "Owner payment distributions tracking",
+      "linked_to": "supply_payment post type"
+    }
+  },
+  "key_functionalities": {
+    "property_management": {
+      "features": [
+        "Property CRUD operations with location hierarchy",
+        "Unit management within properties",
+        "Owner assignment and management",
+        "Property status tracking",
+        "Property features and classification"
+      ]
+    },
+    "contract_management": {
+      "features": [
+        "Property management contracts with commission rates",
+        "Unit rental contracts with tenants",
+        "Contract expiration tracking and renewal",
+        "Automated contract status updates",
+        "Contract document storage"
+      ]
+    },
+    "financial_system": {
+      "features": [
+        "Rent collection tracking with status workflow",
+        "Owner payment distributions with deductions",
+        "Commission calculations based on contract rates",
+        "Maintenance cost tracking by category",
+        "Detailed invoice generation with legal agreements",
+        "Financial reporting for owners and managers"
+      ]
+    },
+    "maintenance_system": {
+      "features": [
+        "Property and unit maintenance tracking",
+        "Maintenance categorization (general, special, government obligations)",
+        "Cost allocation and deduction from owner payments",
+        "Maintenance history and reporting",
+        "Invoice and receipt management"
+      ]
+    },
+    "reporting_system": {
+      "features": [
+        "Dashboard with key statistics",
+        "Owner financial reports with income breakdown",
+        "Tenant payment status reports",
+        "Property occupancy reports",
+        "Maintenance cost analysis",
+        "Expired contracts tracking",
+        "Print-friendly report formats"
+      ]
+    }
+  },
+  "ajax_endpoints": {
+    "datatables": [
+      "property_datatables - Properties listing with location filters",
+      "unit_datatables - Units listing with property and price filters",
+      "prop_contract_datatables - Property contracts listing",
+      "unit_contract_datatables - Unit contracts listing",
+      "collection_payment_datatables - Payment collections with status filters",
+      "supply_payment_datatables - Owner payments with status filters",
+      "property_repair_datatables - Maintenance records listing",
+      "alh_members_datatables - Users listing (owners/tenants)"
+    ],
+    "utility": [
+      "load_location_field_choices - Dynamic location cascade loading",
+      "delete_content - Content deletion with admin verification",
+      "cancel_contract_ajax - Contract cancellation workflow"
+    ]
+  },
+  "financial_workflow": {
+    "rent_collection": {
+      "steps": [
+        "Unit contracts generate collection_payment records",
+        "Payments tracked through custom wp_unit_collection table",
+        "Status progression: worth_collecting -> collected/delayed/overdue",
+        "Late payment tracking with reasons and duration"
+      ]
+    },
+    "owner_payments": {
+      "steps": [
+        "Collection payments aggregated per property",
+        "Management commission calculated from property contract",
+        "Maintenance costs deducted from gross income",
+        "supply_payment records created for owner distributions",
+        "Invoice generation with detailed transaction breakdown",
+        "Legal agreement included in invoice"
+      ]
+    },
+    "maintenance_tracking": {
+      "categories": [
+        "general_maintenance - Property-wide maintenance",
+        "special_maintenance - Unit-specific maintenance",
+        "government_payment_unit - Unit-level government obligations",
+        "government_payment_prop - Property-level government obligations"
+      ],
+      "cost_allocation": "Deducted from owner payments based on maintenance type"
+    }
+  },
+  "critical_business_logic": {
+    "commission_calculation": {
+      "source": "PropertyManagementHelper::collection_percentage()",
+      "logic": "Commission rate from property contract, default 5%",
+      "application": "Applied to all collection payments for owner distributions"
+    },
+    "invoice_generation": {
+      "source": "PropertyManagementHelper::generate_invoice()",
+      "components": [
+        "Transaction selection and grouping",
+        "Commission deduction calculation",
+        "Maintenance cost deduction",
+        "Net payment calculation",
+        "Legal agreement inclusion",
+        "Print-ready formatting"
+      ]
+    },
+    "contract_expiration": {
+      "calculation": "start_date + duration_months = end_date",
+      "status_change": "Contracts marked as 'expired' status",
+      "renewal_workflow": "Edit link with contract-renew action"
+    },
+    "payment_status_workflow": {
+      "worth_collecting": "Payment due for collection",
+      "collected": "Payment received and processed",
+      "delayed": "Payment postponed with reason",
+      "overdue": "Payment past due date"
+    }
+  },
+  "key_findings": [
+    "Comprehensive property management system with financial tracking",
+    "Multi-level user roles (owners, tenants, managers, admins)",
+    "Advanced commission and deduction calculation system",
+    "Hierarchical location taxonomy with 4 levels",
+    "Custom database tables for financial transaction tracking",
+    "DataTables integration for all entity listings with advanced filtering",
+    "Automated invoice generation with detailed breakdowns",
+    "Property and unit maintenance cost tracking by category",
+    "Role-based dashboard with relevant statistics",
+    "Print-friendly report generation",
+    "Contract expiration tracking and renewal management",
+    "Payment status workflow (due, collected, delayed, overdue)",
+    "ACF Pro integration for all custom fields and forms",
+    "AJAX-powered dynamic form fields (location cascading)",
+    "Comprehensive reporting system for owners and managers"
+  ],
+  "migration_notes": [
+    "Custom post types need Laravel Models with relationships",
+    "Taxonomies should become Laravel Models or Enums",
+    "Custom database tables need proper Laravel migrations",
+    "ACF fields should become Laravel form fields and validation rules",
+    "AJAX DataTables functionality needs Laravel API endpoints",
+    "User roles and capabilities need Laravel Spatie Permissions",
+    "Financial calculation logic needs Laravel Service classes",
+    "Report generation needs Laravel Blade templates",
+    "File upload and media handling needs Laravel storage",
+    "Print functionality needs Laravel PDF generation",
+    "Location hierarchy needs nested set model in Laravel",
+    "Payment workflow needs Laravel state machines",
+    "Dashboard statistics need Laravel query builders",
+    "Invoice generation needs Laravel template engine",
+    "Contract expiration tracking needs Laravel scheduled jobs"
+  ]
+}
