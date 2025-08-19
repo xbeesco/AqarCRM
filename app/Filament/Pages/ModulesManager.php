@@ -17,6 +17,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Sushi\Sushi;
 use Illuminate\Database\Eloquent\Model;
 use App\Filament\Pages\ModuleEditor;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Textarea;
 
 // Model for modules data using Sushi
 class ModuleData extends Model
@@ -24,7 +26,7 @@ class ModuleData extends Model
     use Sushi;
     
     protected $schema = [
-        'id' => 'string',
+        'id' => 'integer',
         'name' => 'string',
         'path' => 'string',
         'description' => 'text',
@@ -47,6 +49,7 @@ class ModuleData extends Model
         }
 
         $files = File::files($modulesPath);
+        $index = 1;
         
         foreach ($files as $file) {
             if ($file->getExtension() === 'json') {
@@ -55,7 +58,7 @@ class ModuleData extends Model
                 $isValid = json_last_error() === JSON_ERROR_NONE;
                 
                 $modules[] = [
-                    'id' => $file->getFilenameWithoutExtension(),
+                    'id' => $index++,  // Use incremental ID for Sushi
                     'name' => $file->getFilenameWithoutExtension(),
                     'path' => $file->getPathname(),
                     'description' => $isValid ? ($data['meta']['description'] ?? 'No description') : 'Invalid JSON file',
@@ -151,6 +154,35 @@ class ModulesManager extends Page implements HasTable
                     ->color('primary')
                     ->url(fn ($record) => ModuleEditor::getUrl(['module' => $record->name]))
                     ->openUrlInNewTab(false),
+            ])
+            ->headerActions([
+                TableAction::make('create')
+                    ->label('Add New Module')
+                    ->icon('heroicon-o-plus')
+                    ->color('success')
+                    ->form([
+                        TextInput::make('module_name')
+                            ->label('Module Name')
+                            ->required()
+                            ->placeholder('properties, units, contracts')
+                            ->regex('/^[a-z_]+$/')
+                            ->validationMessages([
+                                'regex' => 'Only lowercase English letters and underscores are allowed',
+                            ]),
+                        TextInput::make('version')
+                            ->label('Version')
+                            ->default('1.0.0')
+                            ->placeholder('1.0.0'),
+                        Textarea::make('description')
+                            ->label('Description')
+                            ->required()
+                            ->placeholder('Describe what this module does')
+                            ->rows(3),
+                    ])
+                    ->modalHeading('Create New Module')
+                    ->modalDescription('Enter the basic information for your new module')
+                    ->modalSubmitActionLabel('Create Module')
+                    ->action(fn (array $data) => $this->createNewModule($data)),
             ])
             ->bulkActions([])
             ->defaultSort('name')
@@ -265,6 +297,74 @@ class ModulesManager extends Page implements HasTable
             Notification::make()
                 ->title('Backup Failed')
                 ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+    
+    public function createNewModule($data = []): void
+    {
+        // This method will be called from a modal form
+        try {
+            $moduleName = Str::slug($data['module_name']);
+            $modulePath = base_path('.docs/modules/' . $moduleName . '.json');
+            
+            if (File::exists($modulePath)) {
+                Notification::make()
+                    ->title('Module Already Exists')
+                    ->body("A module named '{$moduleName}' already exists.")
+                    ->danger()
+                    ->send();
+                return;
+            }
+            
+            // Create the module structure
+            $moduleData = [
+                'meta' => [
+                    'module' => $moduleName,
+                    'version' => $data['version'] ?? '1.0.0',
+                    'description' => $data['description'] ?? 'New module description',
+                    'schema_definition' => []
+                ],
+                'models' => [],
+                'relationships' => [],
+                'shared' => [
+                    'processes' => [],
+                    'screens' => [],
+                    'utilities' => [
+                        'helpers' => [],
+                        'validators' => [],
+                        'transformers' => []
+                    ]
+                ],
+                'tests' => [
+                    'unit' => [],
+                    'feature' => [],
+                    'playwright_mcp' => []
+                ]
+            ];
+            
+            // Write the JSON file
+            $jsonContent = json_encode(
+                $moduleData,
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            );
+            
+            File::put($modulePath, $jsonContent);
+            
+            Notification::make()
+                ->title('Module Created')
+                ->body("Module '{$moduleName}' has been created successfully.")
+                ->success()
+                ->send();
+                
+            // Redirect to the module editor
+            redirect()->to(ModuleEditor::getUrl(['module' => $moduleName]));
+                
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('Creation Failed')
+                ->body('Error: ' . $e->getMessage())
                 ->danger()
                 ->send();
         }
