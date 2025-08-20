@@ -18,4 +18,12 @@ class CreateEmployee extends CreateRecord
     {
         return 'تم إنشاء الموظف بنجاح';
     }
+    
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        // التأكد من أن نوع المستخدم موظف
+        $data['user_type'] = 'employee';
+        
+        return $data;
+    }
 }

@@ -20,10 +20,13 @@ class Employee extends User
      */
     protected $fillable = [
         'name',
+        'username',
         'email',
         'password',
-        'phone',
+        'phone1',
+        'phone2',
         'identity_file',
+        'user_type',
     ];
 
     /**

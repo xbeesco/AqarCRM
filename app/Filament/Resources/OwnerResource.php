@@ -49,23 +49,22 @@ class OwnerResource extends Resource
                         TextInput::make('name')
                             ->required()
                             ->label('الاسم الكامل')
-                            ->maxLength(255),
-
+                            ->maxLength(255)
+                            ->columnSpan('full'),
+                            
                         TextInput::make('phone1')
-                            ->tel()
+                            ->numeric()
                             ->required()
                             ->label('رقم الهاتف الأول')
-                            ->prefix('966')
-                            ->regex('/^[0-9]+$/')
-                            ->maxLength(20),
+                            ->maxLength(20)
+                            ->columnSpan('full'),
 
                         TextInput::make('phone2')
-                            ->tel()
+                            ->numeric()
                             ->label('رقم الهاتف الثاني')
-                            ->prefix('966')
-                            ->regex('/^[0-9]+$/')
-                            ->maxLength(20),
-
+                            ->maxLength(20)
+                            ->columnSpan('full'),
+                            
                         FileUpload::make('identity_file')
                             ->label('ملف الهوية')
                             ->directory('owners/identities')
@@ -73,7 +72,8 @@ class OwnerResource extends Resource
                             ->maxSize(5120)
                             ->downloadable()
                             ->openable()
-                            ->previewable(),
+                            ->previewable()
+                            ->columnSpan('full'),
                     ])
                     ->columnSpan('full'),
             ]);

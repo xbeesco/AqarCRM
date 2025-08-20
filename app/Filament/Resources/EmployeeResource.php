@@ -47,22 +47,21 @@ class EmployeeResource extends Resource
                         TextInput::make('name')
                             ->required()
                             ->label('الاسم الكامل')
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->columnSpan('full'),
 
                         TextInput::make('phone1')
-                            ->tel()
+                            ->numeric()
                             ->required()
                             ->label('رقم الهاتف الأول')
-                            ->prefix('966')
-                            ->regex('/^[0-9]+$/')
-                            ->maxLength(20),
+                            ->maxLength(20)
+                            ->columnSpan('full'),
 
                         TextInput::make('phone2')
-                            ->tel()
+                            ->numeric()
                             ->label('رقم الهاتف الثاني')
-                            ->prefix('966')
-                            ->regex('/^[0-9]+$/')
-                            ->maxLength(20),
+                            ->maxLength(20)
+                            ->columnSpan('full'),
 
                         FileUpload::make('identity_file')
                             ->label('ملف الهوية')
@@ -71,7 +70,8 @@ class EmployeeResource extends Resource
                             ->maxSize(5120)
                             ->downloadable()
                             ->openable()
-                            ->previewable(),
+                            ->previewable()
+                            ->columnSpan('full'),
                     ])
                     ->columnSpan('full'),
 
@@ -81,14 +81,16 @@ class EmployeeResource extends Resource
                             ->required()
                             ->label('اسم المستخدم')
                             ->unique(ignoreRecord: true)
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->columnSpan('full'),
 
                         TextInput::make('email')
                             ->email()
                             ->required()
                             ->label('البريد الإلكتروني')
                             ->unique(ignoreRecord: true)
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->columnSpan('full'),
 
                         TextInput::make('password')
                             ->password()
@@ -96,7 +98,8 @@ class EmployeeResource extends Resource
                             ->label('كلمة المرور')
                             ->dehydrateStateUsing(fn ($state) => Hash::make($state))
                             ->dehydrated(fn ($state) => filled($state))
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->columnSpan('full'),
                     ])
                     ->columnSpan('full'),
             ]);
