@@ -30,10 +30,13 @@ class User extends Authenticatable implements FilamentUser
      */
     protected $fillable = [
         'name',
+        'username',
         'email',
         'password',
-        'phone',
+        'phone1',
+        'phone2',
         'identity_file',
+        'user_type',
     ];
 
     /**
@@ -58,6 +61,22 @@ class User extends Authenticatable implements FilamentUser
             'password' => 'hashed',
             'deleted_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Set the phone1 attribute (remove non-numeric characters)
+     */
+    public function setPhone1Attribute($value)
+    {
+        $this->attributes['phone1'] = preg_replace('/[^0-9]/', '', $value);
+    }
+
+    /**
+     * Get the phone1 attribute with 966 prefix
+     */
+    public function getPhone1WithPrefixAttribute()
+    {
+        return $this->phone1 ? '966' . $this->phone1 : null;
     }
 
     /**
