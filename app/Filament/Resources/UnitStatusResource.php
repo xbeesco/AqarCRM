@@ -25,7 +25,7 @@ class UnitStatusResource extends Resource
 {
     protected static ?string $model = UnitStatus::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-tag';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-tag';
 
     protected static ?string $navigationLabel = 'حالات الوحدات';
 

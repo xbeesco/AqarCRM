@@ -26,6 +26,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
+use BackedEnum;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class PropertyTypeResource extends Resource

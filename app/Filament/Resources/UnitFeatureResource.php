@@ -26,7 +26,7 @@ class UnitFeatureResource extends Resource
 {
     protected static ?string $model = UnitFeature::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-star';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-star';
 
     protected static ?string $navigationLabel = 'مميزات الوحدات';
 

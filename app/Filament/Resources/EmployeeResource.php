@@ -22,6 +22,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Database\Eloquent\Builder;
+use BackedEnum;
 
 class EmployeeResource extends Resource
 {
@@ -33,7 +34,7 @@ class EmployeeResource extends Resource
 
     protected static ?string $pluralModelLabel = 'الموظفين';
 
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-users';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-users';
 
     protected static ?int $navigationSort = 1;
 

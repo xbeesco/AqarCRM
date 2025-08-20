@@ -26,12 +26,13 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Actions\DeleteAction;
 use Illuminate\Database\Eloquent\Builder;
+use BackedEnum;
 
 class PropertyContractResource extends Resource
 {
     protected static ?string $model = PropertyContract::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-document-text';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
 
     protected static ?string $navigationLabel = 'عقود الملاك';
 
