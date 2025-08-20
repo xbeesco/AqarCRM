@@ -25,16 +25,17 @@ class UnitStatusResource extends Resource
 {
     protected static ?string $model = UnitStatus::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-tag';
+    protected static ?string $navigationIcon = 'heroicon-o-tag';
 
-    protected static ?string $navigationLabel = 'حالات الوحدات / Unit Statuses';
+    protected static ?string $navigationLabel = 'حالات الوحدات';
 
-    protected static ?string $modelLabel = 'حالة وحدة / Unit Status';
+    protected static ?string $modelLabel = 'حالة وحدة';
 
-    protected static ?string $pluralModelLabel = 'حالات الوحدات / Unit Statuses';
+    protected static ?string $pluralModelLabel = 'حالات الوحدات';
 
+    protected static string|\UnitEnum|null $navigationGroup = 'الوحدات';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 430;
 
     public static function form(Schema $schema): Schema
     {

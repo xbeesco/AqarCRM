@@ -28,9 +28,9 @@ class PropertyStatusResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'إعدادات النظام';
+    protected static string|\UnitEnum|null $navigationGroup = 'العقارات';
 
-    protected static ?int $navigationSort = 10;
+    protected static ?int $navigationSort = 180;
 
     protected static ?string $recordTitleAttribute = 'name';
 

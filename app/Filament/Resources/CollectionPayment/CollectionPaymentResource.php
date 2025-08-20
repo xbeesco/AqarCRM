@@ -28,12 +28,12 @@ use BackedEnum;
 class CollectionPaymentResource extends Resource
 {
     protected static ?string $model = CollectionPayment::class;
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-currency-dollar';
-    protected static ?string $navigationLabel = 'Collection Payments / دفعات التحصيل';
-    protected static ?string $modelLabel = 'Collection Payment';
-    protected static ?string $pluralModelLabel = 'Collection Payments';
-    protected static string|\UnitEnum|null $navigationGroup = 'Financial Management';
-    protected static ?int $navigationSort = 1;
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-currency-dollar';
+    protected static ?string $navigationLabel = 'دفعات التحصيل';
+    protected static ?string $modelLabel = 'دفعة تحصيل';
+    protected static ?string $pluralModelLabel = 'دفعات التحصيل';
+    protected static string|\UnitEnum|null $navigationGroup = 'دفعات التحصيل';
+    protected static ?int $navigationSort = 810;
 
     public static function form(Schema $schema): Schema
     {

@@ -31,17 +31,17 @@ class PropertyContractResource extends Resource
 {
     protected static ?string $model = PropertyContract::class;
 
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
+    protected static ?string $navigationIcon = 'heroicon-o-document-text';
 
     protected static ?string $navigationLabel = 'عقود الملاك';
 
     protected static ?string $modelLabel = 'عقد ملكية';
 
+    protected static string|\UnitEnum|null $navigationGroup = 'عقود الملاك';
+
+    protected static ?int $navigationSort = 310;
+
     protected static ?string $pluralModelLabel = 'عقود الملاك';
-
-    protected static string|\UnitEnum|null $navigationGroup = 'Contracts Management';
-
-    protected static ?int $navigationSort = 1;
 
     public static function form(Schema $schema): Schema
     {

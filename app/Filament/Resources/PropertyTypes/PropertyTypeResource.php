@@ -28,9 +28,9 @@ class PropertyTypeResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-building-office';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'إعدادات النظام';
+    protected static string|\UnitEnum|null $navigationGroup = 'العقارات';
 
-    protected static ?int $navigationSort = 12;
+    protected static ?int $navigationSort = 170;
 
     protected static ?string $recordTitleAttribute = 'name';
 

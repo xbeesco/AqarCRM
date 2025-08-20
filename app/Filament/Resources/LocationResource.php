@@ -27,13 +27,17 @@ class LocationResource extends Resource
 {
     protected static ?string $model = Location::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-map-pin';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-map-pin';
     
     protected static ?string $navigationLabel = 'المواقع';
     
     protected static ?string $pluralModelLabel = 'المواقع';
     
     protected static ?string $modelLabel = 'موقع';
+    
+    protected static string|\UnitEnum|null $navigationGroup = 'العقارات';
+    
+    protected static ?int $navigationSort = 130;
 
     public static function form(Schema $schema): Schema
     {

@@ -22,6 +22,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Database\Eloquent\Builder;
+use BackedEnum;
 
 class OwnerResource extends Resource
 {
@@ -33,9 +34,11 @@ class OwnerResource extends Resource
 
     protected static ?string $pluralModelLabel = 'الملاك';
 
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-home';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-users';
 
-    protected static ?int $navigationSort = 2;
+    protected static string|\UnitEnum|null $navigationGroup = 'الملاك';
+
+    protected static ?int $navigationSort = 210;
 
     public static function form(Schema $schema): Schema
     {

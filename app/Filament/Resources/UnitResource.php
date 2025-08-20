@@ -32,15 +32,17 @@ class UnitResource extends Resource
 {
     protected static ?string $model = Unit::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-building-office-2';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-squares-2x2';
 
-    protected static ?string $navigationLabel = 'الوحدات / Units';
+    protected static ?string $navigationLabel = 'الوحدات';
 
-    protected static ?string $modelLabel = 'وحدة / Unit';
+    protected static ?string $modelLabel = 'وحدة';
 
-    protected static ?string $pluralModelLabel = 'الوحدات / Units';
+    protected static string|\UnitEnum|null $navigationGroup = 'الوحدات';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 410;
+
+    protected static ?string $pluralModelLabel = 'الوحدات';
 
     public static function form(Schema $schema): Schema
     {

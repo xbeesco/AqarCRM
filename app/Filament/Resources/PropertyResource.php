@@ -23,16 +23,23 @@ use Filament\Actions\ViewAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Schemas\Schema;
+use BackedEnum;
 
 class PropertyResource extends Resource
 {
     protected static ?string $model = Property::class;
     
-    protected static ?string $navigationLabel = 'العقارات';
+    protected static ?string $navigationLabel = 'كل العقارات';
     
     protected static ?string $modelLabel = 'عقار';
     
     protected static ?string $pluralModelLabel = 'العقارات';
+    
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-building-office-2';
+    
+    protected static string|\UnitEnum|null $navigationGroup = 'العقارات';
+    
+    protected static ?int $navigationSort = 110;
 
     public static function form(Schema $schema): Schema
     {

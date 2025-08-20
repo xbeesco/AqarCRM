@@ -32,17 +32,17 @@ class UnitContractResource extends Resource
 {
     protected static ?string $model = UnitContract::class;
 
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-check';
+    protected static ?string $navigationIcon = 'heroicon-o-document-check';
 
-    protected static ?string $navigationLabel = 'عقود الإيجار';
+    protected static ?string $navigationLabel = 'عقود الوحدات';
 
-    protected static ?string $modelLabel = 'عقد إيجار';
+    protected static ?string $modelLabel = 'عقد وحدة';
 
-    protected static ?string $pluralModelLabel = 'عقود الإيجار';
+    protected static string|\UnitEnum|null $navigationGroup = 'عقود الوحدات';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Contracts Management';
+    protected static ?int $navigationSort = 610;
 
-    protected static ?int $navigationSort = 2;
+    protected static ?string $pluralModelLabel = 'عقود الوحدات';
 
     public static function form(Schema $schema): Schema
     {
