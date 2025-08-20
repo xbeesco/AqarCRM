@@ -41,24 +41,27 @@ class EmployeeResource extends Resource
     {
         return $schema
             ->schema([
-                Section::make('البيانات الأساسية')
+                Section::make('معلومات عامة')
                     ->schema([
                         TextInput::make('name')
                             ->required()
                             ->label('الاسم الكامل')
                             ->maxLength(255),
 
-                        TextInput::make('email')
-                            ->email()
-                            ->required()
-                            ->label('البريد الإلكتروني')
-                            ->unique(ignoreRecord: true)
-                            ->maxLength(255),
-
-                        TextInput::make('phone')
+                        TextInput::make('phone1')
                             ->tel()
-                            ->label('رقم الهاتف')
-                            ->maxLength(255),
+                            ->required()
+                            ->label('رقم الهاتف الأول')
+                            ->prefix('966')
+                            ->regex('/^[0-9]+$/')
+                            ->maxLength(20),
+
+                        TextInput::make('phone2')
+                            ->tel()
+                            ->label('رقم الهاتف الثاني')
+                            ->prefix('966')
+                            ->regex('/^[0-9]+$/')
+                            ->maxLength(20),
 
                         FileUpload::make('identity_file')
                             ->label('ملف الهوية')
@@ -68,6 +71,23 @@ class EmployeeResource extends Resource
                             ->downloadable()
                             ->openable()
                             ->previewable(),
+                    ])
+                    ->columnSpan('full'),
+
+                Section::make('معلومات الدخول')
+                    ->schema([
+                        TextInput::make('username')
+                            ->required()
+                            ->label('اسم المستخدم')
+                            ->unique(ignoreRecord: true)
+                            ->maxLength(255),
+
+                        TextInput::make('email')
+                            ->email()
+                            ->required()
+                            ->label('البريد الإلكتروني')
+                            ->unique(ignoreRecord: true)
+                            ->maxLength(255),
 
                         TextInput::make('password')
                             ->password()
@@ -77,7 +97,7 @@ class EmployeeResource extends Resource
                             ->dehydrated(fn ($state) => filled($state))
                             ->maxLength(255),
                     ])
-                    ->columns(2)
+                    ->columnSpan('full'),
             ]);
     }
 
@@ -95,8 +115,8 @@ class EmployeeResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('phone')
-                    ->label('رقم الهاتف')
+                TextColumn::make('phone1')
+                    ->label('رقم الهاتف الأول')
                     ->searchable(),
 
                 TextColumn::make('created_at')
