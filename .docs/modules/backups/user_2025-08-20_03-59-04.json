@@ -1,0 +1,24 @@
+{
+    "meta": {
+        "module": "user",
+        "version": "1.0.0",
+        "description": "users",
+        "schema_definition": []
+    },
+    "models": [],
+    "relationships": [],
+    "shared": {
+        "processes": [],
+        "screens": [],
+        "utilities": {
+            "helpers": [],
+            "validators": [],
+            "transformers": []
+        }
+    },
+    "tests": {
+        "unit": [],
+        "feature": [],
+        "playwright_mcp": []
+    }
+}

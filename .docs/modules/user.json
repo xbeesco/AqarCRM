@@ -1,0 +1,28 @@
+{
+    "meta": {
+        "module": "",
+        "version": "1.0.0",
+        "description": "users"
+    },
+    "models": [],
+    "relationships": [],
+    "shared": {
+        "processes": {
+            "custom_crud_operations": [],
+            "business_operations": [],
+            "query_operations": [],
+            "integration_operations": []
+        },
+        "screens": [],
+        "utilities": {
+            "helpers": [],
+            "validators": [],
+            "transformers": []
+        }
+    },
+    "tests": {
+        "unit": [],
+        "feature": [],
+        "playwright_mcp": []
+    }
+}

@@ -1,0 +1,31 @@
+{
+  "meta": {
+    "module": "test",
+    "version": "1.0.0",
+    "description": "Test module for development"
+  },
+  "models": [
+    {
+      "model_slug": "test_model",
+      "database_schema": {
+        "fields": [],
+        "indexes": [],
+        "constraints": []
+      },
+      "tests": [],
+      "processes": [],
+      "screens": []
+    }
+  ],
+  "relationships": [],
+  "shared": {
+    "processes": [],
+    "screens": [],
+    "utilities": {
+      "helpers": [],
+      "validators": [],
+      "transformers": []
+    }
+  },
+  "tests": []
+}

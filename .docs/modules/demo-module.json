@@ -1,0 +1,24 @@
+{
+    "meta": {
+        "module": "demo-module",
+        "version": "1.0.0",
+        "description": "Demo module for testing creation and editing",
+        "schema_definition": []
+    },
+    "models": [],
+    "relationships": [],
+    "shared": {
+        "processes": [],
+        "screens": [],
+        "utilities": {
+            "helpers": [],
+            "validators": [],
+            "transformers": []
+        }
+    },
+    "tests": {
+        "unit": [],
+        "feature": [],
+        "playwright_mcp": []
+    }
+}

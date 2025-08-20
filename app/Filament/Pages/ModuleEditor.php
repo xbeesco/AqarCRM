@@ -37,16 +37,22 @@ class ModuleEditor extends Page implements HasForms
 
     public ?string $module = null;
     public ?string $mode = 'edit';  // Changed default to edit
-    public array $data = [];
+    public ?array $data = [];
     public ?string $rawContent = '';
     public bool $prettyPrint = true;
     public int $indentSize = 2;
+    
+    // Form data properties (for Livewire binding)
+    public $meta = [];
+    public $models = [];
+    public $relationships = [];
+    public $shared = [];
+    public $tests = [];
     
     // Dynamic form fields
     public array $metaData = [];
     public array $schemaDefinitions = [];
     public array $acfFieldAnalysis = [];
-    public array $models = [];
     
     protected ?string $modulePath = null;
     protected array $originalData = [];
@@ -64,6 +70,21 @@ class ModuleEditor extends Page implements HasForms
         
         if ($this->module) {
             // Initialize empty data structure first
+            $this->meta = [];
+            $this->models = [];
+            $this->relationships = [];
+            $this->shared = [
+                'processes' => [],
+                'screens' => [],
+                'utilities' => [
+                    'helpers' => [],
+                    'validators' => [],
+                    'transformers' => [],
+                ]
+            ];
+            $this->tests = [];
+            
+            // Also initialize data array for backward compatibility
             $this->data = [
                 'meta' => [],
                 'models' => [],
@@ -194,31 +215,38 @@ class ModuleEditor extends Page implements HasForms
         $this->metaData = $cleanedData['meta'] ?? [];
         $this->schemaDefinitions = $cleanedData['meta']['schema_definition'] ?? [];
         $this->acfFieldAnalysis = $cleanedData['acf_field_analysis'] ?? [];
-        $this->models = $cleanedData['models'] ?? [];
         
         // Add original_model_slug tracking to existing models
         $modelsWithTracking = [];
-        foreach ($this->models as $model) {
+        $models = $cleanedData['models'] ?? [];
+        foreach ($models as $model) {
             $modelWithTracking = $model;
             $modelWithTracking['original_model_slug'] = $model['model_slug'] ?? '';
             $modelsWithTracking[] = $modelWithTracking;
         }
         
+        // Set individual Livewire properties for binding
+        $this->meta = $this->metaData;
+        $this->models = $modelsWithTracking;
+        $this->relationships = $cleanedData['relationships'] ?? [];
+        $this->shared = [
+            'processes' => $cleanedData['shared']['processes'] ?? [],
+            'screens' => $cleanedData['shared']['screens'] ?? [],
+            'utilities' => [
+                'helpers' => $cleanedData['shared']['utilities']['helpers'] ?? [],
+                'validators' => $cleanedData['shared']['utilities']['validators'] ?? [],
+                'transformers' => $cleanedData['shared']['utilities']['transformers'] ?? [],
+            ]
+        ];
+        $this->tests = $cleanedData['tests'] ?? [];
+        
         // Structure data for form binding with proper defaults
         $this->data = [
-            'meta' => $this->metaData,
-            'models' => $modelsWithTracking,
-            'relationships' => $cleanedData['relationships'] ?? [],
-            'shared' => [
-                'processes' => $cleanedData['shared']['processes'] ?? [],
-                'screens' => $cleanedData['shared']['screens'] ?? [],
-                'utilities' => [
-                    'helpers' => $cleanedData['shared']['utilities']['helpers'] ?? [],
-                    'validators' => $cleanedData['shared']['utilities']['validators'] ?? [],
-                    'transformers' => $cleanedData['shared']['utilities']['transformers'] ?? [],
-                ]
-            ],
-            'tests' => $cleanedData['tests'] ?? [],
+            'meta' => $this->meta,
+            'models' => $this->models,
+            'relationships' => $this->relationships,
+            'shared' => $this->shared,
+            'tests' => $this->tests,
         ];
         
         // Initialize form state properly
@@ -290,6 +318,7 @@ class ModuleEditor extends Page implements HasForms
                         ->validationMessages([
                             'regex' => 'Only lowercase English letters and underscores are allowed',
                         ])
+                        ->disabled($this->module !== null) // Disable when editing
                         ->columnSpan(2),
                     
                     TextInput::make('meta.version')
@@ -314,10 +343,7 @@ class ModuleEditor extends Page implements HasForms
                             ->label('')
                             ->schema(function () {
                                 return [
-                                    Hidden::make('original_model_slug')
-                                        ->default(function ($get, $state) {
-                                            return $get('model_slug') ?? $state ?? '';
-                                        }),
+                                    Hidden::make('original_model_slug'),
                                     
                                     TextInput::make('model_slug')
                                         ->label('Model Slug')
@@ -556,17 +582,31 @@ class ModuleEditor extends Page implements HasForms
     public function save(): void
     {
         try {
-            // Try to get form data, but fall back to editor data if validation fails
-            try {
-                $formData = $this->form->getState();
-            } catch (\Illuminate\Validation\ValidationException $e) {
-                // Use editor data directly when form validation fails
-                // This handles cases where the form structure is complex
-                $formData = $this->data;
+            // Ensure module path is set
+            if (empty($this->modulePath)) {
+                $this->modulePath = base_path('.docs/modules/' . $this->module . '.json');
             }
             
+            // Check if file exists
+            if (!File::exists($this->modulePath)) {
+                Notification::make()
+                    ->title('Save Failed')
+                    ->body("Module file not found: {$this->module}.json")
+                    ->danger()
+                    ->send();
+                return;
+            }
             
-            // Load the original file to preserve ACF data
+            // Get the current form state - this includes the user's changes
+            $formData = $this->form->getState();
+            
+            // Deep clean the form data to remove any corruption
+            $formData = $this->deepCleanFormData($formData);
+            
+            // Clean up nested structure issues
+            $formData = $this->cleanFormData($formData);
+            
+            // Load the original file to preserve ACF data and get original models for comparison
             $originalContent = File::get($this->modulePath);
             $originalData = json_decode($originalContent, true) ?? [];
             
@@ -588,10 +628,11 @@ class ModuleEditor extends Page implements HasForms
                 // Handle model renaming before saving
                 $processedModels = $this->handleModelRenaming($formData['models'], $originalData['models'] ?? []);
                 $completeData['models'] = $processedModels;
-                
+            } else {
+                $completeData['models'] = [];
             }
             
-            // Copy other data structures that weren't modified in renaming
+            // Copy other data structures
             if (isset($formData['relationships'])) {
                 $completeData['relationships'] = $formData['relationships'];
             }
@@ -621,6 +662,7 @@ class ModuleEditor extends Page implements HasForms
                         ->url(static::getUrl(['module' => $this->module]))
                         ->button(),
                 ])
+                ->persistent()
                 ->send();
             
             $this->loadModule();
@@ -632,6 +674,341 @@ class ModuleEditor extends Page implements HasForms
                 ->danger()
                 ->send();
         }
+    }
+    
+    protected function deepCleanFormData(array $data): array
+    {
+        // Start with the expected structure
+        $cleanData = [
+            'meta' => [],
+            'models' => [],
+            'relationships' => [],
+            'shared' => [
+                'processes' => [],
+                'screens' => [],
+                'utilities' => [
+                    'helpers' => [],
+                    'validators' => [],
+                    'transformers' => []
+                ]
+            ],
+            'tests' => [
+                'unit' => [],
+                'feature' => [],
+                'playwright_mcp' => []
+            ]
+        ];
+        
+        // Extract meta data
+        if (isset($data['meta']) && is_array($data['meta'])) {
+            $cleanData['meta'] = [
+                'module' => $data['meta']['module'] ?? '',
+                'version' => $data['meta']['version'] ?? '1.0.0',
+                'description' => $data['meta']['description'] ?? '',
+            ];
+            // Preserve schema_definition if it exists and is valid
+            if (isset($data['meta']['schema_definition']) && is_array($data['meta']['schema_definition']) && !isset($data['meta']['schema_definition']['shared'])) {
+                $cleanData['meta']['schema_definition'] = $data['meta']['schema_definition'];
+            }
+        }
+        
+        // Extract models
+        if (isset($data['models']) && is_array($data['models'])) {
+            $cleanData['models'] = $this->extractCleanModels($data['models']);
+        }
+        
+        // Extract relationships
+        if (isset($data['relationships']) && is_array($data['relationships']) && !isset($data['relationships']['shared'])) {
+            $cleanData['relationships'] = $this->extractCleanRelationships($data['relationships']);
+        }
+        
+        // Extract shared components
+        if (isset($data['shared']) && is_array($data['shared'])) {
+            $cleanData['shared'] = $this->extractCleanShared($data['shared']);
+        }
+        
+        // Extract tests
+        if (isset($data['tests']) && is_array($data['tests'])) {
+            $cleanData['tests'] = $this->extractCleanTests($data['tests']);
+        }
+        
+        return $cleanData;
+    }
+    
+    protected function extractCleanModels(array $models): array
+    {
+        $cleanModels = [];
+        foreach ($models as $model) {
+            if (!is_array($model) || !isset($model['model_slug']) || empty($model['model_slug'])) {
+                continue;
+            }
+            
+            $cleanModel = [
+                'model_slug' => $model['model_slug'],
+                'original_model_slug' => $model['original_model_slug'] ?? '',
+                'database_schema' => [
+                    'fields' => [],
+                    'indexes' => [],
+                    'constraints' => []
+                ],
+                'tests' => [],
+                'processes' => [],
+                'screens' => []
+            ];
+            
+            // Extract database schema
+            if (isset($model['database_schema']) && is_array($model['database_schema'])) {
+                if (isset($model['database_schema']['fields']) && is_array($model['database_schema']['fields'])) {
+                    $cleanModel['database_schema']['fields'] = $model['database_schema']['fields'];
+                }
+                if (isset($model['database_schema']['indexes']) && is_array($model['database_schema']['indexes'])) {
+                    $cleanModel['database_schema']['indexes'] = $model['database_schema']['indexes'];
+                }
+                if (isset($model['database_schema']['constraints']) && is_array($model['database_schema']['constraints'])) {
+                    $cleanModel['database_schema']['constraints'] = $model['database_schema']['constraints'];
+                }
+            }
+            
+            // Extract other arrays
+            if (isset($model['tests']) && is_array($model['tests']) && !isset($model['tests']['shared'])) {
+                $cleanModel['tests'] = $model['tests'];
+            }
+            if (isset($model['processes']) && is_array($model['processes']) && !isset($model['processes']['shared'])) {
+                $cleanModel['processes'] = $model['processes'];
+            }
+            if (isset($model['screens']) && is_array($model['screens']) && !isset($model['screens']['shared'])) {
+                $cleanModel['screens'] = $model['screens'];
+            }
+            
+            $cleanModels[] = $cleanModel;
+        }
+        return $cleanModels;
+    }
+    
+    protected function extractCleanRelationships(array $relationships): array
+    {
+        $cleanRelationships = [];
+        foreach ($relationships as $relationship) {
+            if (!is_array($relationship)) {
+                continue;
+            }
+            
+            $cleanRelationship = [
+                'relationship_slug' => $relationship['relationship_slug'] ?? '',
+                'type' => $relationship['type'] ?? '',
+                '1st_side' => $relationship['1st_side'] ?? '',
+                '2nd_side' => $relationship['2nd_side'] ?? '',
+                'constraints' => []
+            ];
+            
+            if (isset($relationship['constraints']) && is_array($relationship['constraints'])) {
+                $cleanRelationship['constraints'] = $relationship['constraints'];
+            }
+            
+            if (!empty($cleanRelationship['relationship_slug'])) {
+                $cleanRelationships[] = $cleanRelationship;
+            }
+        }
+        return $cleanRelationships;
+    }
+    
+    protected function extractCleanShared(array $shared): array
+    {
+        $cleanShared = [
+            'processes' => [],
+            'screens' => [],
+            'utilities' => [
+                'helpers' => [],
+                'validators' => [],
+                'transformers' => []
+            ]
+        ];
+        
+        // Extract processes
+        if (isset($shared['processes']) && is_array($shared['processes']) && !isset($shared['processes']['shared'])) {
+            $cleanShared['processes'] = $shared['processes'];
+        }
+        
+        // Extract screens
+        if (isset($shared['screens']) && is_array($shared['screens']) && !isset($shared['screens']['shared'])) {
+            $cleanShared['screens'] = $shared['screens'];
+        }
+        
+        // Extract utilities
+        if (isset($shared['utilities']) && is_array($shared['utilities'])) {
+            if (isset($shared['utilities']['helpers']) && is_array($shared['utilities']['helpers']) && !isset($shared['utilities']['helpers']['shared'])) {
+                $cleanShared['utilities']['helpers'] = $shared['utilities']['helpers'];
+            }
+            if (isset($shared['utilities']['validators']) && is_array($shared['utilities']['validators']) && !isset($shared['utilities']['validators']['shared'])) {
+                $cleanShared['utilities']['validators'] = $shared['utilities']['validators'];
+            }
+            if (isset($shared['utilities']['transformers']) && is_array($shared['utilities']['transformers']) && !isset($shared['utilities']['transformers']['shared'])) {
+                $cleanShared['utilities']['transformers'] = $shared['utilities']['transformers'];
+            }
+        }
+        
+        return $cleanShared;
+    }
+    
+    protected function extractCleanTests(array $tests): array
+    {
+        $cleanTests = [
+            'unit' => [],
+            'feature' => [],
+            'playwright_mcp' => []
+        ];
+        
+        if (isset($tests['unit']) && is_array($tests['unit']) && !isset($tests['unit']['shared'])) {
+            $cleanTests['unit'] = $tests['unit'];
+        }
+        if (isset($tests['feature']) && is_array($tests['feature']) && !isset($tests['feature']['shared'])) {
+            $cleanTests['feature'] = $tests['feature'];
+        }
+        if (isset($tests['playwright_mcp']) && is_array($tests['playwright_mcp']) && !isset($tests['playwright_mcp']['shared'])) {
+            $cleanTests['playwright_mcp'] = $tests['playwright_mcp'];
+        }
+        
+        return $cleanTests;
+    }
+    
+    protected function cleanFormData(array $data): array
+    {
+        // Clean up models if they have nested structure issues
+        if (isset($data['models']) && is_array($data['models'])) {
+            $cleanedModels = [];
+            foreach ($data['models'] as $model) {
+                // Skip if model doesn't have a model_slug
+                if (!isset($model['model_slug']) || empty($model['model_slug'])) {
+                    continue;
+                }
+                
+                // Clean nested structures - remove any 'shared' key that shouldn't be there
+                $cleanedModel = [
+                    'model_slug' => $model['model_slug'],
+                    'original_model_slug' => $model['original_model_slug'] ?? '',
+                    'database_schema' => $this->cleanNestedStructure($model['database_schema'] ?? []),
+                    'tests' => $this->cleanNestedStructure($model['tests'] ?? []),
+                    'processes' => $this->cleanNestedStructure($model['processes'] ?? []),
+                    'screens' => $this->cleanNestedStructure($model['screens'] ?? []),
+                ];
+                
+                $cleanedModels[] = $cleanedModel;
+            }
+            $data['models'] = $cleanedModels;
+        }
+        
+        // Clean relationships
+        if (isset($data['relationships'])) {
+            if (is_array($data['relationships']) && isset($data['relationships']['shared'])) {
+                // This is corrupted, reset to empty array
+                $data['relationships'] = [];
+            }
+        }
+        
+        // Clean shared section
+        if (isset($data['shared'])) {
+            $cleanedShared = [
+                'processes' => [],
+                'screens' => [],
+                'utilities' => [
+                    'helpers' => [],
+                    'validators' => [],
+                    'transformers' => []
+                ]
+            ];
+            
+            // Try to preserve valid data if possible
+            if (is_array($data['shared'])) {
+                if (isset($data['shared']['processes']) && is_array($data['shared']['processes'])) {
+                    // Check if processes is corrupted
+                    if (!isset($data['shared']['processes']['shared'])) {
+                        $cleanedShared['processes'] = $data['shared']['processes'];
+                    }
+                }
+                if (isset($data['shared']['screens']) && is_array($data['shared']['screens'])) {
+                    // Check if screens is corrupted
+                    if (!isset($data['shared']['screens']['shared'])) {
+                        $cleanedShared['screens'] = $data['shared']['screens'];
+                    }
+                }
+                if (isset($data['shared']['utilities']) && is_array($data['shared']['utilities'])) {
+                    // Clean utilities
+                    if (isset($data['shared']['utilities']['helpers']) && !is_array($data['shared']['utilities']['helpers'])) {
+                        $cleanedShared['utilities']['helpers'] = [];
+                    } elseif (isset($data['shared']['utilities']['helpers']) && !isset($data['shared']['utilities']['helpers']['shared'])) {
+                        $cleanedShared['utilities']['helpers'] = $data['shared']['utilities']['helpers'];
+                    }
+                    
+                    if (isset($data['shared']['utilities']['validators']) && !is_array($data['shared']['utilities']['validators'])) {
+                        $cleanedShared['utilities']['validators'] = [];
+                    } elseif (isset($data['shared']['utilities']['validators']) && !isset($data['shared']['utilities']['validators']['shared'])) {
+                        $cleanedShared['utilities']['validators'] = $data['shared']['utilities']['validators'];
+                    }
+                    
+                    if (isset($data['shared']['utilities']['transformers']) && !is_array($data['shared']['utilities']['transformers'])) {
+                        $cleanedShared['utilities']['transformers'] = [];
+                    } elseif (isset($data['shared']['utilities']['transformers']) && !isset($data['shared']['utilities']['transformers']['shared'])) {
+                        $cleanedShared['utilities']['transformers'] = $data['shared']['utilities']['transformers'];
+                    }
+                }
+            }
+            
+            $data['shared'] = $cleanedShared;
+        }
+        
+        // Clean tests section
+        if (isset($data['tests'])) {
+            if (is_array($data['tests'])) {
+                // Check if tests structure is corrupted
+                if (isset($data['tests']['shared']) || 
+                    (isset($data['tests']['unit']) && isset($data['tests']['unit']['shared'])) ||
+                    (isset($data['tests']['feature']) && isset($data['tests']['feature']['shared'])) ||
+                    (isset($data['tests']['playwright_mcp']) && isset($data['tests']['playwright_mcp']['shared']))) {
+                    // Reset to default structure
+                    $data['tests'] = [
+                        'unit' => [],
+                        'feature' => [],
+                        'playwright_mcp' => []
+                    ];
+                }
+            }
+        }
+        
+        return $data;
+    }
+    
+    protected function cleanNestedStructure($structure): array|string
+    {
+        if (!is_array($structure)) {
+            return $structure;
+        }
+        
+        // For special cases where the entire structure is corrupted
+        if (isset($structure['shared']) && isset($structure['shared']['utilities'])) {
+            // This is a corrupted structure, return empty array
+            return [];
+        }
+        
+        // Clean each sub-structure recursively
+        $cleaned = [];
+        foreach ($structure as $key => $value) {
+            if ($key === 'shared') {
+                continue; // Skip any 'shared' keys at this level
+            }
+            
+            if (is_array($value)) {
+                // Recursively clean nested arrays
+                $cleanedValue = $this->cleanNestedStructure($value);
+                // Only add if not empty after cleaning
+                if (!empty($cleanedValue) || $cleanedValue === []) {
+                    $cleaned[$key] = $cleanedValue;
+                }
+            } else {
+                $cleaned[$key] = $value;
+            }
+        }
+        
+        return $cleaned;
     }
 
     protected function handleModelRenaming(array $newModels, array $originalModels): array
@@ -694,42 +1071,40 @@ class ModuleEditor extends Page implements HasForms
     
     protected function mergeModelData(array $originalModel, array $newModel): array
     {
-        // Start with the original model to preserve all nested data
-        $merged = $originalModel;
+        // Start with the new model data from the form
+        $merged = $newModel;
         
-        // Update basic fields from the form
+        // Update the model slug
         $merged['model_slug'] = $newModel['model_slug'];
         
-        // Preserve existing nested structures while allowing updates
-        if (isset($newModel['database_schema'])) {
-            $merged['database_schema'] = array_merge(
-                $originalModel['database_schema'] ?? [],
-                $newModel['database_schema'] ?? []
-            );
+        // For nested structures, use the new data if provided, otherwise keep original
+        // This preserves user edits while maintaining data from the original if not edited
+        
+        // Database schema - use new if exists, otherwise original
+        if (!isset($newModel['database_schema']) || empty($newModel['database_schema']['fields'])) {
+            $merged['database_schema'] = $originalModel['database_schema'] ?? [
+                'fields' => [],
+                'indexes' => [],
+                'constraints' => []
+            ];
         }
         
-        if (isset($newModel['tests'])) {
-            $merged['tests'] = array_merge(
-                $originalModel['tests'] ?? [],
-                $newModel['tests'] ?? []
-            );
+        // Tests - use new if exists, otherwise original
+        if (!isset($newModel['tests']) || (is_array($newModel['tests']) && empty($newModel['tests']))) {
+            $merged['tests'] = $originalModel['tests'] ?? [];
         }
         
-        if (isset($newModel['processes'])) {
-            $merged['processes'] = array_merge(
-                $originalModel['processes'] ?? [],
-                $newModel['processes'] ?? []
-            );
+        // Processes - use new if exists, otherwise original
+        if (!isset($newModel['processes']) || (is_array($newModel['processes']) && empty($newModel['processes']))) {
+            $merged['processes'] = $originalModel['processes'] ?? [];
         }
         
-        if (isset($newModel['screens'])) {
-            $merged['screens'] = array_merge(
-                $originalModel['screens'] ?? [],
-                $newModel['screens'] ?? []
-            );
+        // Screens - use new if exists, otherwise original
+        if (!isset($newModel['screens']) || (is_array($newModel['screens']) && empty($newModel['screens']))) {
+            $merged['screens'] = $originalModel['screens'] ?? [];
         }
         
-        // Remove the tracking field
+        // Remove the tracking field from final output
         unset($merged['original_model_slug']);
         
         return $merged;
@@ -737,6 +1112,11 @@ class ModuleEditor extends Page implements HasForms
 
     protected function createBackup(): void
     {
+        // Skip backup if module path is not set
+        if (empty($this->modulePath) || !File::exists($this->modulePath)) {
+            return;
+        }
+        
         $backupDir = base_path('.docs/modules/backups');
         
         if (!File::exists($backupDir)) {
