@@ -10,6 +10,9 @@ class Location extends Model
 {
     protected $fillable = [
         'name', 
+        'name_ar',
+        'name_en',
+        'code',
         'parent_id', 
         'level', 
         'path', 
@@ -46,5 +49,26 @@ class Location extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+    
+    // Scopes for each level
+    public function scopeCountries($query)
+    {
+        return $query->where('level', 1);
+    }
+    
+    public function scopeCities($query)
+    {
+        return $query->where('level', 2);
+    }
+    
+    public function scopeDistricts($query)
+    {
+        return $query->where('level', 3);
+    }
+    
+    public function scopeNeighborhoods($query)
+    {
+        return $query->where('level', 4);
     }
 }
