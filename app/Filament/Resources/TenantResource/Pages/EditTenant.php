@@ -29,4 +29,27 @@ class EditTenant extends EditRecord
     {
         return 'تم تحديث بيانات المستأجر بنجاح';
     }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // Get domain from APP_URL without http://
+        $appUrl = config('app.url');
+        $domain = str_replace(['http://', 'https://'], '', $appUrl);
+        
+        // Use phone1 as username
+        $data['username'] = $data['phone1'];
+        
+        // Generate email from phone1
+        $data['email'] = $data['phone1'] . '@' . $domain;
+        
+        // Set password as phone1 if not provided
+        if (empty($data['password'])) {
+            $data['password'] = $data['phone1'];
+        }
+        
+        // Set user_type
+        $data['user_type'] = 'tenant';
+        
+        return $data;
+    }
 }
