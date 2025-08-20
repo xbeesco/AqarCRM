@@ -80,6 +80,16 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
+     * Find user by username or email for authentication
+     */
+    public static function findForAuth($login)
+    {
+        return static::where('email', $login)
+            ->orWhere('username', $login)
+            ->first();
+    }
+
+    /**
      * Scope for employees
      */
     public function scopeEmployees($query)
