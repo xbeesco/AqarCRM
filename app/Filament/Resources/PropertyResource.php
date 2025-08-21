@@ -14,6 +14,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Toggle;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -27,7 +28,7 @@ class PropertyResource extends Resource
 {
     protected static ?string $model = Property::class;
     
-    protected static ?string $navigationLabel = 'كل العقارات';
+    protected static ?string $navigationLabel = 'العقارات';
     
     protected static ?string $modelLabel = 'عقار';
     
@@ -72,9 +73,26 @@ class PropertyResource extends Resource
                             ->required(),
                             
                         TextInput::make('area_sqm')
-                            ->label('المساحة (م²)')
+                            ->label('المساحة الإجمالية (م²)')
                             ->numeric()
                             ->suffix('م²'),
+                    ]),
+                    
+                    Grid::make(3)->schema([
+                        TextInput::make('garden_area')
+                            ->label('مساحة الحديقة (م²)')
+                            ->numeric()
+                            ->suffix('م²'),
+                            
+                        TextInput::make('latitude')
+                            ->label('خط العرض')
+                            ->numeric()
+                            ->step(0.0000001),
+                            
+                        TextInput::make('longitude')
+                            ->label('خط الطول')
+                            ->numeric()
+                            ->step(0.0000001),
                     ]),
                 ]),
                 
@@ -120,6 +138,12 @@ class PropertyResource extends Resource
                             ->numeric()
                             ->minValue(1900)
                             ->maxValue(date('Y')),
+                    ]),
+                    
+                    Grid::make(2)->schema([
+                        Toggle::make('has_elevator')
+                            ->label('يوجد مصعد')
+                            ->default(false),
                     ]),
                     
                     Textarea::make('notes')
@@ -172,6 +196,20 @@ class PropertyResource extends Resource
                 TextColumn::make('area_sqm')
                     ->label('المساحة')
                     ->suffix(' م²'),
+                    
+                TextColumn::make('total_units')
+                    ->label('عدد الوحدات')
+                    ->default(0),
+                    
+                TextColumn::make('occupancy_rate')
+                    ->label('معدل الإشغال')
+                    ->formatStateUsing(fn ($state) => number_format($state, 1) . '%')
+                    ->color(fn ($state) => $state > 80 ? 'success' : ($state > 50 ? 'warning' : 'danger')),
+                    
+                TextColumn::make('monthly_revenue')
+                    ->label('الإيراد الشهري')
+                    ->formatStateUsing(fn ($state) => number_format($state, 2) . ' ر.س')
+                    ->color('success'),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -193,15 +231,23 @@ class PropertyResource extends Resource
                 SelectFilter::make('owner')
                     ->label('المالك')
                     ->relationship('owner', 'name'),
-            ])
+                    
+                SelectFilter::make('location')
+                    ->label('الموقع')
+                    ->relationship('location', 'name'),
+                    
+                SelectFilter::make('has_elevator')
+                    ->label('يوجد مصعد')
+                    ->options([
+                        true => 'نعم',
+                        false => 'لا',
+                    ]),
+            ], layout: \Filament\Tables\Enums\FiltersLayout::AboveContent)
             ->actions([
-                ViewAction::make(),
                 EditAction::make(),
             ])
             ->bulkActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
+                // Remove bulk actions as per requirements
             ]);
     }
 
