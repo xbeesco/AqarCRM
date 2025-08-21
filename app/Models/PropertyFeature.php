@@ -17,7 +17,11 @@ class PropertyFeature extends Model
     protected $fillable = [
         'name_ar',
         'name_en',
-        'category'
+        'slug',
+        'category',
+        'icon',
+        'requires_value',
+        'value_type'
     ];
 
     /**
@@ -25,7 +29,29 @@ class PropertyFeature extends Model
      *
      * @var array<string, string>
      */
-    protected $casts = [];
+    protected $casts = [
+        'requires_value' => 'boolean',
+    ];
+
+    /**
+     * Boot the model.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (empty($model->slug)) {
+                $model->slug = Str::slug($model->name_en ?: $model->name_ar);
+            }
+        });
+
+        static::updating(function ($model) {
+            if (empty($model->slug)) {
+                $model->slug = Str::slug($model->name_en ?: $model->name_ar);
+            }
+        });
+    }
 
     /**
      * The valid categories for features.
