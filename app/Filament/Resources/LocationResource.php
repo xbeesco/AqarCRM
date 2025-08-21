@@ -19,6 +19,7 @@ use Filament\Tables\Enums\FiltersLayout;
 use Filament\Actions\ViewAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\CreateAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Illuminate\Database\Eloquent\Builder;
@@ -36,9 +37,7 @@ class LocationResource extends Resource
     {
         return $schema
             ->schema([
-                Section::make('معلومات الموقع')
-                    ->schema([
-                        Select::make('level')
+Select::make('level')
                             ->label('المستوى')
                             ->options(Location::getLevelOptions())
                             ->required()
@@ -80,9 +79,6 @@ class LocationResource extends Resource
                         Forms\Components\Toggle::make('is_active')
                             ->label('نشط')
                             ->default(true),
-                    ])
-                    ->columnSpanFull()
-                    ->columns(4)
             ]);
     }
 
@@ -138,23 +134,12 @@ class LocationResource extends Resource
                     })
                     ->html()
                     ->wrap(),
-                    
-                TextColumn::make('code')
-                    ->label('الكود')
-                    ->searchable()
-                    ->toggleable()
-                    ->placeholder('—'),
-                    
+                                        
                 BadgeColumn::make('is_active')
                     ->label('الحالة')
                     ->formatStateUsing(fn (bool $state): string => $state ? 'نشط' : 'غير نشط')
                     ->color(fn (bool $state): string => $state ? 'success' : 'danger'),
                     
-                TextColumn::make('created_at')
-                    ->label('تاريخ الإنشاء')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             //     SelectFilter::make('level')
             //         ->label('المستوى')
@@ -194,7 +179,10 @@ class LocationResource extends Resource
             // ])
             ->filtersLayout(FiltersLayout::AboveContent)
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->modalHeading(fn ($record) => 'تعديل موقع: ' . $record->name)
+                    ->modalButton('حفظ التغييرات')
+                    ->modalWidth('xl'),
             ])
             ->defaultSort('path', 'asc')
             ->paginated(false);
@@ -210,10 +198,7 @@ class LocationResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListLocations::route('/'),
-            'create' => Pages\CreateLocation::route('/create'),
-            'view' => Pages\ViewLocation::route('/{record}'),
-            'edit' => Pages\EditLocation::route('/{record}/edit'),
+            'index' => Pages\ManageLocations::route('/'),
         ];
     }
     
