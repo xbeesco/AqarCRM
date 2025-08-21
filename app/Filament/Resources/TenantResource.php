@@ -191,7 +191,7 @@ class TenantResource extends Resource
         ];
     }
 
-    public static function getGlobalSearchResults(string $search): array
+    public static function getGlobalSearchResults(string $search): \Illuminate\Support\Collection
     {
         return static::getModel()::query()
             ->where(function (Builder $query) use ($search) {
@@ -218,6 +218,6 @@ class TenantResource extends Resource
                     ])
                     ->url(static::getUrl('view', ['record' => $record]));
             })
-            ->toArray();
+            ;
     }
 }

@@ -389,7 +389,7 @@ class UnitResource extends Resource
         ];
     }
 
-    public static function getGlobalSearchResults(string $search): array
+    public static function getGlobalSearchResults(string $search): \Illuminate\Support\Collection
     {
         return static::getModel()::query()
             ->with(['property', 'property.location'])
@@ -426,6 +426,6 @@ class UnitResource extends Resource
                     ])
                     ->url(static::getUrl('view', ['record' => $record]));
             })
-            ->toArray();
+            ;
     }
 }
