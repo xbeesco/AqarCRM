@@ -114,9 +114,7 @@ class TenantResource extends Resource
                     
                 SelectFilter::make('property')
                     ->label('العقار')
-                    ->options(function () {
-                        return \App\Models\Property::pluck('name', 'id')->toArray();
-                    })
+                    ->relationship('currentProperty', 'name')
                     ->searchable()
                     ->columnSpan(4),
                     
