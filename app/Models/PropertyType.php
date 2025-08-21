@@ -18,7 +18,14 @@ class PropertyType extends Model
     protected $fillable = [
         'name_ar',
         'name_en',
-        'sort_order'
+        'slug',
+        'icon',
+        'description_ar',
+        'description_en',
+        'parent_id',
+        'is_active',
+        'sort_order',
+        'properties_count'
     ];
 
     /**
@@ -27,9 +34,26 @@ class PropertyType extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'sort_order' => 'integer'
+        'parent_id' => 'integer',
+        'is_active' => 'boolean',
+        'sort_order' => 'integer',
+        'properties_count' => 'integer'
     ];
 
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($propertyType) {
+            if (empty($propertyType->slug)) {
+                $propertyType->slug = Str::slug($propertyType->name_en);
+            }
+        });
+    }
 
     /**
      * Get the localized name attribute.
@@ -37,6 +61,22 @@ class PropertyType extends Model
     public function getNameAttribute(): string
     {
         return app()->getLocale() === 'ar' ? $this->name_ar : $this->name_en;
+    }
+
+    /**
+     * Get the parent property type.
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(PropertyType::class, 'parent_id');
+    }
+
+    /**
+     * Get the child property types.
+     */
+    public function children(): HasMany
+    {
+        return $this->hasMany(PropertyType::class, 'parent_id');
     }
 
 
@@ -49,6 +89,14 @@ class PropertyType extends Model
         return $this->hasMany(Property::class);
     }
 
+
+    /**
+     * Scope a query to only include active property types.
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('is_active', true);
+    }
 
     /**
      * Scope a query to order property types by sort order.
