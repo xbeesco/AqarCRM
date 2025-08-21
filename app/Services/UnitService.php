@@ -4,266 +4,391 @@ namespace App\Services;
 
 use App\Models\Unit;
 use App\Models\User;
-use App\Models\Property;
 use App\Models\UnitStatus;
-use App\Repositories\UnitRepository;
-use Illuminate\Support\Collection;
-use Illuminate\Database\Eloquent\Builder;
+use App\Models\UnitFeature;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class UnitService
 {
-    public function __construct(
-        protected UnitRepository $unitRepository
-    ) {}
-
     /**
-     * Create a new unit with property validation
+     * Check unit availability for date range
      */
-    public function createUnit(array $data): Unit
+    public function checkUnitAvailability(int $unitId, array $dateRange = []): bool
     {
-        // Validate property exists and user has permission
-        $property = Property::findOrFail($data['property_id']);
+        $unit = Unit::with(['status'])->findOrFail($unitId);
         
-        // Check if unit number is unique within property
-        $this->validateUniqueUnitNumber($data['property_id'], $data['unit_number']);
-        
-        // Set default status to available if not provided
-        if (!isset($data['status_id'])) {
-            $availableStatus = UnitStatus::where('slug', 'available')->first();
-            $data['status_id'] = $availableStatus?->id;
-        }
-        
-        // Auto-generate unit code if needed
-        $data['unit_code'] = $this->generateUnitCode($data['property_id'], $data['unit_number']);
-        
-        return $this->unitRepository->create($data);
-    }
-
-    /**
-     * Assign tenant to unit
-     */
-    public function assignTenant(int $unitId, int $tenantId, ?string $startDate = null): bool
-    {
-        $unit = $this->unitRepository->findOrFail($unitId);
-        $tenant = User::findOrFail($tenantId);
-        
-        // Validate unit is available
         if (!$unit->isAvailable()) {
-            throw new \Exception('Unit is not available for assignment');
+            return false;
         }
         
-        // Validate tenant exists and has no active rental
-        if ($tenant->hasRole('tenant') && $this->tenantHasActiveRental($tenant)) {
-            throw new \Exception('Tenant already has an active rental');
-        }
-        
-        return $unit->assignTenant($tenant, $startDate);
-    }
-
-    /**
-     * Release tenant from unit
-     */
-    public function releaseTenant(int $unitId, ?string $endDate = null, ?string $reason = null): bool
-    {
-        $unit = $this->unitRepository->findOrFail($unitId);
-        
-        if (!$unit->isOccupied()) {
-            throw new \Exception('Unit has no current tenant');
-        }
-        
-        return $unit->releaseTenant($endDate);
-    }
-
-    /**
-     * Update unit status with validation
-     */
-    public function updateUnitStatus(int $unitId, int $newStatusId, ?string $reason = null): bool
-    {
-        $unit = $this->unitRepository->findOrFail($unitId);
-        $newStatus = UnitStatus::findOrFail($newStatusId);
-        
-        // Validate status transition
-        if (!$unit->status->canTransitionTo($newStatus)) {
-            throw new \Exception('Invalid status transition');
-        }
-        
-        // Check tenant occupancy rules
-        if ($newStatus->slug === 'available' && $unit->isOccupied()) {
-            throw new \Exception('Cannot set status to available while unit is occupied');
-        }
-        
-        $unit->status_id = $newStatusId;
-        
-        // Update availability dates if needed
-        if ($newStatus->is_available && !$unit->available_from) {
-            $unit->available_from = now()->toDateString();
-        }
-        
-        return $unit->save();
-    }
-
-    /**
-     * Check unit availability for specific date range
-     */
-    public function checkAvailability(int $unitId, string $startDate, string $endDate): array
-    {
-        $unit = $this->unitRepository->findOrFail($unitId);
-        
-        $isAvailable = $unit->isAvailable();
-        $nextAvailableDate = null;
-        
-        if (!$isAvailable) {
-            // Calculate next available date based on current occupancy
-            if ($unit->isOccupied()) {
-                // Would need contract information to determine end date
-                $nextAvailableDate = $unit->available_from;
-            } elseif ($unit->isUnderMaintenance()) {
-                $nextAvailableDate = $unit->next_maintenance_date;
+        // If date range is provided, check availability for that period
+        if (!empty($dateRange)) {
+            $startDate = Carbon::parse($dateRange['start'] ?? now());
+            $endDate = Carbon::parse($dateRange['end'] ?? now()->addMonth());
+            
+            // Check if unit will be available for the requested period
+            if ($unit->available_from && Carbon::parse($unit->available_from)->gt($startDate)) {
+                return false;
             }
         }
         
+        return true;
+    }
+
+    /**
+     * Assign tenant to unit with contract data
+     */
+    public function assignTenant(int $unitId, int $tenantId, array $contractData = []): array
+    {
+        return DB::transaction(function () use ($unitId, $tenantId, $contractData) {
+            $unit = Unit::findOrFail($unitId);
+            $tenant = User::findOrFail($tenantId);
+            
+            if (!$unit->isAvailable()) {
+                throw new \Exception('Unit is not available for assignment');
+            }
+            
+            // Assign tenant to unit
+            $success = $unit->assignTenant($tenant, $contractData['start_date'] ?? null);
+            
+            if (!$success) {
+                throw new \Exception('Failed to assign tenant to unit');
+            }
+            
+            // Update unit availability
+            $unit->update([
+                'available_from' => null,
+            ]);
+            
+            return [
+                'success' => true,
+                'unit' => $unit->fresh(['property', 'currentTenant', 'status']),
+                'tenant' => $tenant,
+                'message' => 'Tenant assigned successfully',
+            ];
+        });
+    }
+
+    /**
+     * Release unit from tenant
+     */
+    public function releaseUnit(int $unitId, string $reason = ''): array
+    {
+        return DB::transaction(function () use ($unitId, $reason) {
+            $unit = Unit::with(['currentTenant'])->findOrFail($unitId);
+            
+            if (!$unit->isOccupied()) {
+                throw new \Exception('Unit is not currently occupied');
+            }
+            
+            $previousTenant = $unit->currentTenant;
+            
+            // Release tenant from unit
+            $success = $unit->releaseTenant();
+            
+            if (!$success) {
+                throw new \Exception('Failed to release unit');
+            }
+            
+            return [
+                'success' => true,
+                'unit' => $unit->fresh(['property', 'status']),
+                'previous_tenant' => $previousTenant,
+                'reason' => $reason,
+                'message' => 'Unit released successfully',
+            ];
+        });
+    }
+
+    /**
+     * Calculate unit pricing for different durations
+     */
+    public function calculateUnitPricing(int $unitId, string $duration = 'monthly'): array
+    {
+        $unit = Unit::findOrFail($unitId);
+        
+        $basePrice = $unit->rent_price;
+        $discounts = $this->getPricingDiscounts($duration);
+        
+        $prices = [];
+        
+        foreach (['monthly', 'quarterly', 'semi_annual', 'annual'] as $period) {
+            $periodPrice = $unit->calculatePrice($period);
+            $discount = $discounts[$period] ?? 0;
+            $discountedPrice = $periodPrice * (1 - $discount / 100);
+            
+            $prices[$period] = [
+                'base_price' => $periodPrice,
+                'discount_percentage' => $discount,
+                'discount_amount' => $periodPrice - $discountedPrice,
+                'final_price' => $discountedPrice,
+                'monthly_equivalent' => $this->getMonthlyEquivalent($discountedPrice, $period),
+            ];
+        }
+        
         return [
-            'available' => $isAvailable,
-            'start_date' => $startDate,
-            'end_date' => $endDate,
-            'next_available_date' => $nextAvailableDate,
-            'status' => $unit->status->name,
-            'current_tenant' => $unit->currentTenant?->name,
+            'unit' => $unit,
+            'pricing' => $prices,
+            'recommended_period' => $this->getRecommendedPeriod($prices),
         ];
     }
 
     /**
-     * Calculate rental pricing for different periods with discounts
+     * Search units with advanced filters
      */
-    public function calculatePricing(int $unitId, string $periodType, int $duration, float $discountPercentage = 0): array
+    public function searchUnits(array $filters): Collection
     {
-        $unit = $this->unitRepository->findOrFail($unitId);
+        $query = Unit::with(['property', 'currentTenant', 'status', 'features']);
         
-        $baseRent = $unit->rent_price;
-        $totalAmount = $unit->calculatePrice($periodType) * $duration;
-        
-        // Apply discount
-        $discountAmount = $totalAmount * ($discountPercentage / 100);
-        $finalAmount = $totalAmount - $discountAmount;
-        
-        // Calculate taxes and fees (example: 15% VAT)
-        $vatRate = 0.15;
-        $vatAmount = $finalAmount * $vatRate;
-        $totalWithVat = $finalAmount + $vatAmount;
-        
-        return [
-            'base_rent' => $baseRent,
-            'period_type' => $periodType,
-            'duration' => $duration,
-            'subtotal' => $totalAmount,
-            'discount_percentage' => $discountPercentage,
-            'discount_amount' => $discountAmount,
-            'amount_after_discount' => $finalAmount,
-            'vat_rate' => $vatRate,
-            'vat_amount' => $vatAmount,
-            'total_amount' => $totalWithVat,
-        ];
-    }
-
-    /**
-     * Get available units with optional filtering
-     */
-    public function getAvailableUnits(array $filters = [], array $sortOptions = []): Collection
-    {
-        $query = $this->unitRepository->getAvailableUnitsQuery();
-        
-        // Apply filters
-        if (!empty($filters['property_id'])) {
+        // Property filter
+        if (isset($filters['property_id'])) {
             $query->where('property_id', $filters['property_id']);
         }
         
-        if (!empty($filters['unit_type'])) {
+        // Status filter
+        if (isset($filters['status_id'])) {
+            $query->where('status_id', $filters['status_id']);
+        }
+        
+        // Availability filter
+        if (isset($filters['availability'])) {
+            if ($filters['availability'] === 'available') {
+                $query->whereNull('current_tenant_id');
+            } elseif ($filters['availability'] === 'occupied') {
+                $query->whereNotNull('current_tenant_id');
+            }
+        }
+        
+        // Unit type filter
+        if (isset($filters['unit_type'])) {
             $query->where('unit_type', $filters['unit_type']);
         }
         
-        if (!empty($filters['min_price'])) {
+        // Price range filter
+        if (isset($filters['min_price'])) {
             $query->where('rent_price', '>=', $filters['min_price']);
         }
-        
-        if (!empty($filters['max_price'])) {
+        if (isset($filters['max_price'])) {
             $query->where('rent_price', '<=', $filters['max_price']);
         }
         
-        if (!empty($filters['rooms_count'])) {
-            $query->where('rooms_count', $filters['rooms_count']);
-        }
-        
-        if (!empty($filters['min_area'])) {
+        // Area range filter
+        if (isset($filters['min_area'])) {
             $query->where('area_sqm', '>=', $filters['min_area']);
         }
-        
-        if (!empty($filters['max_area'])) {
+        if (isset($filters['max_area'])) {
             $query->where('area_sqm', '<=', $filters['max_area']);
         }
         
-        if (isset($filters['furnished'])) {
-            $query->where('furnished', $filters['furnished']);
+        // Rooms count filter
+        if (isset($filters['rooms_count'])) {
+            $query->where('rooms_count', $filters['rooms_count']);
         }
         
-        // Apply sorting
-        $sortBy = $sortOptions['sort_by'] ?? 'unit_number';
-        $sortDirection = $sortOptions['sort_direction'] ?? 'asc';
-        $query->orderBy($sortBy, $sortDirection);
+        // Features filter
+        if (isset($filters['features'])) {
+            foreach ($filters['features'] as $feature => $required) {
+                if ($required) {
+                    $query->where($feature, true);
+                }
+            }
+        }
+        
+        // Floor range filter
+        if (isset($filters['min_floor'])) {
+            $query->where('floor_number', '>=', $filters['min_floor']);
+        }
+        if (isset($filters['max_floor'])) {
+            $query->where('floor_number', '<=', $filters['max_floor']);
+        }
         
         return $query->get();
     }
 
     /**
-     * Get units by property with details
+     * Get unit recommendations based on criteria
      */
-    public function getUnitsByProperty(int $propertyId, bool $includeRelations = true): Collection
+    public function getUnitRecommendations(array $criteria): Collection
     {
-        return $this->unitRepository->getUnitsByProperty($propertyId, $includeRelations);
-    }
-
-    /**
-     * Search units with multiple criteria
-     */
-    public function searchUnits(array $searchCriteria): Collection
-    {
-        return $this->unitRepository->searchUnits($searchCriteria);
-    }
-
-    /**
-     * Generate unique unit code
-     */
-    protected function generateUnitCode(int $propertyId, string $unitNumber): string
-    {
-        $property = Property::find($propertyId);
-        $propertyCode = $property ? "PROP{$property->id}" : "PROP{$propertyId}";
+        $query = Unit::with(['property', 'status'])
+            ->where('is_active', true)
+            ->whereNull('current_tenant_id')
+            ->whereHas('status', function ($q) {
+                $q->where('is_available', true);
+            });
         
-        return "{$propertyCode}-U{$unitNumber}";
-    }
-
-    /**
-     * Validate unit number is unique within property
-     */
-    protected function validateUniqueUnitNumber(int $propertyId, string $unitNumber, ?int $excludeUnitId = null): void
-    {
-        $query = Unit::where('property_id', $propertyId)
-                     ->where('unit_number', $unitNumber);
-        
-        if ($excludeUnitId) {
-            $query->where('id', '!=', $excludeUnitId);
+        // Apply criteria filters
+        if (isset($criteria['max_budget'])) {
+            $query->where('rent_price', '<=', $criteria['max_budget']);
         }
         
-        if ($query->exists()) {
-            throw new \Exception('Unit number already exists in this property');
+        if (isset($criteria['min_rooms'])) {
+            $query->where('rooms_count', '>=', $criteria['min_rooms']);
         }
+        
+        if (isset($criteria['preferred_area'])) {
+            $query->whereHas('property', function ($q) use ($criteria) {
+                $q->where('location_id', $criteria['preferred_area']);
+            });
+        }
+        
+        if (isset($criteria['unit_type'])) {
+            $query->where('unit_type', $criteria['unit_type']);
+        }
+        
+        if (isset($criteria['furnished'])) {
+            $query->where('furnished', $criteria['furnished']);
+        }
+        
+        // Sort by relevance score
+        return $query->get()->map(function ($unit) use ($criteria) {
+            $unit->relevance_score = $this->calculateRelevanceScore($unit, $criteria);
+            return $unit;
+        })->sortByDesc('relevance_score');
     }
 
     /**
-     * Check if tenant has active rental
+     * Get units performance metrics
      */
-    protected function tenantHasActiveRental(User $tenant): bool
+    public function getUnitsPerformanceMetrics(array $unitIds = []): array
     {
-        return Unit::where('current_tenant_id', $tenant->id)
-                   ->where('is_active', true)
-                   ->exists();
+        $query = Unit::with(['property']);
+        
+        if (!empty($unitIds)) {
+            $query->whereIn('id', $unitIds);
+        }
+        
+        $units = $query->get();
+        
+        $totalUnits = $units->count();
+        $occupiedUnits = $units->whereNotNull('current_tenant_id')->count();
+        $availableUnits = $totalUnits - $occupiedUnits;
+        $totalRevenue = $units->whereNotNull('current_tenant_id')->sum('rent_price');
+        $averageRent = $units->avg('rent_price');
+        $averageArea = $units->avg('area_sqm');
+        $pricePerSqm = $averageArea > 0 ? $averageRent / $averageArea : 0;
+        
+        return [
+            'total_units' => $totalUnits,
+            'occupied_units' => $occupiedUnits,
+            'available_units' => $availableUnits,
+            'occupancy_rate' => $totalUnits > 0 ? ($occupiedUnits / $totalUnits) * 100 : 0,
+            'total_monthly_revenue' => $totalRevenue,
+            'average_rent' => $averageRent,
+            'average_area_sqm' => $averageArea,
+            'price_per_sqm' => $pricePerSqm,
+            'unit_type_distribution' => $this->getUnitTypeDistribution($units),
+            'floor_distribution' => $this->getFloorDistribution($units),
+        ];
+    }
+
+    /**
+     * Get pricing discounts for different periods
+     */
+    private function getPricingDiscounts(string $duration): array
+    {
+        return [
+            'monthly' => 0,
+            'quarterly' => 5,    // 5% discount for quarterly payment
+            'semi_annual' => 8,  // 8% discount for semi-annual payment
+            'annual' => 12,      // 12% discount for annual payment
+        ];
+    }
+
+    /**
+     * Get monthly equivalent price
+     */
+    private function getMonthlyEquivalent(float $totalPrice, string $period): float
+    {
+        $months = match ($period) {
+            'quarterly' => 3,
+            'semi_annual' => 6,
+            'annual' => 12,
+            default => 1,
+        };
+        
+        return $months > 0 ? $totalPrice / $months : $totalPrice;
+    }
+
+    /**
+     * Get recommended period based on pricing
+     */
+    private function getRecommendedPeriod(array $prices): string
+    {
+        $bestValue = 'monthly';
+        $lowestMonthlyRate = $prices['monthly']['monthly_equivalent'];
+        
+        foreach ($prices as $period => $pricing) {
+            if ($pricing['monthly_equivalent'] < $lowestMonthlyRate) {
+                $lowestMonthlyRate = $pricing['monthly_equivalent'];
+                $bestValue = $period;
+            }
+        }
+        
+        return $bestValue;
+    }
+
+    /**
+     * Calculate relevance score for unit recommendations
+     */
+    private function calculateRelevanceScore(Unit $unit, array $criteria): int
+    {
+        $score = 0;
+        
+        // Budget compatibility (40 points max)
+        if (isset($criteria['max_budget'])) {
+            $budgetRatio = $unit->rent_price / $criteria['max_budget'];
+            if ($budgetRatio <= 0.8) $score += 40;
+            elseif ($budgetRatio <= 0.9) $score += 30;
+            elseif ($budgetRatio <= 1.0) $score += 20;
+        }
+        
+        // Room count match (25 points max)
+        if (isset($criteria['min_rooms'])) {
+            if ($unit->rooms_count >= $criteria['min_rooms']) {
+                $score += 25;
+            }
+        }
+        
+        // Unit type match (20 points max)
+        if (isset($criteria['unit_type']) && $unit->unit_type === $criteria['unit_type']) {
+            $score += 20;
+        }
+        
+        // Furnished preference (10 points max)
+        if (isset($criteria['furnished']) && $unit->furnished === $criteria['furnished']) {
+            $score += 10;
+        }
+        
+        // Additional features (5 points max)
+        if ($unit->has_balcony) $score += 1;
+        if ($unit->has_parking) $score += 2;
+        if ($unit->has_storage) $score += 1;
+        if ($unit->has_maid_room) $score += 1;
+        
+        return $score;
+    }
+
+    /**
+     * Get unit type distribution
+     */
+    private function getUnitTypeDistribution(Collection $units): array
+    {
+        return $units->groupBy('unit_type')
+            ->map(fn($group) => $group->count())
+            ->toArray();
+    }
+
+    /**
+     * Get floor distribution
+     */
+    private function getFloorDistribution(Collection $units): array
+    {
+        return $units->groupBy('floor_number')
+            ->map(fn($group) => $group->count())
+            ->sort()
+            ->toArray();
     }
 }
