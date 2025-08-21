@@ -129,8 +129,6 @@ class EmployeeResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                TrashedFilter::make()
-                    ->label('المحذوفات'),
             ])
             ->actions([
                 EditAction::make(),
