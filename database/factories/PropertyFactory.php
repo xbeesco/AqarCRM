@@ -17,20 +17,19 @@ class PropertyFactory extends Factory
     public function definition(): array
     {
         return [
-            'owner_id' => \App\Models\User::factory(),
-            'type_id' => 1, // Default property type
-            'status_id' => 1, // Default status
-            'location_id' => 1, // Default location
-            'name' => $this->faker->words(3, true),
-            'description' => $this->faker->paragraph(),
+            'name' => 'عقار ' . $this->faker->words(2, true),
+            'owner_id' => \App\Models\User::role('owner')->inRandomOrder()->first()->id ?? \App\Models\User::factory(),
+            'status' => $this->faker->randomElement(['1', '2', '3']), // Use enum values
+            'type' => $this->faker->randomElement(['1', '2', '3', '4']), // Use enum values
+            'location_id' => 1, // Will be overridden by seeder
             'address' => $this->faker->address(),
+            'postal_code' => $this->faker->postcode(),
+            'parking_spots' => $this->faker->numberBetween(1, 20),
+            'elevators' => $this->faker->numberBetween(0, 3),
             'area_sqm' => $this->faker->numberBetween(100, 1000),
-            'total_units' => $this->faker->numberBetween(1, 50),
-            'floors_count' => $this->faker->numberBetween(1, 10),
             'build_year' => $this->faker->numberBetween(1990, 2025),
-            'has_elevator' => $this->faker->boolean(),
-            'parking_spaces' => $this->faker->numberBetween(0, 100),
-            'is_active' => true,
+            'floors_count' => $this->faker->numberBetween(1, 10),
+            'notes' => $this->faker->paragraph(),
         ];
     }
 }

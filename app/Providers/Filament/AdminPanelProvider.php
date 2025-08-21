@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use Filament\GlobalSearch\GlobalSearchResults;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -128,6 +129,10 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ])
-            ->authGuard('web');
+            ->authGuard('web')
+            ->globalSearch()
+            ->globalSearchResults(function (GlobalSearchResults $results): GlobalSearchResults {
+                return $results->limit(10);
+            });
     }
 }

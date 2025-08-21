@@ -24,6 +24,8 @@ use Filament\Actions\ViewAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Schemas\Schema;
+use Filament\GlobalSearch\GlobalSearchResult;
+use Illuminate\Database\Eloquent\Builder;
 class PropertyResource extends Resource
 {
     protected static ?string $model = Property::class;
@@ -265,5 +267,41 @@ class PropertyResource extends Resource
             'create' => Pages\CreateProperty::route('/create'),
             'edit' => Pages\EditProperty::route('/{record}/edit'),
         ];
+    }
+
+    public static function getGlobalSearchResults(string $search): array
+    {
+        return static::getModel()::query()
+            ->where(function (Builder $query) use ($search) {
+                $query->where('name', 'like', "%{$search}%")
+                      ->orWhere('address', 'like', "%{$search}%")
+                      ->orWhere('notes', 'like', "%{$search}%")
+                      ->orWhereHas('owner', function (Builder $query) use ($search) {
+                          $query->where('name', 'like', "%{$search}%");
+                      })
+                      ->orWhereHas('location', function (Builder $query) use ($search) {
+                          $query->where('name_ar', 'like', "%{$search}%")
+                                ->orWhere('name_en', 'like', "%{$search}%");
+                      });
+            })
+            ->limit(5)
+            ->get()
+            ->map(function (Property $record) {
+                return GlobalSearchResult::make()
+                    ->title($record->name)
+                    ->details([
+                        'المالك: ' . ($record->owner?->name ?? 'غير محدد'),
+                        'الموقع: ' . ($record->location?->name_ar ?? 'غير محدد'),
+                        'العنوان: ' . ($record->address ?? 'غير محدد')
+                    ])
+                    ->actions([
+                        Action::make('edit')
+                            ->label('تحرير')
+                            ->icon('heroicon-s-pencil')
+                            ->url(static::getUrl('edit', ['record' => $record])),
+                    ])
+                    ->url(static::getUrl('edit', ['record' => $record]));
+            })
+            ->toArray();
     }
 }

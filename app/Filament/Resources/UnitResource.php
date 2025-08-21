@@ -23,9 +23,11 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Actions\ViewAction;
 use Filament\Actions\EditAction;
+use Filament\GlobalSearch\GlobalSearchResult;
+use Filament\Actions\Action;
+use Illuminate\Database\Eloquent\Builder;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
-use Illuminate\Database\Eloquent\Builder;
 class UnitResource extends Resource
 {
     protected static ?string $model = Unit::class;
@@ -385,5 +387,45 @@ class UnitResource extends Resource
             'view' => Pages\ViewUnit::route('/{record}'),
             'edit' => Pages\EditUnit::route('/{record}/edit'),
         ];
+    }
+
+    public static function getGlobalSearchResults(string $search): array
+    {
+        return static::getModel()::query()
+            ->with(['property', 'property.location'])
+            ->where(function (Builder $query) use ($search) {
+                $query->where('unit_number', 'like', "%{$search}%")
+                      ->orWhere('description', 'like', "%{$search}%")
+                      ->orWhereHas('property', function (Builder $query) use ($search) {
+                          $query->where('name', 'like', "%{$search}%");
+                      })
+                      ->orWhereHas('property.location', function (Builder $query) use ($search) {
+                          $query->where('name_ar', 'like', "%{$search}%")
+                                ->orWhere('name_en', 'like', "%{$search}%");
+                      });
+            })
+            ->limit(5)
+            ->get()
+            ->map(function (Unit $record) {
+                $propertyName = $record->property?->name ?? 'غير محدد';
+                $locationName = $record->property?->location?->name_ar ?? 'غير محدد';
+                
+                return GlobalSearchResult::make()
+                    ->title("وحدة رقم: " . $record->unit_number)
+                    ->details([
+                        'العقار: ' . $propertyName,
+                        'الموقع: ' . $locationName,
+                        'السعر: ' . number_format($record->rent_price ?? 0, 2) . ' ر.س',
+                        'الحالة: ' . ($record->status ?? 'غير محدد')
+                    ])
+                    ->actions([
+                        Action::make('edit')
+                            ->label('تحرير')
+                            ->icon('heroicon-s-pencil')
+                            ->url(static::getUrl('edit', ['record' => $record])),
+                    ])
+                    ->url(static::getUrl('view', ['record' => $record]));
+            })
+            ->toArray();
     }
 }

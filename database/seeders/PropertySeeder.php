@@ -4,10 +4,9 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\Property;
-use App\Models\PropertyType;
-use App\Models\PropertyStatus;
 use App\Models\User;
 use App\Models\Location;
+use Illuminate\Support\Facades\DB;
 
 class PropertySeeder extends Seeder
 {
@@ -24,80 +23,105 @@ class PropertySeeder extends Seeder
             return;
         }
 
-        // Get property types and statuses
-        $types = PropertyType::all();
-        $statuses = PropertyStatus::all();
+        // Get locations - use existing locations from seeder
+        $location = Location::where('name_ar', 'الرياض')->first();
         
-        if ($types->isEmpty() || $statuses->isEmpty()) {
-            $this->command->warn('Property types or statuses not found. Please run seeders first.');
+        if (!$location) {
+            $this->command->warn('No location found. Please run LocationSeeder first.');
             return;
         }
 
-        // Create sample location if not exists
-        $location = Location::firstOrCreate(
-            ['name' => 'الرياض'],
-            [
-                'parent_id' => null,
-                'level' => 1,
-                'path' => 'الرياض'
-            ]
-        );
-
+        // Insert properties directly using DB to avoid enum issues
         $properties = [
             [
                 'name' => 'برج الفيصلية السكني',
-                'code' => 'PROP-001',
+                'owner_id' => $owners->random()->id,
+                'status' => '1',
+                'type' => '1', 
+                'location_id' => $location->id,
                 'address' => 'شارع الملك فهد، حي العليا',
-                'total_units' => 50,
-                'description' => 'برج سكني فاخر في قلب الرياض',
+                'postal_code' => '11564',
+                'parking_spots' => 20,
+                'elevators' => 2,
+                'area_sqm' => 5000,
+                'build_year' => 2020,
+                'floors_count' => 15,
+                'notes' => 'برج سكني فاخر في قلب الرياض',
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
                 'name' => 'مجمع النخيل السكني',
-                'code' => 'PROP-002',
-                'address' => 'شارع الأمير محمد بن سلمان، حي الياسمين',
-                'total_units' => 30,
-                'description' => 'مجمع سكني حديث مع جميع الخدمات',
+                'owner_id' => $owners->random()->id,
+                'status' => '1',
+                'type' => '2',
+                'location_id' => $location->id,
+                'address' => 'حي الياسمين، شارع الأمير محمد',
+                'postal_code' => '11565',
+                'parking_spots' => 30,
+                'elevators' => 1,
+                'area_sqm' => 3000,
+                'build_year' => 2018,
+                'floors_count' => 8,
+                'notes' => 'مجمع سكني حديث مع جميع الخدمات',
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
                 'name' => 'فيلا الروضة',
-                'code' => 'PROP-003',
+                'owner_id' => $owners->random()->id,
+                'status' => '1',
+                'type' => '1',
+                'location_id' => $location->id,
                 'address' => 'حي الروضة، شارع 15',
-                'total_units' => 1,
-                'description' => 'فيلا فاخرة مع حديقة ومسبح',
+                'postal_code' => '11566',
+                'parking_spots' => 4,
+                'elevators' => 0,
+                'area_sqm' => 800,
+                'build_year' => 2015,
+                'floors_count' => 2,
+                'notes' => 'فيلا فاخرة مع حديقة ومسبح',
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
                 'name' => 'مركز الأعمال التجاري',
-                'code' => 'PROP-004',
+                'owner_id' => $owners->random()->id,
+                'status' => '1',
+                'type' => '3',
+                'location_id' => $location->id,
                 'address' => 'طريق الملك عبدالله، حي الواحة',
-                'total_units' => 20,
-                'description' => 'مركز تجاري يحتوي على محلات ومكاتب',
+                'postal_code' => '11567',
+                'parking_spots' => 50,
+                'elevators' => 3,
+                'area_sqm' => 2000,
+                'build_year' => 2019,
+                'floors_count' => 6,
+                'notes' => 'مركز تجاري يحتوي على محلات ومكاتب',
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
             [
                 'name' => 'عمارة السلام',
-                'code' => 'PROP-005',
+                'owner_id' => $owners->random()->id,
+                'status' => '1',
+                'type' => '2',
+                'location_id' => $location->id,
                 'address' => 'حي السلام، شارع الإمام سعود',
-                'total_units' => 12,
-                'description' => 'عمارة سكنية متوسطة',
+                'postal_code' => '11568',
+                'parking_spots' => 15,
+                'elevators' => 1,
+                'area_sqm' => 1200,
+                'build_year' => 2017,
+                'floors_count' => 4,
+                'notes' => 'عمارة سكنية متوسطة',
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
         ];
 
-        foreach ($properties as $index => $propertyData) {
-            Property::create([
-                'name' => $propertyData['name'],
-                'code' => $propertyData['code'],
-                'address' => $propertyData['address'],
-                'total_units' => $propertyData['total_units'],
-                'description' => $propertyData['description'],
-                'owner_id' => $owners->random()->id,
-                'location_id' => $location->id,
-                'property_type_id' => $types->random()->id,
-                'property_status_id' => $statuses->where('slug', 'available')->first()->id ?? $statuses->first()->id,
-                'built_year' => rand(2010, 2023),
-                'total_area' => rand(500, 5000),
-                'building_area' => rand(400, 4000),
-                'floors_count' => rand(1, 20),
-                'parking_spots' => rand(10, 100),
-            ]);
+        foreach ($properties as $property) {
+            DB::table('properties')->insert($property);
         }
 
         $this->command->info('Properties seeded successfully!');

@@ -19,6 +19,8 @@ use Filament\Forms\Components\TextInput as FilterTextInput;
 use Filament\Forms\Components\Select;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Hash;
+use Filament\GlobalSearch\GlobalSearchResult;
+use Filament\Actions\Action;
 class OwnerResource extends Resource
 {
     protected static ?string $model = Owner::class;
@@ -149,5 +151,35 @@ class OwnerResource extends Resource
             'edit' => Pages\EditOwner::route('/{record}/edit'),
             'view' => Pages\ViewOwner::route('/{record}'),
         ];
+    }
+
+    public static function getGlobalSearchResults(string $search): array
+    {
+        return static::getModel()::query()
+            ->where(function (Builder $query) use ($search) {
+                $query->where('name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%")
+                      ->orWhere('phone', 'like', "%{$search}%")
+                      ->orWhere('national_id', 'like', "%{$search}%");
+            })
+            ->limit(5)
+            ->get()
+            ->map(function ($record) {
+                return GlobalSearchResult::make()
+                    ->title($record->name)
+                    ->details([
+                        'البريد الإلكتروني: ' . ($record->email ?? 'غير محدد'),
+                        'الهاتف: ' . ($record->phone ?? 'غير محدد'),
+                        'الرقم المدني: ' . ($record->national_id ?? 'غير محدد'),
+                    ])
+                    ->actions([
+                        Action::make('edit')
+                            ->label('تحرير')
+                            ->icon('heroicon-s-pencil')
+                            ->url(static::getUrl('edit', ['record' => $record])),
+                    ])
+                    ->url(static::getUrl('view', ['record' => $record]));
+            })
+            ->toArray();
     }
 }
