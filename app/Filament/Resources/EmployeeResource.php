@@ -49,13 +49,13 @@ class EmployeeResource extends Resource
                             ->required()
                             ->label('رقم الهاتف الأول')
                             ->maxLength(20)
-                            ->columnSpan('full'),
+                            ->columnSpan(6),
 
                         TextInput::make('phone2')
                             ->numeric()
                             ->label('رقم الهاتف الثاني')
                             ->maxLength(20)
-                            ->columnSpan('full'),
+                            ->columnSpan(6),
 
                         FileUpload::make('identity_file')
                             ->label('ملف الهوية')
@@ -67,24 +67,18 @@ class EmployeeResource extends Resource
                             ->previewable()
                             ->columnSpan('full'),
                     ])
+                    ->columns(12)
                     ->columnSpan('full'),
 
                 Section::make('معلومات الدخول')
                     ->schema([
-                        TextInput::make('username')
-                            ->required()
-                            ->label('اسم المستخدم')
-                            ->unique(ignoreRecord: true)
-                            ->maxLength(255)
-                            ->columnSpan('full'),
-
                         TextInput::make('email')
                             ->email()
                             ->required()
                             ->label('البريد الإلكتروني')
                             ->unique(ignoreRecord: true)
                             ->maxLength(255)
-                            ->columnSpan('full'),
+                            ->columnSpan(6),
 
                         TextInput::make('password')
                             ->password()
@@ -93,8 +87,9 @@ class EmployeeResource extends Resource
                             ->dehydrateStateUsing(fn ($state) => Hash::make($state))
                             ->dehydrated(fn ($state) => filled($state))
                             ->maxLength(255)
-                            ->columnSpan('full'),
+                            ->columnSpan(6),
                     ])
+                    ->columns(12)
                     ->columnSpan('full'),
             ]);
     }
@@ -134,16 +129,8 @@ class EmployeeResource extends Resource
                     ->label('المحذوفات'),
             ])
             ->actions([
-                ViewAction::make(),
                 EditAction::make(),
                 DeleteAction::make(),
-                RestoreAction::make(),
-            ])
-            ->bulkActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                    RestoreBulkAction::make(),
-                ]),
             ])
             ->defaultSort('created_at', 'desc');
     }
