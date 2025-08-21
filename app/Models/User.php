@@ -32,7 +32,32 @@ class User extends Authenticatable implements FilamentUser
         'name',
         'email',
         'password',
-        'identity_file'
+        'phone',
+        'secondary_phone',
+        'identity_file',
+        'user_type',
+        // Employee fields
+        'employee_id',
+        'department',
+        'joining_date',
+        'salary',
+        'position',
+        'supervisor_id',
+        'emergency_contact',
+        'emergency_phone',
+        'address',
+        'birth_date',
+        // Owner fields
+        'commercial_register',
+        'tax_number',
+        'bank_name',
+        'bank_account_number',
+        'iban',
+        'nationality',
+        'ownership_documents',
+        'legal_representative',
+        'company_name',
+        'business_type',
     ];
 
     /**
@@ -60,29 +85,41 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
-     * Set the phone1 attribute (remove non-numeric characters)
+     * Set the phone attribute (remove non-numeric characters)
      */
-    public function setPhone1Attribute($value)
+    public function setPhoneAttribute($value)
     {
-        $this->attributes['phone1'] = preg_replace('/[^0-9]/', '', $value);
+        $this->attributes['phone'] = preg_replace('/[^0-9]/', '', $value);
     }
 
     /**
-     * Get the phone1 attribute with 966 prefix
+     * Set the secondary_phone attribute (remove non-numeric characters)
      */
-    public function getPhone1WithPrefixAttribute()
+    public function setSecondaryPhoneAttribute($value)
     {
-        return $this->phone1 ? '966' . $this->phone1 : null;
+        $this->attributes['secondary_phone'] = preg_replace('/[^0-9]/', '', $value);
     }
 
     /**
-     * Find user by username or email for authentication
+     * Generate email from phone for owners and tenants
      */
-    public static function findForAuth($login)
+    public function generateEmailFromPhone()
     {
-        return static::where('email', $login)
-            ->orWhere('username', $login)
-            ->first();
+        if ($this->phone && in_array($this->user_type, ['owner', 'tenant'])) {
+            return $this->phone . '@towntop.sa';
+        }
+        return $this->email;
+    }
+
+    /**
+     * Generate password from phone for owners and tenants
+     */
+    public function generatePasswordFromPhone()
+    {
+        if ($this->phone && in_array($this->user_type, ['owner', 'tenant'])) {
+            return bcrypt($this->phone);
+        }
+        return $this->password;
     }
 
     /**

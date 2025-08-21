@@ -44,16 +44,16 @@ class EmployeeResource extends Resource
                             ->maxLength(255)
                             ->columnSpan('full'),
 
-                        TextInput::make('phone1')
+                        TextInput::make('phone')
                             ->numeric()
                             ->required()
-                            ->label('رقم الهاتف الأول')
+                            ->label('الهاتف الأول')
                             ->maxLength(20)
                             ->columnSpan(6),
 
-                        TextInput::make('phone2')
+                        TextInput::make('secondary_phone')
                             ->numeric()
-                            ->label('رقم الهاتف الثاني')
+                            ->label('الهاتف الثاني')
                             ->maxLength(20)
                             ->columnSpan(6),
 
@@ -108,8 +108,12 @@ class EmployeeResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('phone1')
-                    ->label('رقم الهاتف الأول')
+                TextColumn::make(name: 'phone')
+                    ->label('الهاتف الأول')
+                    ->searchable(),
+
+                TextColumn::make(name: 'secondary_phone')
+                    ->label('الهاتف الثاني')
                     ->searchable(),
 
                 TextColumn::make('created_at')

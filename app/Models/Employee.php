@@ -13,31 +13,7 @@ class Employee extends User
 
     protected $table = 'users';
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'identity_file'
-    ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'deleted_at' => 'datetime',
-        ];
-    }
 
     /**
      * Boot the model.
@@ -53,9 +29,9 @@ class Employee extends User
             });
         });
 
-        // Auto-assign employee role on creation
+        // Auto-assign employee role and set user_type on creation
         static::creating(function ($employee) {
-            // This will be handled in the observer or after create
+            $employee->user_type = 'employee';
         });
 
         static::created(function ($employee) {
