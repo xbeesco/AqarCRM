@@ -128,7 +128,8 @@ class PropertyFeatureResource extends Resource
                     DeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('category');
+            ->defaultSort('category')
+            ->paginated(false);
     }
 
     public static function getPages(): array

@@ -159,7 +159,8 @@ class LocationResource extends Resource
                 ]),
             ])
             ->defaultSort('level')
-            ->poll('60s');
+            ->poll('60s')
+            ->paginated(false);
     }
 
     public static function getRelations(): array
