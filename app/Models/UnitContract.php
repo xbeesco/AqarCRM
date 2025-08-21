@@ -12,42 +12,35 @@ class UnitContract extends Model
 
     protected $fillable = [
         'contract_number',
-        'tenant_id',
         'unit_id',
         'property_id',
-        'monthly_rent',
-        'security_deposit',
-        'duration_months',
+        'tenant_id',
         'start_date',
         'end_date',
-        'contract_status',
-        'payment_frequency',
-        'payment_method',
-        'grace_period_days',
-        'late_fee_rate',
+        'monthly_rent',
+        'security_deposit',
         'utilities_included',
-        'furnished',
-        'evacuation_notice_days',
-        'terms_and_conditions',
-        'special_conditions',
+        'payment_method',
+        'grace_period',
+        'late_fee_rate',
+        'evacuation_notice',
+        'status',
+        'special_terms',
         'notes',
-        'created_by',
-        'approved_by',
-        'approved_at',
-        'terminated_reason',
         'terminated_at',
+        'termination_reason',
     ];
 
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
+        'terminated_at' => 'date',
         'monthly_rent' => 'decimal:2',
         'security_deposit' => 'decimal:2',
         'late_fee_rate' => 'decimal:2',
         'utilities_included' => 'boolean',
-        'furnished' => 'boolean',
-        'approved_at' => 'datetime',
-        'terminated_at' => 'datetime',
+        'grace_period' => 'integer',
+        'evacuation_notice' => 'integer',
     ];
 
     /**
@@ -60,22 +53,6 @@ class UnitContract extends Model
         static::creating(function ($contract) {
             if (empty($contract->contract_number)) {
                 $contract->contract_number = static::generateContractNumber();
-            }
-            
-            // Auto-calculate end date
-            if ($contract->start_date && $contract->duration_months) {
-                $contract->end_date = Carbon::parse($contract->start_date)
-                    ->addMonths($contract->duration_months)
-                    ->subDay();
-            }
-        });
-
-        static::updating(function ($contract) {
-            // Recalculate end date if start date or duration changes
-            if ($contract->isDirty(['start_date', 'duration_months'])) {
-                $contract->end_date = Carbon::parse($contract->start_date)
-                    ->addMonths($contract->duration_months)
-                    ->subDay();
             }
         });
     }
@@ -103,46 +80,28 @@ class UnitContract extends Model
     }
 
     /**
-     * Generate payment schedule based on contract terms.
+     * Get remaining days attribute.
      */
-    public function generatePaymentSchedule(): array
+    public function getRemainingDaysAttribute(): int
     {
-        $payments = [];
-        $frequencyMap = [
-            'monthly' => 1,
-            'quarterly' => 3,
-            'semi_annually' => 6,
-            'annually' => 12,
-        ];
-
-        $intervalMonths = $frequencyMap[$this->payment_frequency];
-        $paymentAmount = $this->monthly_rent * $intervalMonths;
-        $numberOfPayments = $this->duration_months / $intervalMonths;
-
-        for ($i = 0; $i < $numberOfPayments; $i++) {
-            $dueDate = Carbon::parse($this->start_date)->addMonths($i * $intervalMonths);
-            $payments[] = [
-                'due_date' => $dueDate,
-                'amount' => $paymentAmount,
-                'period_start' => $dueDate->copy(),
-                'period_end' => $dueDate->copy()->addMonths($intervalMonths)->subDay(),
-            ];
+        if ($this->status !== 'active') {
+            return 0;
         }
 
-        return $payments;
+        return max(0, now()->diffInDays($this->end_date, false));
     }
 
     /**
      * Calculate late fees for overdue payments.
      */
-    public function calculateLateFee(float $amount, int $daysLate): float
+    public function calculateLateFees(int $daysLate): float
     {
-        if ($daysLate <= $this->grace_period_days) {
+        if ($daysLate <= $this->grace_period) {
             return 0;
         }
 
-        $actualDaysLate = $daysLate - $this->grace_period_days;
-        return round($amount * ($this->late_fee_rate / 100) * ($actualDaysLate / 30), 2);
+        $actualDaysLate = $daysLate - $this->grace_period;
+        return round($this->monthly_rent * ($this->late_fee_rate / 100) * ($actualDaysLate / 30), 2);
     }
 
     /**
@@ -150,7 +109,8 @@ class UnitContract extends Model
      */
     public function getTotalContractValue(): float
     {
-        return $this->monthly_rent * $this->duration_months;
+        $months = $this->start_date->diffInMonths($this->end_date);
+        return $this->monthly_rent * $months;
     }
 
     /**
@@ -173,7 +133,7 @@ class UnitContract extends Model
      */
     public function canTerminateEarly(): bool
     {
-        return $this->contract_status === 'active' && 
+        return $this->status === 'active' && 
                $this->end_date > now();
     }
 
@@ -182,7 +142,7 @@ class UnitContract extends Model
      */
     public function isActive(): bool
     {
-        return $this->contract_status === 'active' &&
+        return $this->status === 'active' &&
                $this->start_date <= now() &&
                $this->end_date >= now();
     }
@@ -192,8 +152,22 @@ class UnitContract extends Model
      */
     public function canRenew(): bool
     {
-        return $this->contract_status === 'active' &&
-               $this->end_date->diffInDays(now()) <= $this->evacuation_notice_days;
+        return $this->status === 'active' &&
+               $this->end_date->diffInDays(now()) <= $this->evacuation_notice;
+    }
+
+    /**
+     * Get status badge color attribute.
+     */
+    public function getStatusBadgeColorAttribute(): string
+    {
+        return match($this->status) {
+            'draft' => 'gray',
+            'active' => 'success',
+            'expired' => 'warning',
+            'terminated' => 'danger',
+            default => 'gray',
+        };
     }
 
     /**
@@ -220,28 +194,13 @@ class UnitContract extends Model
         return $this->belongsTo(Property::class);
     }
 
-    /**
-     * Relationship: Contract created by user.
-     */
-    public function createdBy()
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
-    /**
-     * Relationship: Contract approved by user.
-     */
-    public function approvedBy()
-    {
-        return $this->belongsTo(User::class, 'approved_by');
-    }
 
     /**
      * Scope: Get active contracts.
      */
     public function scopeActive($query)
     {
-        return $query->where('contract_status', 'active')
+        return $query->where('status', 'active')
                     ->where('start_date', '<=', now())
                     ->where('end_date', '>=', now());
     }
@@ -251,7 +210,7 @@ class UnitContract extends Model
      */
     public function scopeExpiring($query, int $days)
     {
-        return $query->where('contract_status', 'active')
+        return $query->where('status', 'active')
                     ->whereBetween('end_date', [now(), now()->addDays($days)]);
     }
 

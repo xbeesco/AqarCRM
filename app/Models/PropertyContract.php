@@ -12,33 +12,30 @@ class PropertyContract extends Model
 
     protected $fillable = [
         'contract_number',
-        'owner_id',
         'property_id',
-        'commission_rate',
-        'duration_months',
+        'owner_id',
         'start_date',
         'end_date',
-        'contract_status',
+        'commission_rate',
         'notary_number',
         'payment_day',
         'auto_renew',
-        'notice_period_days',
-        'terms_and_conditions',
+        'notice_period',
+        'status',
+        'terms',
         'notes',
-        'created_by',
-        'approved_by',
-        'approved_at',
-        'terminated_reason',
         'terminated_at',
+        'termination_reason',
     ];
 
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
+        'terminated_at' => 'date',
         'commission_rate' => 'decimal:2',
         'auto_renew' => 'boolean',
-        'approved_at' => 'datetime',
-        'terminated_at' => 'datetime',
+        'payment_day' => 'integer',
+        'notice_period' => 'integer',
     ];
 
     /**
@@ -51,22 +48,6 @@ class PropertyContract extends Model
         static::creating(function ($contract) {
             if (empty($contract->contract_number)) {
                 $contract->contract_number = static::generateContractNumber();
-            }
-            
-            // Auto-calculate end date
-            if ($contract->start_date && $contract->duration_months) {
-                $contract->end_date = Carbon::parse($contract->start_date)
-                    ->addMonths($contract->duration_months)
-                    ->subDay();
-            }
-        });
-
-        static::updating(function ($contract) {
-            // Recalculate end date if start date or duration changes
-            if ($contract->isDirty(['start_date', 'duration_months'])) {
-                $contract->end_date = Carbon::parse($contract->start_date)
-                    ->addMonths($contract->duration_months)
-                    ->subDay();
             }
         });
     }
@@ -106,7 +87,7 @@ class PropertyContract extends Model
      */
     public function isActive(): bool
     {
-        return $this->contract_status === 'active' &&
+        return $this->status === 'active' &&
                $this->start_date <= now() &&
                $this->end_date >= now();
     }
@@ -116,8 +97,69 @@ class PropertyContract extends Model
      */
     public function canRenew(): bool
     {
-        return $this->contract_status === 'active' &&
-               $this->end_date->diffInDays(now()) <= $this->notice_period_days;
+        return $this->status === 'active' &&
+               $this->end_date->diffInDays(now()) <= $this->notice_period;
+    }
+    
+    /**
+     * Check renewal eligibility.
+     */
+    public function checkRenewalEligibility(): bool
+    {
+        if (!$this->auto_renew) {
+            return false;
+        }
+
+        if ($this->status !== 'active') {
+            return false;
+        }
+
+        $daysUntilExpiry = now()->diffInDays($this->end_date, false);
+        
+        return $daysUntilExpiry <= $this->notice_period && $daysUntilExpiry > 0;
+    }
+
+    /**
+     * Check if can transition to new status.
+     */
+    public function canTransitionTo(string $newStatus): bool
+    {
+        $transitions = [
+            'draft' => ['active', 'terminated'],
+            'active' => ['suspended', 'expired', 'terminated'],
+            'suspended' => ['active', 'terminated'],
+            'expired' => ['terminated'],
+            'terminated' => [],
+        ];
+
+        return in_array($newStatus, $transitions[$this->status] ?? []);
+    }
+
+    /**
+     * Get remaining days attribute.
+     */
+    public function getRemainingDaysAttribute(): int
+    {
+        if ($this->status !== 'active') {
+            return 0;
+        }
+
+        return max(0, now()->diffInDays($this->end_date, false));
+    }
+
+    /**
+     * Get status badge color attribute.
+     */
+    public function getStatusBadgeColorAttribute(): string
+    {
+        return match($this->status) {
+            'draft' => 'gray',
+            'active' => 'success',
+            'suspended' => 'warning',
+            'expired' => 'danger',
+            'terminated' => 'danger',
+            default => 'gray',
+        };
     }
 
     /**
@@ -136,28 +178,13 @@ class PropertyContract extends Model
         return $this->belongsTo(Property::class);
     }
 
-    /**
-     * Relationship: Contract created by user.
-     */
-    public function createdBy()
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
-    /**
-     * Relationship: Contract approved by user.
-     */
-    public function approvedBy()
-    {
-        return $this->belongsTo(User::class, 'approved_by');
-    }
 
     /**
      * Scope: Get active contracts.
      */
     public function scopeActive($query)
     {
-        return $query->where('contract_status', 'active')
+        return $query->where('status', 'active')
                     ->where('start_date', '<=', now())
                     ->where('end_date', '>=', now());
     }
@@ -167,7 +194,7 @@ class PropertyContract extends Model
      */
     public function scopeExpiring($query, int $days)
     {
-        return $query->where('contract_status', 'active')
+        return $query->where('status', 'active')
                     ->whereBetween('end_date', [now(), now()->addDays($days)]);
     }
 
