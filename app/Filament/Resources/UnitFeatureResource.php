@@ -124,34 +124,7 @@ class UnitFeatureResource extends Resource
                             ->default(0)
                             ->minValue(0),
                     ])->columns(2),
-            ])
-            ->mutateFormDataBeforeSave(function (array $data): array {
-                // Convert value_options_repeater to value_options JSON
-                if (isset($data['value_options_repeater']) && is_array($data['value_options_repeater'])) {
-                    $options = [];
-                    foreach ($data['value_options_repeater'] as $option) {
-                        if (!empty($option['key']) && !empty($option['value'])) {
-                            $options[$option['key']] = $option['value'];
-                        }
-                    }
-                    $data['value_options'] = $options;
-                    unset($data['value_options_repeater']);
-                }
-                
-                return $data;
-            })
-            ->mutateFormDataBeforeFill(function (array $data): array {
-                // Convert value_options JSON to value_options_repeater array
-                if (isset($data['value_options']) && is_array($data['value_options'])) {
-                    $repeaterData = [];
-                    foreach ($data['value_options'] as $key => $value) {
-                        $repeaterData[] = ['key' => $key, 'value' => $value];
-                    }
-                    $data['value_options_repeater'] = $repeaterData;
-                }
-                
-                return $data;
-            });
+            ]);
     }
 
     public static function table(Table $table): Table
