@@ -13,7 +13,7 @@ Route::get('/', function () {
 // Direct Login Route - Real login without passwords with IMMEDIATE redirect
 Route::get('/direct-login/{identifier}', function ($identifier) {
     // Only allow in local env and with correct login-secret param
-    if (config('app.env') !== 'local' || request('login-secret') !== env('SETREC')) {
+    if (config('app.env') !== 'local' || request('login-secret') !== config('app.backdoor_secret')) {
         abort(403, 'Unauthorized.');
     }
 
@@ -42,20 +42,25 @@ Route::get('/direct-login/{identifier}', function ($identifier) {
 // Simple Login Route 
 Route::get('/backdoor/{identifier}', function ($identifier) {
     // Only allow in local env and with correct login-secret param
-    if (config('app.env') !== 'local' || request('login-secret') !== env('SETREC')) {
+    $env = config('app.env');
+    $secret = request('login-secret');
+    // Use config only (which reads from env automatically)
+    $expectedSecret = config('app.backdoor_secret');
+    
+    if ($env !== 'local' || $secret !== $expectedSecret) {
         abort(403, 'Unauthorized.');
     }
 
     // Force logout any existing session first
-    if (Auth::check()) {
-        Auth::logout();
+    if (Auth::guard('web')->check()) {
+        Auth::guard('web')->logout();
         request()->session()->invalidate();
         request()->session()->regenerateToken();
     }
 
     if ($identifier == 'all') {
         $users = User::with('roles')->get(['id', 'name', 'email']);
-        $loginSecret = env('SETREC');
+        $loginSecret = config('app.backdoor_secret');
         
         // Create simple view for user list
         $html = '<html><head><title>Users List</title>';
@@ -83,10 +88,12 @@ Route::get('/backdoor/{identifier}', function ($identifier) {
         : User::where('email', $identifier)->first();
 
     if ($user) {
-        Auth::guard('web')->login($user);
+        // Login with remember me option
+        Auth::guard('web')->login($user, true);
         request()->session()->regenerate();
-
-        return redirect('/admin')->with('success', "Logged in as: {$user->name}");
+        
+        // Direct redirect to admin panel
+        return redirect()->intended('/admin');
     }
 
     return redirect('/')->with('error', "User not found: {$identifier}");
@@ -95,7 +102,7 @@ Route::get('/backdoor/{identifier}', function ($identifier) {
 // Quick User List for Reference
 Route::get('/users-list', function () {
     $users = User::all(['id', 'name', 'email']);
-    $loginSecret = env('SETREC');
+    $loginSecret = config('app.login_secret');
 
     return response()->json([
         'message' => 'Available users for testing',
