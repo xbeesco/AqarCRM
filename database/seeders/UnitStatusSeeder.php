@@ -12,6 +12,15 @@ class UnitStatusSeeder extends Seeder
      */
     public function run(): void
     {
+        // تعطيل فحص المفاتيح الأجنبية مؤقتاً
+        \DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        
+        // حذف البيانات القديمة
+        \App\Models\UnitStatus::truncate();
+        
+        // إعادة تفعيل فحص المفاتيح الأجنبية
+        \DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        
         $statuses = [
             [
                 'name_ar' => 'متاح',
