@@ -14,8 +14,6 @@ use Filament\Tables\Table;
 class PropertyFeatureResource extends Resource
 {
     protected static ?string $model = PropertyFeature::class;
-
-    protected static ?string $recordTitleAttribute = 'name_ar';
     
     protected static ?string $label = 'ميزة عقار';
     
@@ -39,7 +37,6 @@ class PropertyFeatureResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->recordTitleAttribute('name_ar')
             ->columns([
                 TextColumn::make('name_ar')
                     ->label('الاسم بالعربية'),

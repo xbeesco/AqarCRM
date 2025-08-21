@@ -269,34 +269,34 @@ class PropertyResource extends Resource
         ];
     }
 
-    protected static ?string $recordTitleAttribute = 'name';
+    //protected static ?string $recordTitleAttribute = 'name';
     
-    public static function getGloballySearchableAttributes(): array
-    {
-        return ['name', 'address', 'notes', 'owner.name', 'location.name_ar', 'location.name_en'];
-    }
+    // public static function getGloballySearchableAttributes(): array
+    // {
+    //     return ['name', 'address', 'notes', 'owner.name', 'location.name_ar', 'location.name_en'];
+    // }
     
-    public static function getGlobalSearchResultDetails($record): array
-    {
-        return [
-            'المالك' => $record->owner?->name ?? 'غير محدد',
-            'الموقع' => $record->location?->name_ar ?? 'غير محدد',
-            'العنوان' => $record->address ?? 'غير محدد',
-        ];
-    }
+    // public static function getGlobalSearchResultDetails($record): array
+    // {
+    //     return [
+    //         'المالك' => $record->owner?->name ?? 'غير محدد',
+    //         'الموقع' => $record->location?->name_ar ?? 'غير محدد',
+    //         'العنوان' => $record->address ?? 'غير محدد',
+    //     ];
+    // }
     
-    public static function getGlobalSearchEloquentQuery(): Builder
-    {
-        return parent::getGlobalSearchEloquentQuery()->with(['owner', 'location']);
-    }
+    // public static function getGlobalSearchEloquentQuery(): Builder
+    // {
+    //     return parent::getGlobalSearchEloquentQuery()->with(['owner', 'location']);
+    // }
     
-    public static function getGlobalSearchResultActions($record): array
-    {
-        return [
-            Action::make('edit')
-                ->label('تحرير')
-                ->icon('heroicon-s-pencil')
-                ->url(static::getUrl('edit', ['record' => $record])),
-        ];
-    }
+    // public static function getGlobalSearchResultActions($record): array
+    // {
+    //     return [
+    //         Action::make('edit')
+    //             ->label('تحرير')
+    //             ->icon('heroicon-s-pencil')
+    //             ->url(static::getUrl('edit', ['record' => $record])),
+    //     ];
+    // }
 }

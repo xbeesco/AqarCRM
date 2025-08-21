@@ -14,8 +14,6 @@ use Filament\Tables\Table;
 class UnitFeatureResource extends Resource
 {
     protected static ?string $model = UnitFeature::class;
-
-    protected static ?string $recordTitleAttribute = 'name_ar';
     
     protected static ?string $label = 'ميزة وحدة';
     
@@ -39,7 +37,6 @@ class UnitFeatureResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->recordTitleAttribute('name_ar')
             ->columns([
                 TextColumn::make('name_ar')
                     ->label('الاسم بالعربية'),

@@ -153,29 +153,29 @@ class OwnerResource extends Resource
         ];
     }
 
-    protected static ?string $recordTitleAttribute = 'name';
+    // protected static ?string $recordTitleAttribute = 'name';
     
-    public static function getGloballySearchableAttributes(): array
-    {
-        return ['name', 'email', 'phone1', 'phone2', 'national_id'];
-    }
+    // public static function getGloballySearchableAttributes(): array
+    // {
+    //     return ['name', 'email', 'phone1', 'phone2', 'national_id'];
+    // }
     
-    public static function getGlobalSearchResultDetails($record): array
-    {
-        return [
-            'البريد الإلكتروني' => $record->email ?? 'غير محدد',
-            'الهاتف' => $record->phone1 ?? 'غير محدد',
-            'الرقم المدني' => $record->national_id ?? 'غير محدد',
-        ];
-    }
+    // public static function getGlobalSearchResultDetails($record): array
+    // {
+    //     return [
+    //         'البريد الإلكتروني' => $record->email ?? 'غير محدد',
+    //         'الهاتف' => $record->phone1 ?? 'غير محدد',
+    //         'الرقم المدني' => $record->national_id ?? 'غير محدد',
+    //     ];
+    // }
     
-    public static function getGlobalSearchResultActions($record): array
-    {
-        return [
-            Action::make('edit')
-                ->label('تحرير')
-                ->icon('heroicon-s-pencil')
-                ->url(static::getUrl('edit', ['record' => $record])),
-        ];
-    }
+    // public static function getGlobalSearchResultActions($record): array
+    // {
+    //     return [
+    //         Action::make('edit')
+    //             ->label('تحرير')
+    //             ->icon('heroicon-s-pencil')
+    //             ->url(static::getUrl('edit', ['record' => $record])),
+    //     ];
+    // }
 }

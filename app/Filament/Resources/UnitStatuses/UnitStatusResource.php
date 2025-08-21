@@ -14,8 +14,6 @@ use Filament\Tables\Table;
 class UnitStatusResource extends Resource
 {
     protected static ?string $model = UnitStatus::class;
-
-    protected static ?string $recordTitleAttribute = 'name_ar';
     
     protected static ?string $label = 'حالة وحدة';
     
@@ -39,7 +37,6 @@ class UnitStatusResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->recordTitleAttribute('name_ar')
             ->columns([
                 TextColumn::make('name_ar')
                     ->label('الاسم بالعربية'),

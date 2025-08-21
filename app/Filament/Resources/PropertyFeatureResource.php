@@ -33,7 +33,6 @@ class PropertyFeatureResource extends Resource
 
     // Navigation properties removed - managed centrally in AdminPanelProvider
 
-    protected static ?string $recordTitleAttribute = 'name';
 
     public static function form(Schema $schema): Schema
     {
@@ -69,7 +68,6 @@ class PropertyFeatureResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->recordTitleAttribute('name')
             ->columns([
                 TextColumn::make('name_ar')
                     ->label('Arabic Name')

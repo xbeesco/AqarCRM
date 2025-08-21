@@ -389,38 +389,38 @@ class UnitResource extends Resource
         ];
     }
 
-    protected static ?string $recordTitleAttribute = 'unit_number';
+    //protected static ?string $recordTitleAttribute = 'unit_number';
     
-    public static function getGloballySearchableAttributes(): array
-    {
-        return ['unit_number', 'unit_code', 'notes', 'property.name', 'property.location.name_ar', 'property.location.name_en'];
-    }
+    // public static function getGloballySearchableAttributes(): array
+    // {
+    //     return ['unit_number', 'unit_code', 'notes', 'property.name', 'property.location.name_ar', 'property.location.name_en'];
+    // }
     
-    public static function getGlobalSearchResultDetails($record): array
-    {
-        $propertyName = $record->property?->name ?? 'غير محدد';
-        $locationName = $record->property?->location?->name_ar ?? 'غير محدد';
+    // public static function getGlobalSearchResultDetails($record): array
+    // {
+    //     $propertyName = $record->property?->name ?? 'غير محدد';
+    //     $locationName = $record->property?->location?->name_ar ?? 'غير محدد';
         
-        return [
-            'العقار' => $propertyName,
-            'الموقع' => $locationName,
-            'السعر' => number_format($record->rent_price ?? 0, 2) . ' ر.س',
-            'الحالة' => $record->status?->name_ar ?? 'غير محدد',
-        ];
-    }
+    //     return [
+    //         'العقار' => $propertyName,
+    //         'الموقع' => $locationName,
+    //         'السعر' => number_format($record->rent_price ?? 0, 2) . ' ر.س',
+    //         'الحالة' => $record->status?->name_ar ?? 'غير محدد',
+    //     ];
+    // }
     
-    public static function getGlobalSearchEloquentQuery(): Builder
-    {
-        return parent::getGlobalSearchEloquentQuery()->with(['property', 'property.location', 'status']);
-    }
+    // public static function getGlobalSearchEloquentQuery(): Builder
+    // {
+    //     return parent::getGlobalSearchEloquentQuery()->with(['property', 'property.location', 'status']);
+    // }
     
-    public static function getGlobalSearchResultActions($record): array
-    {
-        return [
-            Action::make('edit')
-                ->label('تحرير')
-                ->icon('heroicon-s-pencil')
-                ->url(static::getUrl('edit', ['record' => $record])),
-        ];
-    }
+    // public static function getGlobalSearchResultActions($record): array
+    // {
+    //     return [
+    //         Action::make('edit')
+    //             ->label('تحرير')
+    //             ->icon('heroicon-s-pencil')
+    //             ->url(static::getUrl('edit', ['record' => $record])),
+    //     ];
+    // }
 }
