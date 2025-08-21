@@ -49,21 +49,21 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
                 return $builder
-                    ->items([
-                        NavigationItem::make('لوحة التحكم')
-                            ->icon('heroicon-o-home')
-                            ->url(fn (): string => Dashboard::getUrl())
-                            ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.dashboard')),
-                    ])
+                    // ->items([
+                    //     NavigationItem::make('لوحة التحكم')
+                    //         ->icon('heroicon-o-home')
+                    //         ->url(fn (): string => Dashboard::getUrl())
+                    //         ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.dashboard')),
+                    // ])
                     ->groups([
                         NavigationGroup::make('الماليات')
                             ->items([
-                                ...array_map(fn($item) => $item->icon('heroicon-o-calculator'), 
-                                    \App\Filament\Resources\OperationResource::getNavigationItems()),
                                 ...array_map(fn($item) => $item->icon('heroicon-o-arrow-down-tray'), 
                                     \App\Filament\Resources\CollectionPaymentResource::getNavigationItems()),
                                 ...array_map(fn($item) => $item->icon('heroicon-o-arrow-up-tray'), 
                                     \App\Filament\Resources\SupplyPaymentResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-calculator'), 
+                                    \App\Filament\Resources\OperationResource::getNavigationItems()),
                             ]),
                         NavigationGroup::make('التعاقدات')
                             ->items([
