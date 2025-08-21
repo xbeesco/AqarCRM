@@ -19,9 +19,14 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Forms\Components\TextInput as FilterTextInput;
+use Filament\Forms\Components\Select;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Illuminate\Database\Eloquent\Builder;
 class TenantResource extends Resource
 {
     protected static ?string $model = Tenant::class;
@@ -80,13 +85,12 @@ class TenantResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('email')
-                    ->label('البريد الإلكتروني')
-                    ->searchable()
-                    ->sortable(),
-
                 TextColumn::make('phone1')
                     ->label('رقم الهاتف الأول')
+                    ->searchable(),
+
+                TextColumn::make('phone2')
+                    ->label('رقم الهاتف الثاني')
                     ->searchable(),
 
                 TextColumn::make('created_at')
@@ -102,13 +106,72 @@ class TenantResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                Filter::make('name')
+                    ->form([
+                        FilterTextInput::make('name')
+                            ->label('الاسم')
+                            ->placeholder('البحث بالاسم')
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['name'],
+                            fn (Builder $query, $name): Builder => $query->where('name', 'like', "%{$name}%")
+                        );
+                    })
+                    ->columnSpan(4),
+                    
+                SelectFilter::make('property')
+                    ->label('العقار')
+                    ->options(function () {
+                        return \App\Models\Property::pluck('name', 'id')->toArray();
+                    })
+                    ->searchable()
+                    ->columnSpan(4),
+                    
+                Filter::make('unit')
+                    ->form([
+                        Select::make('unit_id')
+                            ->label('الوحدة')
+                            ->options(function (callable $get) {
+                                $propertyId = $get('../../property');
+                                if ($propertyId) {
+                                    return \App\Models\Unit::where('property_id', $propertyId)
+                                        ->with('property')
+                                        ->get()
+                                        ->mapWithKeys(function ($unit) {
+                                            return [$unit->id => $unit->property->name . ' - وحدة ' . $unit->unit_number];
+                                        });
+                                }
+                                return \App\Models\Unit::with('property')
+                                    ->get()
+                                    ->mapWithKeys(function ($unit) {
+                                        return [$unit->id => $unit->property->name . ' - وحدة ' . $unit->unit_number];
+                                    });
+                            })
+                            ->searchable()
+                            ->live()
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['unit_id'],
+                            function (Builder $query, $unitId): Builder {
+                                return $query->whereHas('rentalContracts', function ($q) use ($unitId) {
+                                    $q->whereHas('unit', function ($unitQuery) use ($unitId) {
+                                        $unitQuery->where('id', $unitId);
+                                    });
+                                });
+                            }
+                        );
+                    })
+                    ->columnSpan(4),
+                    
                 TrashedFilter::make()
                     ->label('المحذوفات'),
             ])
-            ->actions([
-                ViewAction::make(),
+            ->filtersLayout(FiltersLayout::AboveContent)
+            ->filtersFormColumns(12)
+            ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
                 RestoreAction::make(),
             ])
             ->bulkActions([

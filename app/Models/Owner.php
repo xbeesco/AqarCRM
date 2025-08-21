@@ -118,6 +118,14 @@ class Owner extends User
     }
 
     /**
+     * Get all units for this owner's properties.
+     */
+    public function units()
+    {
+        return $this->hasManyThrough(Unit::class, Property::class, 'owner_id', 'property_id');
+    }
+
+    /**
      * Get total active properties count.
      */
     public function getActivePropertiesCountAttribute()

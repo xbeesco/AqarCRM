@@ -19,9 +19,14 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Forms\Components\TextInput as FilterTextInput;
+use Filament\Forms\Components\Select;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Illuminate\Database\Eloquent\Builder;
 class OwnerResource extends Resource
 {
     protected static ?string $model = Owner::class;
@@ -80,13 +85,12 @@ class OwnerResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('email')
-                    ->label('البريد الإلكتروني')
-                    ->searchable()
-                    ->sortable(),
-
                 TextColumn::make('phone1')
                     ->label('رقم الهاتف الأول')
+                    ->searchable(),
+
+                TextColumn::make('phone2')
+                    ->label('رقم الهاتف الثاني')
                     ->searchable(),
 
                 TextColumn::make('created_at')
@@ -102,13 +106,35 @@ class OwnerResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                Filter::make('name')
+                    ->form([
+                        FilterTextInput::make('name')
+                            ->label('الاسم')
+                            ->placeholder('البحث بالاسم')
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['name'],
+                            fn (Builder $query, $name): Builder => $query->where('name', 'like', "%{$name}%")
+                        );
+                    })
+                    ->columnSpan(6),
+                    
+                SelectFilter::make('properties')
+                    ->label('العقار')
+                    ->relationship('properties', 'name')
+                    ->preload()
+                    ->multiple()
+                    ->searchable()
+                    ->columnSpan(6),
+                    
                 TrashedFilter::make()
                     ->label('المحذوفات'),
             ])
-            ->actions([
-                ViewAction::make(),
+            ->filtersLayout(FiltersLayout::AboveContent)
+            ->filtersFormColumns(12)
+            ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
                 RestoreAction::make(),
             ])
             ->bulkActions([
