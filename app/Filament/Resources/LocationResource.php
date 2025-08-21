@@ -56,13 +56,9 @@ class LocationResource extends Resource
                             ->visible(fn (callable $get) => $get('level') > 1)
                             ->reactive(),
                             
-                        TextInput::make('name_ar')
-                            ->label('الاسم بالعربية')
+                        TextInput::make('name')
+                            ->label('الاسم')
                             ->required()
-                            ->maxLength(255),
-                            
-                        TextInput::make('name_en')
-                            ->label('الاسم بالإنجليزية')
                             ->maxLength(255),
                             
                         TextInput::make('code')
@@ -100,26 +96,11 @@ class LocationResource extends Resource
                         default => 'gray',
                     }),
                     
-                TextColumn::make('name_ar')
-                    ->label('الاسم بالعربية')
+                TextColumn::make('name')
+                    ->label('الاسم')
                     ->searchable()
                     ->sortable()
                     ->formatStateUsing(function (string $state, Location $record): string {
-                        // Create indentation based on level
-                        $indent = str_repeat('&nbsp;&nbsp;&nbsp;&nbsp;', $record->level - 1);
-                        $prefix = $record->level > 1 ? '└── ' : '';
-                        
-                        return $indent . $prefix . $state;
-                    })
-                    ->html(),
-                    
-                TextColumn::make('name_en')
-                    ->label('الاسم بالإنجليزية')
-                    ->searchable()
-                    ->sortable()
-                    ->formatStateUsing(function (?string $state, Location $record): string {
-                        if (!$state) return '';
-                        
                         // Create indentation based on level
                         $indent = str_repeat('&nbsp;&nbsp;&nbsp;&nbsp;', $record->level - 1);
                         $prefix = $record->level > 1 ? '└── ' : '';
@@ -153,7 +134,7 @@ class LocationResource extends Resource
             ->filters([
                 SelectFilter::make('parent_id')
                     ->label('الموقع الأب')
-                    ->relationship('parent', 'name_ar'),
+                    ->relationship('parent', 'name'),
                     
                 SelectFilter::make('is_active')
                     ->label('الحالة')
@@ -172,7 +153,7 @@ class LocationResource extends Resource
                     DeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('path')
+            ->defaultSort('path', 'asc')
             ->poll('60s')
             ->paginated(false);
     }
@@ -198,7 +179,7 @@ class LocationResource extends Resource
     {
         return parent::getEloquentQuery()
             ->with(['parent'])
-            ->orderByRaw('COALESCE(path, CONCAT("/", LPAD(id, 10, "0")))')
-            ->orderBy('name_ar');
+            ->orderBy('path')
+            ->orderBy('name');
     }
 }

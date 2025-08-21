@@ -9,12 +9,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Location extends Model
 {
     protected $fillable = [
-        'name_ar',
-        'name_en',
+        'name',
         'parent_id', 
         'level',
         'path',
-        'code',
         'coordinates',
         'postal_code',
         'is_active'
@@ -102,7 +100,7 @@ class Location extends Model
         $current = $this;
         
         while ($current) {
-            $path->prepend($current->name_ar);
+            $path->prepend($current->name);
             $current = $current->parent;
         }
         
@@ -120,7 +118,7 @@ class Location extends Model
         while ($current) {
             $breadcrumbs->prepend([
                 'id' => $current->id,
-                'name' => $current->name_ar,
+                'name' => $current->name,
                 'level' => $current->level,
                 'level_label' => $current->level_label
             ]);
@@ -135,9 +133,7 @@ class Location extends Model
      */
     public function getLocalizedNameAttribute(): string
     {
-        return app()->getLocale() === 'ar' 
-            ? $this->name_ar
-            : ($this->name_en ?? $this->name_ar);
+        return $this->name;
     }
     
     /**
@@ -163,7 +159,7 @@ class Location extends Model
         }
         
         return self::where('level', $level - 1)
-            ->pluck('name_ar', 'id')
+            ->pluck('name', 'id')
             ->toArray();
     }
     
@@ -175,14 +171,42 @@ class Location extends Model
         if ($this->id) {
             if ($this->parent_id) {
                 $parent = self::find($this->parent_id);
-                $newPath = ($parent?->path ?? '') . '/' . str_pad($this->id, 10, '0', STR_PAD_LEFT);
+                
+                // Get siblings count to determine the order within parent
+                $siblingOrder = self::where('parent_id', $this->parent_id)
+                    ->where('id', '<=', $this->id)
+                    ->orderBy('id')
+                    ->count();
+                
+                $newPath = ($parent?->path ?? '') . '/' . str_pad($siblingOrder, 4, '0', STR_PAD_LEFT);
             } else {
-                $newPath = '/' . str_pad($this->id, 10, '0', STR_PAD_LEFT);
+                // For root level, get order among all root items
+                $rootOrder = self::whereNull('parent_id')
+                    ->where('id', '<=', $this->id)
+                    ->orderBy('id')
+                    ->count();
+                
+                $newPath = '/' . str_pad($rootOrder, 4, '0', STR_PAD_LEFT);
             }
             
             if ($this->path !== $newPath) {
                 $this->path = $newPath;
+                
+                // Update children paths when parent path changes
+                $this->updateChildrenPaths();
             }
+        }
+    }
+    
+    /**
+     * Update all children paths when parent path changes
+     */
+    public function updateChildrenPaths(): void
+    {
+        $children = $this->children;
+        foreach ($children as $child) {
+            $child->updatePath();
+            $child->saveQuietly();
         }
     }
     
