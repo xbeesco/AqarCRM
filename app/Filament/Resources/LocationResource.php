@@ -47,23 +47,20 @@ class LocationResource extends Resource
                             
                         Select::make('parent_id')
                             ->label('الموقع الأب')
-                            ->options(function (callable $get) {
-                                $level = $get('level');
+                            ->options(function (callable $get, $record) {
+                                $level = $get('level') ?: $record?->level;
                                 if (!$level || $level <= 1) {
                                     return [];
                                 }
                                 return Location::getParentOptions($level);
                             })
-                            ->visible(fn (callable $get) => $get('level') > 1)
+                            ->visible(fn (callable $get, $record) => ($get('level') ?: $record?->level) > 1)
+                            ->searchable()
+                            ->preload()
                             ->reactive(),
                             
-                        TextInput::make('name_ar')
-                            ->label('الاسم بالعربية')
-                            ->required()
-                            ->maxLength(255),
-                            
-                        TextInput::make('name_en')
-                            ->label('الاسم بالإنجليزية')
+                        TextInput::make('name')
+                            ->label('الاسم')
                             ->required()
                             ->maxLength(255),
                             
@@ -84,7 +81,8 @@ class LocationResource extends Resource
                             ->label('نشط')
                             ->default(true),
                     ])
-                    ->columns(2)
+                    ->columnSpanFull()
+                    ->columns(4)
             ]);
     }
 
@@ -92,33 +90,34 @@ class LocationResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('name_ar')
+                TextColumn::make('name')
                     ->label('الموقع')
-                    ->searchable()
                     ->formatStateUsing(function (string $state, Location $record): string {
                         // Create hierarchical indentation with enhanced visual tree structure
                         $treeStructure = '';
-                        
+                        $badges = [
+                            1 => '<span class="fi-color fi-color-success fi-text-color-700 dark:fi-text-color-300 fi-badge fi-size-sm"> منطقة </span>&nbsp;',
+                            2 => '<span class="fi-color fi-color-warning fi-text-color-700 dark:fi-text-color-300 fi-badge fi-size-sm"> مدينة </span>&nbsp;',
+                            3 => '<span class="fi-color fi-color-info fi-text-color-700 dark:fi-text-color-300 fi-badge fi-size-sm"> مركز </span>&nbsp;',
+                            4 => '<span class="fi-color fi-color-gray fi-text-color-700 dark:fi-text-color-300 fi-badge fi-size-sm"> حي </span>&nbsp;',
+                        ];
                         // Build tree indentation based on level with better styling
                         if ($record->level > 1) {
-                            $treeStructure = str_repeat('<span class="text-gray-300">│&nbsp;&nbsp;&nbsp;</span>', $record->level - 2);
-                            $treeStructure .= '<span class="text-gray-400">├──&nbsp;</span>';
+                            $treeStructure = str_repeat('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;', $record->level - 1);
                         }
-                        
+                                                    $treeStructure .=  $badges[$record->level] .  '&nbsp;';
+
                         // Enhanced icons with colors for different levels
-                        $icon = match ($record->level) {
-                            1 => '<span class="text-green-600">🌍</span>',  // منطقة
-                            2 => '<span class="text-blue-600">🏙️</span>',   // مدينة  
-                            3 => '<span class="text-orange-600">🏢</span>',  // مركز
-                            4 => '<span class="text-purple-600">🏘️</span>', // حي
-                            default => '<span class="text-gray-600">📍</span>'
-                        };
+                        // $icon = match ($record->level) {
+                        //     1 => '<span class="text-green-600">🌍</span>',  // منطقة
+                        //     2 => '<span class="text-blue-600">🏙️</span>',   // مدينة  
+                        //     3 => '<span class="text-orange-600">🏢</span>',  // مركز
+                        //     4 => '<span class="text-purple-600">🏘️</span>', // حي
+                        //     default => '<span class="text-gray-600">📍</span>'
+                        // };
                         
-                        // Combine Arabic and English names with better styling
+                        // Display name with better styling
                         $displayName = '<span class="font-medium text-gray-900">' . $state . '</span>';
-                        if ($record->name_en && $record->name_en !== $state) {
-                            $displayName .= ' <span class="text-sm text-gray-500">(' . $record->name_en . ')</span>';
-                        }
                         
                         // Add breadcrumb path for deeper levels
                         $breadcrumb = '';
@@ -126,7 +125,7 @@ class LocationResource extends Resource
                             $path = collect();
                             $current = $record->parent;
                             while ($current) {
-                                $path->prepend($current->name_ar);
+                                $path->prepend($current->name);
                                 $current = $current->parent;
                             }
                             if ($path->isNotEmpty()) {
@@ -135,21 +134,10 @@ class LocationResource extends Resource
                                              '</div>';
                             }
                         }
-                        
-                        return '<div class="py-1">' . $treeStructure . $icon . '&nbsp;' . $displayName . $breadcrumb . '</div>';
+                        return '<div class="py-1">' . $treeStructure . $displayName . '</div>';
                     })
                     ->html()
                     ->wrap(),
-                    
-                BadgeColumn::make('level_label')
-                    ->label('المستوى')
-                    ->color(fn (string $state): string => match ($state) {
-                        'منطقة' => 'success',
-                        'مدينة' => 'warning', 
-                        'مركز' => 'info',
-                        'حي' => 'gray',
-                        default => 'gray',
-                    }),
                     
                 TextColumn::make('code')
                     ->label('الكود')
@@ -168,53 +156,45 @@ class LocationResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->filters([
-                SelectFilter::make('level')
-                    ->label('المستوى')
-                    ->options([
-                        1 => '🌍 منطقة',
-                        2 => '🏙️ مدينة', 
-                        3 => '🏢 مركز',
-                        4 => '🏘️ حي'
-                    ]),
+            //     SelectFilter::make('level')
+            //         ->label('المستوى')
+            //         ->options([
+            //             1 => '🌍 منطقة',
+            //             2 => '🏙️ مدينة', 
+            //             3 => '🏢 مركز',
+            //             4 => '🏘️ حي'
+            //         ]),
                     
-                SelectFilter::make('parent_id')
-                    ->label('الموقع الأب')
-                    ->options(function (): array {
-                        return Location::whereIn('level', [1, 2, 3])
-                            ->orderBy('path')
-                            ->get()
-                            ->mapWithKeys(function (Location $location) {
-                                $prefix = str_repeat('──', $location->level - 1);
-                                $icon = match ($location->level) {
-                                    1 => '🌍',
-                                    2 => '🏙️',
-                                    3 => '🏢',
-                                    default => '📍'
-                                };
-                                return [$location->id => $prefix . $icon . ' ' . $location->name_ar];
-                            })
-                            ->toArray();
-                    })
-                    ->searchable(),
+            //     SelectFilter::make('parent_id')
+            //         ->label('الموقع الأب')
+            //         ->options(function (): array {
+            //             return Location::whereIn('level', [1, 2, 3])
+            //                 ->orderBy('path')
+            //                 ->get()
+            //                 ->mapWithKeys(function (Location $location) {
+            //                     $prefix = str_repeat('──', $location->level - 1);
+            //                     $icon = match ($location->level) {
+            //                         1 => '🌍',
+            //                         2 => '🏙️',
+            //                         3 => '🏢',
+            //                         default => '📍'
+            //                     };
+            //                     return [$location->id => $prefix . $icon . ' ' . $location->name];
+            //                 })
+            //                 ->toArray();
+            //         })
+            //         ->searchable(),
                     
-                SelectFilter::make('is_active')
-                    ->label('الحالة')
-                    ->options([
-                        1 => '✅ نشط',
-                        0 => '❌ غير نشط',
-                    ]),
-            ])
+            //     SelectFilter::make('is_active')
+            //         ->label('الحالة')
+            //         ->options([
+            //             1 => '✅ نشط',
+            //             0 => '❌ غير نشط',
+            //         ]),
+            // ])
             ->filtersLayout(FiltersLayout::AboveContent)
             ->recordActions([
-                ViewAction::make(),
                 EditAction::make(),
-                DeleteAction::make(),
-            ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
             ])
             ->defaultSort('path', 'asc')
             ->paginated(false);
@@ -241,8 +221,6 @@ class LocationResource extends Resource
     {
         return parent::getEloquentQuery()
             ->with(['parent', 'children'])
-            ->orderBy('level')
-            ->orderByRaw('COALESCE(path, CONCAT("/", LPAD(id, 4, "0")))')
-            ->orderBy('name_ar');
+            ->orderBy('path');
     }
 }
