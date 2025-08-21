@@ -194,7 +194,6 @@ class UnitResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->limit(30)
-                    ->url(fn (Unit $record) => route('filament.admin.resources.properties.view', $record->property))
                     ->color('primary'),
                 
                 Tables\Columns\TextColumn::make('unit_number')
@@ -368,16 +367,11 @@ class UnitResource extends Resource
                     ->multiple(),
             ])
             ->actions([
-                ViewAction::make()
-                    ->label('عرض / View'),
                 EditAction::make()
                     ->label('تعديل / Edit'),
             ])
             ->bulkActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make()
-                        ->label('حذف / Delete'),
-                ]),
+                // Remove bulk actions as per requirements
             ])
             ->defaultSort('property_id', 'asc')
             ->defaultSort('unit_number', 'asc');
