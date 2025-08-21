@@ -23,8 +23,6 @@ use Filament\Actions\ViewAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Schemas\Schema;
-use BackedEnum;
-
 class OperationResource extends Resource
 {
     protected static ?string $model = Operation::class;
@@ -34,12 +32,6 @@ class OperationResource extends Resource
     protected static ?string $modelLabel = 'عملية';
 
     protected static ?string $pluralModelLabel = 'العمليات';
-
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
-
-    protected static string|\UnitEnum|null $navigationGroup = 'العمليات';
-
-    protected static ?int $navigationSort = 710;
 
     public static function form(Schema $schema): Schema
     {

@@ -20,23 +20,15 @@ use Filament\Actions\ViewAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
-use BackedEnum;
-
 class UnitFeatureResource extends Resource
 {
     protected static ?string $model = UnitFeature::class;
-
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-star';
 
     protected static ?string $navigationLabel = 'مميزات الوحدات';
 
     protected static ?string $modelLabel = 'ميزة وحدة';
 
     protected static ?string $pluralModelLabel = 'مميزات الوحدات';
-
-    protected static string|\UnitEnum|null $navigationGroup = 'الوحدات';
-
-    protected static ?int $navigationSort = 420;
 
     public static function form(Schema $schema): Schema
     {

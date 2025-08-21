@@ -22,8 +22,6 @@ use Filament\Tables\Filters\TrashedFilter;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Database\Eloquent\Builder;
-use BackedEnum;
-
 class EmployeeResource extends Resource
 {
     protected static ?string $model = Employee::class;
@@ -33,10 +31,6 @@ class EmployeeResource extends Resource
     protected static ?string $modelLabel = 'موظف';
 
     protected static ?string $pluralModelLabel = 'الموظفين';
-
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-users';
-
-    protected static ?int $navigationSort = 1;
 
     public static function form(Schema $schema): Schema
     {

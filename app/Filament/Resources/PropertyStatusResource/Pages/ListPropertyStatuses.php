@@ -4,16 +4,17 @@ namespace App\Filament\Resources\PropertyStatusResource\Pages;
 
 use App\Filament\Resources\PropertyStatusResource;
 use Filament\Actions;
-use Filament\Resources\Pages\ViewRecord;
+use Filament\Resources\Pages\ListRecords;
 
-class ViewPropertyStatus extends ViewRecord
+class ListPropertyStatuses extends ListRecords
 {
     protected static string $resource = PropertyStatusResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
-            Actions\EditAction::make(),
+            Actions\CreateAction::make()
+                ->label('حالة عقار جديدة / New Property Status'),
         ];
     }
 }

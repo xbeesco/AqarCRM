@@ -26,32 +26,25 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
-use BackedEnum;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class PropertyTypeResource extends Resource
 {
     protected static ?string $model = PropertyType::class;
 
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-building-office';
-
-    protected static string|\UnitEnum|null $navigationGroup = 'Property Management';
-
-    protected static ?int $navigationSort = 1;
-
     public static function getNavigationLabel(): string
     {
-        return __('Property Types');
+        return __('أنواع العقارات');
     }
 
     public static function getModelLabel(): string
     {
-        return __('Property Type');
+        return __('نوع عقار');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return __('Property Types');
+        return __('أنواع العقارات');
     }
 
     public static function form(Schema $schema): Schema

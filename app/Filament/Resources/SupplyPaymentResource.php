@@ -23,8 +23,6 @@ use Filament\Actions\ViewAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Schemas\Schema;
-use BackedEnum;
-
 class SupplyPaymentResource extends Resource
 {
     protected static ?string $model = SupplyPayment::class;
@@ -34,12 +32,6 @@ class SupplyPaymentResource extends Resource
     protected static ?string $modelLabel = 'دفعة توريد';
 
     protected static ?string $pluralModelLabel = 'دفعات التوريد';
-
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
-
-    protected static string|\UnitEnum|null $navigationGroup = 'دفعات التوريد';
-
-    protected static ?int $navigationSort = 910;
 
     public static function form(Schema $schema): Schema
     {

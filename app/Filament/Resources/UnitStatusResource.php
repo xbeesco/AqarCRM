@@ -19,23 +19,15 @@ use Filament\Actions\ViewAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
-use BackedEnum;
-
 class UnitStatusResource extends Resource
 {
     protected static ?string $model = UnitStatus::class;
-
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-tag';
 
     protected static ?string $navigationLabel = 'حالات الوحدات';
 
     protected static ?string $modelLabel = 'حالة وحدة';
 
     protected static ?string $pluralModelLabel = 'حالات الوحدات';
-
-    protected static string|\UnitEnum|null $navigationGroup = 'الوحدات';
-
-    protected static ?int $navigationSort = 430;
 
     public static function form(Schema $schema): Schema
     {

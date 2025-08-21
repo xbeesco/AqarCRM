@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Resources\CollectionPayment\CollectionPaymentResource\Pages;
+namespace App\Filament\Resources\CollectionPaymentResource\Pages;
 
-use App\Filament\Resources\CollectionPayment\CollectionPaymentResource;
+use App\Filament\Resources\CollectionPaymentResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 

@@ -6,6 +6,9 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationBuilder;
+use Filament\Navigation\NavigationGroup;
+use Filament\Navigation\NavigationItem;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -43,6 +46,73 @@ class AdminPanelProvider extends PanelProvider
                 AccountWidget::class,
                 FilamentInfoWidget::class,
             ])
+            ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
+                return $builder
+                    ->items([
+                        NavigationItem::make('لوحة التحكم')
+                            ->icon('heroicon-o-home')
+                            ->url(fn (): string => Dashboard::getUrl())
+                            ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.dashboard')),
+                    ])
+                    ->groups([
+                        NavigationGroup::make('الماليات')
+                            ->items([
+                                ...array_map(fn($item) => $item->icon('heroicon-o-calculator'), 
+                                    \App\Filament\Resources\OperationResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-arrow-down-tray'), 
+                                    \App\Filament\Resources\CollectionPaymentResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-arrow-up-tray'), 
+                                    \App\Filament\Resources\SupplyPaymentResource::getNavigationItems()),
+                            ]),
+                        NavigationGroup::make('التعاقدات')
+                            ->items([
+                                ...array_map(fn($item) => $item->icon('heroicon-o-document-check'), 
+                                    \App\Filament\Resources\PropertyContractResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-clipboard-document-check'), 
+                                    \App\Filament\Resources\UnitContractResource::getNavigationItems()),
+                            ]),
+                        NavigationGroup::make('العقارات')
+                            ->items([
+                                ...array_map(fn($item) => $item->icon('heroicon-o-building-office'), 
+                                    \App\Filament\Resources\PropertyResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-home'), 
+                                    \App\Filament\Resources\UnitResource::getNavigationItems()),
+                            ]),
+                        NavigationGroup::make('المستخدمين')
+                            ->items([
+                                ...array_map(fn($item) => $item->icon('heroicon-o-users'), 
+                                    \App\Filament\Resources\TenantResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-key'), 
+                                    \App\Filament\Resources\OwnerResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-briefcase'), 
+                                    \App\Filament\Resources\EmployeeResource::getNavigationItems()),
+                            ]),
+                        NavigationGroup::make('التأسيس')
+                            ->items([
+                                ...array_map(fn($item) => $item->icon('heroicon-o-map-pin'), 
+                                    \App\Filament\Resources\LocationResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-star'), 
+                                    \App\Filament\Resources\PropertyFeatureResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-squares-2x2'), 
+                                    \App\Filament\Resources\PropertyTypeResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-signal'), 
+                                    \App\Filament\Resources\PropertyStatusResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-sparkles'), 
+                                    \App\Filament\Resources\UnitFeatureResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-check-badge'), 
+                                    \App\Filament\Resources\UnitStatusResource::getNavigationItems()),
+                            ])
+                            ->collapsed(),
+                        // NavigationGroup::make('النظام')
+                        //     ->items([
+                        //         NavigationItem::make('Modules Manager')
+                        //             ->icon('heroicon-o-squares-plus')
+                        //             ->url(fn (): string => \App\Filament\Pages\ModulesManager::getUrl())
+                        //             ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.modules-manager')),
+                        //     ])
+                        //     ->collapsed(),
+                    ]);
+            })
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

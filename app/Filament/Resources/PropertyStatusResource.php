@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Filament\Resources\PropertyFeatures;
+namespace App\Filament\Resources;
 
-use App\Filament\Resources\PropertyFeatures\Pages\ManagePropertyFeatures;
-use App\Models\PropertyFeature;
+use App\Filament\Resources\PropertyStatusResource\Pages;
+use App\Models\PropertyStatus;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -16,21 +16,17 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
-class PropertyFeatureResource extends Resource
+class PropertyStatusResource extends Resource
 {
-    protected static ?string $model = PropertyFeature::class;
+    protected static ?string $model = PropertyStatus::class;
 
-    protected static ?string $navigationLabel = 'مميزات العقارات';
+    protected static ?string $navigationLabel = 'حالات العقارات';
 
-    protected static ?string $modelLabel = 'ميزة عقار';
+    protected static ?string $modelLabel = 'حالة عقار';
 
-    protected static ?string $pluralModelLabel = 'مميزات العقارات';
+    protected static ?string $pluralModelLabel = 'حالات العقارات';
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-star';
-
-    protected static string|\UnitEnum|null $navigationGroup = 'العقارات';
-
-    protected static ?int $navigationSort = 120;
+    // Navigation properties removed - managed centrally in AdminPanelProvider
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -89,7 +85,9 @@ class PropertyFeatureResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ManagePropertyFeatures::route('/'),
+            'index' => Pages\ListPropertyStatuses::route('/'),
+            'create' => Pages\CreatePropertyStatus::route('/create'),
+            'edit' => Pages\EditPropertyStatus::route('/{record}/edit'),
         ];
     }
 }

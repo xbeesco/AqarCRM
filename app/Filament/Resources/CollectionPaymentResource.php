@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Resources\CollectionPayment;
+namespace App\Filament\Resources;
 
-use App\Filament\Resources\CollectionPayment\CollectionPaymentResource\Pages;
+use App\Filament\Resources\CollectionPaymentResource\Pages;
 use App\Models\CollectionPayment;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -28,12 +28,10 @@ use BackedEnum;
 class CollectionPaymentResource extends Resource
 {
     protected static ?string $model = CollectionPayment::class;
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-currency-dollar';
     protected static ?string $navigationLabel = 'دفعات التحصيل';
     protected static ?string $modelLabel = 'دفعة تحصيل';
     protected static ?string $pluralModelLabel = 'دفعات التحصيل';
-    protected static string|\UnitEnum|null $navigationGroup = 'دفعات التحصيل';
-    protected static ?int $navigationSort = 810;
+    // Navigation properties removed - managed centrally in AdminPanelProvider
 
     public static function form(Schema $schema): Schema
     {

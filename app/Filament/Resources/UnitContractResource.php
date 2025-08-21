@@ -27,21 +27,13 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Actions\DeleteAction;
 use Illuminate\Database\Eloquent\Builder;
-use BackedEnum;
-
 class UnitContractResource extends Resource
 {
     protected static ?string $model = UnitContract::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-check';
-
     protected static ?string $navigationLabel = 'عقود الوحدات';
 
     protected static ?string $modelLabel = 'عقد وحدة';
-
-    protected static string|\UnitEnum|null $navigationGroup = 'عقود الوحدات';
-
-    protected static ?int $navigationSort = 610;
 
     protected static ?string $pluralModelLabel = 'عقود الوحدات';
 
