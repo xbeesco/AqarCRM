@@ -17,6 +17,10 @@ class LocationResource extends Resource
     protected static ?string $model = Location::class;
 
     protected static ?string $recordTitleAttribute = 'name_ar';
+    
+    protected static ?string $label = 'موقع';
+    
+    protected static ?string $pluralLabel = 'المواقع';
 
     public static function form(Schema $schema): Schema
     {

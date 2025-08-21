@@ -16,6 +16,10 @@ class UnitStatusResource extends Resource
     protected static ?string $model = UnitStatus::class;
 
     protected static ?string $recordTitleAttribute = 'name_ar';
+    
+    protected static ?string $label = 'حالة وحدة';
+    
+    protected static ?string $pluralLabel = 'حالات الوحدات';
 
     public static function form(Schema $schema): Schema
     {

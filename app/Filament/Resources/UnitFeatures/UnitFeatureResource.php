@@ -16,6 +16,10 @@ class UnitFeatureResource extends Resource
     protected static ?string $model = UnitFeature::class;
 
     protected static ?string $recordTitleAttribute = 'name_ar';
+    
+    protected static ?string $label = 'ميزة وحدة';
+    
+    protected static ?string $pluralLabel = 'مميزات الوحدات';
 
     public static function form(Schema $schema): Schema
     {

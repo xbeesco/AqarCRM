@@ -16,6 +16,10 @@ class PropertyStatusResource extends Resource
     protected static ?string $model = PropertyStatus::class;
 
     protected static ?string $recordTitleAttribute = 'name_ar';
+    
+    protected static ?string $label = 'حالة عقار';
+    
+    protected static ?string $pluralLabel = 'حالات العقارات';
 
     public static function form(Schema $schema): Schema
     {

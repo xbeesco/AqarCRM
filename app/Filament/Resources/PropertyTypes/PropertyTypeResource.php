@@ -16,6 +16,10 @@ class PropertyTypeResource extends Resource
     protected static ?string $model = PropertyType::class;
 
     protected static ?string $recordTitleAttribute = 'name_ar';
+    
+    protected static ?string $label = 'نوع عقار';
+    
+    protected static ?string $pluralLabel = 'أنواع العقارات';
 
     public static function form(Schema $schema): Schema
     {
