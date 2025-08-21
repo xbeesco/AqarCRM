@@ -9,20 +9,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Location extends Model
 {
     protected $fillable = [
-        'name', 
         'name_ar',
         'name_en',
-        'code',
         'parent_id', 
-        'level', 
-        'path', 
-        'coordinates', 
-        'postal_code', 
-        'is_active'
+        'level'
     ];
     
     protected $casts = [
-        'is_active' => 'boolean',
         'level' => 'integer',
     ];
     
@@ -46,10 +39,6 @@ class Location extends Model
         return $query->where('level', $level);
     }
     
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
-    }
     
     // Scopes for each level
     public function scopeCountries($query)
@@ -95,7 +84,7 @@ class Location extends Model
         $current = $this;
         
         while ($current) {
-            $path->prepend($current->name_ar ?? $current->name);
+            $path->prepend($current->name_ar);
             $current = $current->parent;
         }
         
@@ -113,7 +102,7 @@ class Location extends Model
         while ($current) {
             $breadcrumbs->prepend([
                 'id' => $current->id,
-                'name' => $current->name_ar ?? $current->name,
+                'name' => $current->name_ar,
                 'level' => $current->level,
                 'level_label' => $current->level_label
             ]);
@@ -129,8 +118,8 @@ class Location extends Model
     public function getLocalizedNameAttribute(): string
     {
         return app()->getLocale() === 'ar' 
-            ? ($this->name_ar ?? $this->name)
-            : ($this->name_en ?? $this->name);
+            ? $this->name_ar
+            : ($this->name_en ?? $this->name_ar);
     }
     
     /**
@@ -156,7 +145,6 @@ class Location extends Model
         }
         
         return self::where('level', $level - 1)
-            ->active()
             ->pluck('name_ar', 'id')
             ->toArray();
     }
