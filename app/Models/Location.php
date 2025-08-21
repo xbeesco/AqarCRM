@@ -12,12 +12,30 @@ class Location extends Model
         'name_ar',
         'name_en',
         'parent_id', 
-        'level'
+        'level',
+        'path',
+        'code',
+        'coordinates',
+        'postal_code',
+        'is_active'
     ];
     
     protected $casts = [
         'level' => 'integer',
+        'is_active' => 'boolean',
     ];
+    
+    protected static function boot()
+    {
+        parent::boot();
+        
+        static::saved(function ($location) {
+            $location->updatePath();
+            if ($location->wasChanged('path')) {
+                $location->saveQuietly();
+            }
+        });
+    }
     
     public function parent(): BelongsTo
     {
@@ -147,5 +165,32 @@ class Location extends Model
         return self::where('level', $level - 1)
             ->pluck('name_ar', 'id')
             ->toArray();
+    }
+    
+    /**
+     * Update the path field for hierarchical ordering
+     */
+    public function updatePath(): void
+    {
+        if ($this->id) {
+            if ($this->parent_id) {
+                $parent = self::find($this->parent_id);
+                $newPath = ($parent?->path ?? '') . '/' . str_pad($this->id, 10, '0', STR_PAD_LEFT);
+            } else {
+                $newPath = '/' . str_pad($this->id, 10, '0', STR_PAD_LEFT);
+            }
+            
+            if ($this->path !== $newPath) {
+                $this->path = $newPath;
+            }
+        }
+    }
+    
+    /**
+     * Get all descendants in hierarchical order
+     */
+    public static function getHierarchicalOrder()
+    {
+        return self::orderBy('path')->get();
     }
 }

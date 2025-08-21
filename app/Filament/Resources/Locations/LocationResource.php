@@ -60,15 +60,6 @@ class LocationResource extends Resource
                     }),
                 TextColumn::make('name_en')
                     ->label('الاسم بالإنجليزية'),
-                TextColumn::make('level')
-                    ->label('المستوى')
-                    ->formatStateUsing(fn ($state): string => match ($state) {
-                        1 => 'المنطقة',
-                        2 => 'المدينة',
-                        3 => 'المركز',
-                        4 => 'الحي',
-                        default => 'غير محدد'
-                    }),
             ])
             ->defaultSort('name_ar')
             ->paginated(false)
