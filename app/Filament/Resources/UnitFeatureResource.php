@@ -219,7 +219,8 @@ class UnitFeatureResource extends Resource
             ])
             ->defaultSort('category')
             ->defaultSort('sort_order')
-            ->defaultSort('name_ar');
+            ->defaultSort('name_ar')
+            ->paginated(false);
     }
 
     public static function getPages(): array

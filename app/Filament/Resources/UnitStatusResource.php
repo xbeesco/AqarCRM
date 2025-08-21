@@ -212,7 +212,8 @@ class UnitStatusResource extends Resource
                 ]),
             ])
             ->defaultSort('sort_order')
-            ->defaultSort('name_ar');
+            ->defaultSort('name_ar')
+            ->paginated(false);
     }
 
     public static function getPages(): array

@@ -63,7 +63,8 @@ class UnitFeatureResource extends Resource
             ])
             ->toolbarActions([])
             ->bulkActions([])
-            ->toggleColumnsTriggerAction(null);
+            ->toggleColumnsTriggerAction(null)
+            ->paginated(false);
     }
 
     public static function getPages(): array

@@ -161,7 +161,8 @@ class PropertyTypeResource extends Resource
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->paginated(false);
     }
 
     public static function getRelations(): array
