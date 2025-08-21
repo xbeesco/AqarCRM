@@ -13,31 +13,6 @@ class Owner extends User
 
     protected $table = 'users';
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'identity_file'
-    ];
-
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'deleted_at' => 'datetime',
-        ];
-    }
 
     /**
      * Boot the model.
@@ -53,7 +28,18 @@ class Owner extends User
             });
         });
 
-        // Auto-assign owner role on creation
+        // Auto-assign owner role and set user_type on creation
+        static::creating(function ($owner) {
+            $owner->user_type = 'owner';
+            // Auto-generate email and password from phone
+            if ($owner->phone && !$owner->email) {
+                $owner->email = $owner->phone . '@towntop.sa';
+            }
+            if ($owner->phone && !$owner->password) {
+                $owner->password = bcrypt($owner->phone);
+            }
+        });
+
         static::created(function ($owner) {
             $ownerRole = Role::firstOrCreate(
                 ['name' => 'owner', 'guard_name' => 'web']

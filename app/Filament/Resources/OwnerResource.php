@@ -42,23 +42,23 @@ class OwnerResource extends Resource
                             ->label('الاسم الكامل')
                             ->maxLength(255)
                             ->columnSpan('full'),
-                            
-                        TextInput::make('phone1')
+
+                        TextInput::make('phone')
                             ->numeric()
                             ->required()
-                            ->label('رقم الهاتف الأول')
+                            ->label('الهاتف الأول')
                             ->maxLength(20)
-                            ->columnSpan('full'),
+                            ->columnSpan(6),
 
-                        TextInput::make('phone2')
+                        TextInput::make('secondary_phone')
                             ->numeric()
-                            ->label('رقم الهاتف الثاني')
+                            ->label('الهاتف الثاني')
                             ->maxLength(20)
-                            ->columnSpan('full'),
-                            
+                            ->columnSpan(6),
+
                         FileUpload::make('identity_file')
                             ->label('ملف الهوية')
-                            ->directory('owners/identities')
+                            ->directory('employees/identities')
                             ->acceptedFileTypes(['application/pdf', 'image/*'])
                             ->maxSize(5120)
                             ->downloadable()
@@ -66,7 +66,9 @@ class OwnerResource extends Resource
                             ->previewable()
                             ->columnSpan('full'),
                     ])
+                    ->columns(12)
                     ->columnSpan('full'),
+
             ]);
     }
 
@@ -79,11 +81,11 @@ class OwnerResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('phone1')
+                TextColumn::make('phone')
                     ->label('رقم الهاتف الأول')
                     ->searchable(),
 
-                TextColumn::make('phone2')
+                TextColumn::make('secondary_phone')
                     ->label('رقم الهاتف الثاني')
                     ->searchable(),
 
@@ -153,29 +155,4 @@ class OwnerResource extends Resource
         ];
     }
 
-    // protected static ?string $recordTitleAttribute = 'name';
-    
-    // public static function getGloballySearchableAttributes(): array
-    // {
-    //     return ['name', 'email', 'phone1', 'phone2', 'national_id'];
-    // }
-    
-    // public static function getGlobalSearchResultDetails($record): array
-    // {
-    //     return [
-    //         'البريد الإلكتروني' => $record->email ?? 'غير محدد',
-    //         'الهاتف' => $record->phone1 ?? 'غير محدد',
-    //         'الرقم المدني' => $record->national_id ?? 'غير محدد',
-    //     ];
-    // }
-    
-    // public static function getGlobalSearchResultActions($record): array
-    // {
-    //     return [
-    //         Action::make('edit')
-    //             ->label('تحرير')
-    //             ->icon('heroicon-s-pencil')
-    //             ->url(static::getUrl('edit', ['record' => $record])),
-    //     ];
-    // }
 }
