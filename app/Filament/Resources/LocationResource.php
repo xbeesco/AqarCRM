@@ -15,6 +15,7 @@ use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Actions\ViewAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\DeleteAction;
@@ -56,8 +57,13 @@ class LocationResource extends Resource
                             ->visible(fn (callable $get) => $get('level') > 1)
                             ->reactive(),
                             
-                        TextInput::make('name')
-                            ->label('الاسم')
+                        TextInput::make('name_ar')
+                            ->label('الاسم بالعربية')
+                            ->required()
+                            ->maxLength(255),
+                            
+                        TextInput::make('name_en')
+                            ->label('الاسم بالإنجليزية')
                             ->required()
                             ->maxLength(255),
                             
@@ -86,6 +92,40 @@ class LocationResource extends Resource
     {
         return $table
             ->columns([
+                TextColumn::make('name_ar')
+                    ->label('الموقع')
+                    ->searchable()
+                    ->formatStateUsing(function (string $state, Location $record): string {
+                        // Create hierarchical indentation with visual tree structure
+                        $treeStructure = '';
+                        
+                        // Build tree indentation based on level
+                        if ($record->level > 1) {
+                            $treeStructure = str_repeat('│&nbsp;&nbsp;&nbsp;', $record->level - 2);
+                            $treeStructure .= '├── ';
+                        }
+                        
+                        // Icons for different levels
+                        $icon = match ($record->level) {
+                            1 => '🌍',  // منطقة
+                            2 => '🏙️',  // مدينة  
+                            3 => '🏢',  // مركز
+                            4 => '🏘️',  // حي
+                            default => '📍'
+                        };
+                        
+                        // Combine Arabic and English names
+                        $displayName = $state;
+                        if ($record->name_en && $record->name_en !== $state) {
+                            $displayName .= ' <span class="text-gray-500">(' . $record->name_en . ')</span>';
+                        }
+                        
+                        return $treeStructure . $icon . ' ' . $displayName;
+                    })
+                    ->html()
+                    ->weight('medium')
+                    ->wrap(),
+                    
                 BadgeColumn::make('level_label')
                     ->label('المستوى')
                     ->color(fn (string $state): string => match ($state) {
@@ -96,29 +136,11 @@ class LocationResource extends Resource
                         default => 'gray',
                     }),
                     
-                TextColumn::make('name')
-                    ->label('الاسم')
-                    ->searchable()
-                    ->sortable()
-                    ->formatStateUsing(function (string $state, Location $record): string {
-                        // Create indentation based on level
-                        $indent = str_repeat('&nbsp;&nbsp;&nbsp;&nbsp;', $record->level - 1);
-                        $prefix = $record->level > 1 ? '└── ' : '';
-                        
-                        return $indent . $prefix . $state;
-                    })
-                    ->html(),
-                    
-                TextColumn::make('full_path')
-                    ->label('المسار الكامل')
-                    ->limit(50)
-                    ->tooltip(function (Location $record): string {
-                        return $record->full_path;
-                    }),
-                    
                 TextColumn::make('code')
                     ->label('الكود')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable()
+                    ->placeholder('—'),
                     
                 BadgeColumn::make('is_active')
                     ->label('الحالة')
@@ -132,9 +154,14 @@ class LocationResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('parent_id')
-                    ->label('الموقع الأب')
-                    ->relationship('parent', 'name'),
+                SelectFilter::make('level')
+                    ->label('المستوى')
+                    ->options([
+                        1 => 'منطقة',
+                        2 => 'مدينة', 
+                        3 => 'مركز',
+                        4 => 'حي'
+                    ]),
                     
                 SelectFilter::make('is_active')
                     ->label('الحالة')
@@ -143,6 +170,7 @@ class LocationResource extends Resource
                         0 => 'غير نشط',
                     ]),
             ])
+            ->filtersLayout(FiltersLayout::AboveContent)
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
@@ -154,7 +182,6 @@ class LocationResource extends Resource
                 ]),
             ])
             ->defaultSort('path', 'asc')
-            ->poll('60s')
             ->paginated(false);
     }
 

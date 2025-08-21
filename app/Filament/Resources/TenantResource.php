@@ -41,14 +41,14 @@ class TenantResource extends Resource
                             ->maxLength(255)
                             ->columnSpan('full'),
 
-                        TextInput::make('phone1')
+                        TextInput::make('phone')
                             ->numeric()
                             ->required()
                             ->label('رقم الهاتف الأول')
                             ->maxLength(20)
                             ->columnSpan('full'),
 
-                        TextInput::make('phone2')
+                        TextInput::make('secondary_phone')
                             ->numeric()
                             ->label('رقم الهاتف الثاني')
                             ->maxLength(20)
@@ -71,17 +71,20 @@ class TenantResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query) {
+                return $query;
+            })
             ->columns([
                 TextColumn::make('name')
                     ->label('الاسم')
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('phone1')
+                TextColumn::make('phone')
                     ->label('رقم الهاتف الأول')
                     ->searchable(),
 
-                TextColumn::make('phone2')
+                TextColumn::make('secondary_phone')
                     ->label('رقم الهاتف الثاني')
                     ->searchable(),
 

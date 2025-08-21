@@ -9,7 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Location extends Model
 {
     protected $fillable = [
-        'name',
+        'name_ar',
+        'name_en',
         'parent_id', 
         'level',
         'path',
@@ -129,11 +130,25 @@ class Location extends Model
     }
     
     /**
+     * Get the name attribute (defaults to Arabic)
+     */
+    public function getNameAttribute(): string
+    {
+        return $this->name_ar ?: $this->name_en ?: '';
+    }
+
+    /**
      * Get localized name based on app locale
      */
     public function getLocalizedNameAttribute(): string
     {
-        return $this->name;
+        $locale = app()->getLocale();
+        
+        if ($locale === 'en') {
+            return $this->name_en ?: $this->name_ar ?: '';
+        }
+        
+        return $this->name_ar ?: $this->name_en ?: '';
     }
     
     /**
@@ -159,7 +174,7 @@ class Location extends Model
         }
         
         return self::where('level', $level - 1)
-            ->pluck('name', 'id')
+            ->pluck('name_ar', 'id')
             ->toArray();
     }
     
