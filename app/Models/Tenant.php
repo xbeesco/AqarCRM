@@ -13,31 +13,6 @@ class Tenant extends User
 
     protected $table = 'users';
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'identity_file'
-    ];
-
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'deleted_at' => 'datetime',
-        ];
-    }
 
     /**
      * Boot the model.
@@ -53,7 +28,18 @@ class Tenant extends User
             });
         });
 
-        // Auto-assign tenant role on creation
+        // Auto-assign tenant role and set user_type on creation
+        static::creating(function ($tenant) {
+            $tenant->user_type = 'tenant';
+            // Auto-generate email and password from phone
+            if ($tenant->phone && !$tenant->email) {
+                $tenant->email = $tenant->phone . '@towntop.sa';
+            }
+            if ($tenant->phone && !$tenant->password) {
+                $tenant->password = bcrypt($tenant->phone);
+            }
+        });
+
         static::created(function ($tenant) {
             $tenantRole = Role::firstOrCreate(
                 ['name' => 'tenant', 'guard_name' => 'web']

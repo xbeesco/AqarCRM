@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Hash;
 use Filament\GlobalSearch\GlobalSearchResult;
 use Filament\Actions\Action;
+
 class TenantResource extends Resource
 {
     protected static ?string $model = Tenant::class;
@@ -46,19 +47,19 @@ class TenantResource extends Resource
                         TextInput::make('phone')
                             ->numeric()
                             ->required()
-                            ->label('رقم الهاتف الأول')
+                            ->label('الهاتف الأول')
                             ->maxLength(20)
-                            ->columnSpan('full'),
+                            ->columnSpan(6),
 
                         TextInput::make('secondary_phone')
                             ->numeric()
-                            ->label('رقم الهاتف الثاني')
+                            ->label('الهاتف الثاني')
                             ->maxLength(20)
-                            ->columnSpan('full'),
+                            ->columnSpan(6),
 
                         FileUpload::make('identity_file')
                             ->label('ملف الهوية')
-                            ->directory('tenants/identities')
+                            ->directory('employees/identities')
                             ->acceptedFileTypes(['application/pdf', 'image/*'])
                             ->maxSize(5120)
                             ->downloadable()
@@ -66,16 +67,15 @@ class TenantResource extends Resource
                             ->previewable()
                             ->columnSpan('full'),
                     ])
+                    ->columns(12)
                     ->columnSpan('full'),
+
             ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(function (Builder $query) {
-                return $query;
-            })
             ->columns([
                 TextColumn::make('name')
                     ->label('الاسم')
@@ -102,64 +102,7 @@ class TenantResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->filters([
-                Filter::make('name')
-                    ->form([
-                        FilterTextInput::make('name')
-                            ->label('الاسم')
-                            ->placeholder('البحث بالاسم')
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query->when(
-                            $data['name'],
-                            fn (Builder $query, $name): Builder => $query->where('name', 'like', "%{$name}%")
-                        );
-                    })
-                    ->columnSpan(4),
-                    
-                SelectFilter::make('property')
-                    ->label('العقار')
-                    ->relationship('currentProperty', 'name')
-                    ->searchable()
-                    ->columnSpan(4),
-                    
-                Filter::make('unit')
-                    ->form([
-                        Select::make('unit_id')
-                            ->label('الوحدة')
-                            ->options(function (callable $get) {
-                                $propertyId = $get('../../property');
-                                if ($propertyId) {
-                                    return \App\Models\Unit::where('property_id', $propertyId)
-                                        ->with('property')
-                                        ->get()
-                                        ->mapWithKeys(function ($unit) {
-                                            return [$unit->id => $unit->property->name . ' - وحدة ' . $unit->unit_number];
-                                        });
-                                }
-                                return \App\Models\Unit::with('property')
-                                    ->get()
-                                    ->mapWithKeys(function ($unit) {
-                                        return [$unit->id => $unit->property->name . ' - وحدة ' . $unit->unit_number];
-                                    });
-                            })
-                            ->searchable()
-                            ->live()
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query->when(
-                            $data['unit_id'],
-                            function (Builder $query, $unitId): Builder {
-                                return $query->whereHas('rentalContracts', function ($q) use ($unitId) {
-                                    $q->whereHas('unit', function ($unitQuery) use ($unitId) {
-                                        $unitQuery->where('id', $unitId);
-                                    });
-                                });
-                            }
-                        );
-                    })
-                    ->columnSpan(4),
-            ])
+            ->filters([])
             ->filtersLayout(FiltersLayout::AboveContent)
             ->filtersFormColumns(12)
             ->recordActions([
@@ -168,6 +111,7 @@ class TenantResource extends Resource
             ->bulkActions([])
             ->defaultSort('created_at', 'desc');
     }
+
 
     public static function getEloquentQuery(): Builder
     {
@@ -191,29 +135,4 @@ class TenantResource extends Resource
         ];
     }
 
-    // protected static ?string $recordTitleAttribute = 'name';
-    
-    // public static function getGloballySearchableAttributes(): array
-    // {
-    //     return ['name', 'email', 'phone', 'national_id'];
-    // }
-    
-    // public static function getGlobalSearchResultDetails($record): array
-    // {
-    //     return [
-    //         'البريد الإلكتروني' => $record->email ?? 'غير محدد',
-    //         'الهاتف' => $record->phone ?? 'غير محدد',
-    //         'الرقم المدني' => $record->national_id ?? 'غير محدد',
-    //     ];
-    // }
-    
-    // public static function getGlobalSearchResultActions($record): array
-    // {
-    //     return [
-    //         Action::make('edit')
-    //             ->label('تحرير')
-    //             ->icon('heroicon-s-pencil')
-    //             ->url(static::getUrl('edit', ['record' => $record])),
-    //     ];
-    // }
 }
