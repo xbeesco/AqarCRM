@@ -389,43 +389,38 @@ class UnitResource extends Resource
         ];
     }
 
-    public static function getGlobalSearchResults(string $search): \Illuminate\Support\Collection
+    protected static ?string $recordTitleAttribute = 'unit_number';
+    
+    public static function getGloballySearchableAttributes(): array
     {
-        return static::getModel()::query()
-            ->with(['property', 'property.location'])
-            ->where(function (Builder $query) use ($search) {
-                $query->where('unit_number', 'like', "%{$search}%")
-                      ->orWhere('description', 'like', "%{$search}%")
-                      ->orWhereHas('property', function (Builder $query) use ($search) {
-                          $query->where('name', 'like', "%{$search}%");
-                      })
-                      ->orWhereHas('property.location', function (Builder $query) use ($search) {
-                          $query->where('name_ar', 'like', "%{$search}%")
-                                ->orWhere('name_en', 'like', "%{$search}%");
-                      });
-            })
-            ->limit(5)
-            ->get()
-            ->map(function (Unit $record) {
-                $propertyName = $record->property?->name ?? 'غير محدد';
-                $locationName = $record->property?->location?->name_ar ?? 'غير محدد';
-                
-                return GlobalSearchResult::make()
-                    ->title("وحدة رقم: " . $record->unit_number)
-                    ->details([
-                        'العقار: ' . $propertyName,
-                        'الموقع: ' . $locationName,
-                        'السعر: ' . number_format($record->rent_price ?? 0, 2) . ' ر.س',
-                        'الحالة: ' . ($record->status ?? 'غير محدد')
-                    ])
-                    ->actions([
-                        Action::make('edit')
-                            ->label('تحرير')
-                            ->icon('heroicon-s-pencil')
-                            ->url(static::getUrl('edit', ['record' => $record])),
-                    ])
-                    ->url(static::getUrl('view', ['record' => $record]));
-            })
-            ;
+        return ['unit_number', 'unit_code', 'notes', 'property.name', 'property.location.name_ar', 'property.location.name_en'];
+    }
+    
+    public static function getGlobalSearchResultDetails($record): array
+    {
+        $propertyName = $record->property?->name ?? 'غير محدد';
+        $locationName = $record->property?->location?->name_ar ?? 'غير محدد';
+        
+        return [
+            'العقار' => $propertyName,
+            'الموقع' => $locationName,
+            'السعر' => number_format($record->rent_price ?? 0, 2) . ' ر.س',
+            'الحالة' => $record->status?->name_ar ?? 'غير محدد',
+        ];
+    }
+    
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with(['property', 'property.location', 'status']);
+    }
+    
+    public static function getGlobalSearchResultActions($record): array
+    {
+        return [
+            Action::make('edit')
+                ->label('تحرير')
+                ->icon('heroicon-s-pencil')
+                ->url(static::getUrl('edit', ['record' => $record])),
+        ];
     }
 }

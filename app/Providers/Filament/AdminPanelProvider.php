@@ -130,9 +130,6 @@ class AdminPanelProvider extends PanelProvider
                 Authenticate::class,
             ])
             ->authGuard('web')
-            ->globalSearch()
-            ->globalSearchResults(function (GlobalSearchResults $results): GlobalSearchResults {
-                return $results->limit(10);
-            });
+            ->globalSearch();
     }
 }

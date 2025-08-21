@@ -269,39 +269,34 @@ class PropertyResource extends Resource
         ];
     }
 
-    public static function getGlobalSearchResults(string $search): \Illuminate\Support\Collection
+    protected static ?string $recordTitleAttribute = 'name';
+    
+    public static function getGloballySearchableAttributes(): array
     {
-        return static::getModel()::query()
-            ->where(function (Builder $query) use ($search) {
-                $query->where('name', 'like', "%{$search}%")
-                      ->orWhere('address', 'like', "%{$search}%")
-                      ->orWhere('notes', 'like', "%{$search}%")
-                      ->orWhereHas('owner', function (Builder $query) use ($search) {
-                          $query->where('name', 'like', "%{$search}%");
-                      })
-                      ->orWhereHas('location', function (Builder $query) use ($search) {
-                          $query->where('name_ar', 'like', "%{$search}%")
-                                ->orWhere('name_en', 'like', "%{$search}%");
-                      });
-            })
-            ->limit(5)
-            ->get()
-            ->map(function (Property $record) {
-                return GlobalSearchResult::make()
-                    ->title($record->name)
-                    ->details([
-                        'المالك: ' . ($record->owner?->name ?? 'غير محدد'),
-                        'الموقع: ' . ($record->location?->name_ar ?? 'غير محدد'),
-                        'العنوان: ' . ($record->address ?? 'غير محدد')
-                    ])
-                    ->actions([
-                        Action::make('edit')
-                            ->label('تحرير')
-                            ->icon('heroicon-s-pencil')
-                            ->url(static::getUrl('edit', ['record' => $record])),
-                    ])
-                    ->url(static::getUrl('edit', ['record' => $record]));
-            })
-            ;
+        return ['name', 'address', 'notes', 'owner.name', 'location.name_ar', 'location.name_en'];
+    }
+    
+    public static function getGlobalSearchResultDetails($record): array
+    {
+        return [
+            'المالك' => $record->owner?->name ?? 'غير محدد',
+            'الموقع' => $record->location?->name_ar ?? 'غير محدد',
+            'العنوان' => $record->address ?? 'غير محدد',
+        ];
+    }
+    
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with(['owner', 'location']);
+    }
+    
+    public static function getGlobalSearchResultActions($record): array
+    {
+        return [
+            Action::make('edit')
+                ->label('تحرير')
+                ->icon('heroicon-s-pencil')
+                ->url(static::getUrl('edit', ['record' => $record])),
+        ];
     }
 }

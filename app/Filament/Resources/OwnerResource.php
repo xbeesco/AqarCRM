@@ -153,33 +153,29 @@ class OwnerResource extends Resource
         ];
     }
 
-    public static function getGlobalSearchResults(string $search): \Illuminate\Support\Collection
+    protected static ?string $recordTitleAttribute = 'name';
+    
+    public static function getGloballySearchableAttributes(): array
     {
-        return static::getModel()::query()
-            ->where(function (Builder $query) use ($search) {
-                $query->where('name', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%")
-                      ->orWhere('phone', 'like', "%{$search}%")
-                      ->orWhere('national_id', 'like', "%{$search}%");
-            })
-            ->limit(5)
-            ->get()
-            ->map(function ($record) {
-                return GlobalSearchResult::make()
-                    ->title($record->name)
-                    ->details([
-                        'البريد الإلكتروني: ' . ($record->email ?? 'غير محدد'),
-                        'الهاتف: ' . ($record->phone ?? 'غير محدد'),
-                        'الرقم المدني: ' . ($record->national_id ?? 'غير محدد'),
-                    ])
-                    ->actions([
-                        Action::make('edit')
-                            ->label('تحرير')
-                            ->icon('heroicon-s-pencil')
-                            ->url(static::getUrl('edit', ['record' => $record])),
-                    ])
-                    ->url(static::getUrl('view', ['record' => $record]));
-            })
-            ;
+        return ['name', 'email', 'phone1', 'phone2', 'national_id'];
+    }
+    
+    public static function getGlobalSearchResultDetails($record): array
+    {
+        return [
+            'البريد الإلكتروني' => $record->email ?? 'غير محدد',
+            'الهاتف' => $record->phone1 ?? 'غير محدد',
+            'الرقم المدني' => $record->national_id ?? 'غير محدد',
+        ];
+    }
+    
+    public static function getGlobalSearchResultActions($record): array
+    {
+        return [
+            Action::make('edit')
+                ->label('تحرير')
+                ->icon('heroicon-s-pencil')
+                ->url(static::getUrl('edit', ['record' => $record])),
+        ];
     }
 }
