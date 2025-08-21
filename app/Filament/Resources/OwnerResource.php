@@ -12,13 +12,6 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Schemas\Components\Section;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\RestoreAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\RestoreBulkAction;
-use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Enums\FiltersLayout;
@@ -26,7 +19,6 @@ use Filament\Forms\Components\TextInput as FilterTextInput;
 use Filament\Forms\Components\Select;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 class OwnerResource extends Resource
 {
     protected static ?string $model = Owner::class;
@@ -127,31 +119,19 @@ class OwnerResource extends Resource
                     ->multiple()
                     ->searchable()
                     ->columnSpan(6),
-                    
-                TrashedFilter::make()
-                    ->label('المحذوفات'),
             ])
             ->filtersLayout(FiltersLayout::AboveContent)
             ->filtersFormColumns(12)
             ->recordActions([
                 EditAction::make(),
-                RestoreAction::make(),
             ])
-            ->bulkActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                    RestoreBulkAction::make(),
-                ]),
-            ])
+            ->bulkActions([])
             ->defaultSort('created_at', 'desc');
     }
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
+        return parent::getEloquentQuery();
     }
 
     public static function getRelations(): array
