@@ -93,16 +93,17 @@ class AdminPanelProvider extends PanelProvider
                             ->items([
                                 ...array_map(fn($item) => $item->icon('heroicon-o-map-pin'), 
                                     \App\Filament\Resources\LocationResource::getNavigationItems()),
-                                ...array_map(fn($item) => $item->icon('heroicon-o-star'), 
-                                    \App\Filament\Resources\PropertyFeatureResource::getNavigationItems()),
-                                ...array_map(fn($item) => $item->icon('heroicon-o-squares-2x2'), 
-                                    \App\Filament\Resources\PropertyTypeResource::getNavigationItems()),
-                                ...array_map(fn($item) => $item->icon('heroicon-o-signal'), 
-                                    \App\Filament\Resources\PropertyStatusResource::getNavigationItems()),
                                 ...array_map(fn($item) => $item->icon('heroicon-o-sparkles'), 
                                     \App\Filament\Resources\UnitFeatureResource::getNavigationItems()),
                                 ...array_map(fn($item) => $item->icon('heroicon-o-check-badge'), 
                                     \App\Filament\Resources\UnitStatusResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-star'), 
+                                    \App\Filament\Resources\PropertyFeatureResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-signal'), 
+                                    \App\Filament\Resources\PropertyStatusResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-squares-2x2'), 
+                                    \App\Filament\Resources\PropertyTypeResource::getNavigationItems()),
+
                             ])
                             ->collapsed(),
                         // NavigationGroup::make('النظام')
