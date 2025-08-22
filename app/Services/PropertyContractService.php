@@ -227,4 +227,32 @@ class PropertyContractService
             'contracts' => $contracts,
         ];
     }
+
+    /**
+     * حساب عدد الدفعات بناءً على مدة العقد وتكرار التوريد
+     */
+    public static function calculatePaymentsCount(int $durationMonths, string $paymentFrequency): int
+    {
+        return match($paymentFrequency) {
+            'monthly' => $durationMonths,                    // شهري = عدد الشهور
+            'quarterly' => intval($durationMonths / 3),      // ربع سنوي = كل 3 شهور
+            'semi_annually' => intval($durationMonths / 6),  // نصف سنوي = كل 6 شهور
+            'annually' => intval($durationMonths / 12),      // سنوي = كل 12 شهر
+            default => 0,
+        };
+    }
+
+    /**
+     * الحصول على عدد الأشهر لكل دفعة
+     */
+    public static function getMonthsPerPayment(string $paymentFrequency): int
+    {
+        return match($paymentFrequency) {
+            'monthly' => 1,
+            'quarterly' => 3,
+            'semi_annually' => 6,
+            'annually' => 12,
+            default => 1,
+        };
+    }
 }

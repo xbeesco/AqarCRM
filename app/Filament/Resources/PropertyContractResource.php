@@ -4,7 +4,6 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\PropertyContractResource\Pages;
 use App\Models\PropertyContract;
-use App\Models\User;
 use App\Models\Property;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -16,12 +15,12 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\FileUpload;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\BadgeColumn;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
-use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Actions\DeleteAction;
@@ -40,128 +39,92 @@ class PropertyContractResource extends Resource
     {
         return $schema
             ->schema([
-                Section::make('تفاصيل العقد / Contract Details')
+                Section::make('بيانات العقد')
                     ->schema([
-                        Grid::make(2)
-                            ->schema([
-                                Select::make('owner_id')
-                                    ->label('المالك / Owner')
-                                    ->required()
-                                    ->searchable()
-                                    ->relationship('owner', 'name')
-                                    ->options(User::role('owner')->pluck('name', 'id'))
-                                    ->reactive()
-                                    ->afterStateUpdated(fn (callable $set) => $set('property_id', null)),
+                        Select::make('property_id')
+                            ->label('العقار')
+                            ->required()
+                            ->searchable()
+                            ->relationship('property', 'name')
+                            ->options(Property::with('owner')->get()->pluck('name', 'id'))
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->name . ' - ' . $record->owner?->name)
+                            ->columnSpan(4),
 
-                                Select::make('property_id')
-                                    ->label('العقار / Property')
-                                    ->required()
-                                    ->searchable()
-                                    ->relationship('property', 'name')
-                                    ->options(function (callable $get) {
-                                        $ownerId = $get('owner_id');
-                                        if ($ownerId) {
-                                            return Property::where('owner_id', $ownerId)->pluck('name', 'id');
-                                        }
-                                        return Property::pluck('name', 'id');
-                                    })
-                                    ->reactive(),
+                        DatePicker::make('contract_date')
+                            ->label('تاريخ بداية العمل بالعقد')
+                            ->required()
+                            ->default(now())
+                            ->columnSpan(4),
 
-                                TextInput::make('commission_rate')
-                                    ->label('نسبة العمولة % / Commission Rate %')
-                                    ->numeric()
-                                    ->required()
-                                    ->default(5)
-                                    ->step(0.01)
-                                    ->minValue(0)
-                                    ->maxValue(50)
-                                    ->suffix('%'),
-                            ]),
-                    ]),
+                        TextInput::make('commission_rate')
+                            ->label('النسبة المئوية')
+                            ->numeric()
+                            ->required()
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->suffix('%')
+                            ->columnSpan(4),
 
-                Section::make('فترة العقد / Contract Period')
-                    ->schema([
-                        Grid::make(3)
-                            ->schema([
-                                DatePicker::make('start_date')
-                                    ->label('تاريخ بدء العقد / Contract Start Date')
-                                    ->required()
-                                    ->default(now())
-                                    ->reactive()
-                                    ->afterStateUpdated(function (callable $set, callable $get, $state) {
-                                        $duration = $get('duration_months');
-                                        if ($state && $duration) {
-                                            $endDate = \Carbon\Carbon::parse($state)->addMonths($duration)->subDay();
-                                            $set('end_date', $endDate);
-                                        }
-                                    }),
+                        TextInput::make('duration_months')
+                            ->label('مدة التعاقد بالشهر')
+                            ->numeric()
+                            ->required()
+                            ->minValue(1)
+                            ->suffix('شهر')
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(function ($state, $get, $set) {
+                                $frequency = $get('payment_frequency') ?? 'monthly';
+                                $count = \App\Services\PropertyContractService::calculatePaymentsCount($state ?? 0, $frequency);
+                                $set('payments_count', $count);
+                            })
+                            ->columnSpan(4),
 
-                                TextInput::make('duration_months')
-                                    ->label('مدة العقد بالشهور / Contract Duration (Months)')
-                                    ->numeric()
-                                    ->required()
-                                    ->default(12)
-                                    ->minValue(1)
-                                    ->maxValue(120)
-                                    ->reactive()
-                                    ->afterStateUpdated(function (callable $set, callable $get, $state) {
-                                        $startDate = $get('start_date');
-                                        if ($startDate && $state) {
-                                            $endDate = \Carbon\Carbon::parse($startDate)->addMonths($state)->subDay();
-                                            $set('end_date', $endDate);
-                                        }
-                                    }),
+                        Select::make('payment_frequency')
+                            ->label('التوريد كل')
+                            ->required()
+                            ->options([
+                                'monthly' => 'شهر',
+                                'quarterly' => 'ربع سنة',
+                                'semi_annually' => 'نصف سنة',
+                                'annually' => 'سنة',
+                            ])
+                            ->default('monthly')
+                            ->live()
+                            ->afterStateUpdated(function ($state, $get, $set) {
+                                $duration = $get('duration_months') ?? 0;
+                                $count = \App\Services\PropertyContractService::calculatePaymentsCount($duration, $state ?? 'monthly');
+                                $set('payments_count', $count);
+                            })
+                            ->columnSpan(4),
 
-                                DatePicker::make('end_date')
-                                    ->label('تاريخ انتهاء العقد / Contract End Date')
-                                    ->required()
-                                    ->disabled()
-                                    ->helperText('يتم حسابه تلقائياً / Auto-calculated'),
-                            ]),
-                    ]),
+                        TextInput::make('payments_count')
+                            ->label('عدد الدفعات')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->default(function ($get) {
+                                $duration = $get('duration_months') ?? 0;
+                                $frequency = $get('payment_frequency') ?? 'monthly';
+                                return \App\Services\PropertyContractService::calculatePaymentsCount($duration, $frequency);
+                            })
+                            ->columnSpan(4),
 
-                Section::make('شروط العقد / Contract Terms')
-                    ->schema([
-                        Grid::make(3)
-                            ->schema([
-                                TextInput::make('payment_day')
-                                    ->label('يوم دفع العمولة / Commission Payment Day')
-                                    ->numeric()
-                                    ->required()
-                                    ->default(1)
-                                    ->minValue(1)
-                                    ->maxValue(28)
-                                    ->helperText('اليوم من كل شهر لدفع العمولة'),
-
-                                TextInput::make('notice_period_days')
-                                    ->label('فترة الإشعار (أيام) / Notice Period (Days)')
-                                    ->numeric()
-                                    ->required()
-                                    ->default(30)
-                                    ->minValue(1)
-                                    ->maxValue(365),
-
-                                TextInput::make('notary_number')
-                                    ->label('رقم الكاتب العدل / Notary Number')
-                                    ->maxLength(100),
-                            ]),
-
-                        Toggle::make('auto_renew')
-                            ->label('التجديد التلقائي / Auto Renewal')
-                            ->default(false),
-                    ]),
-
-                Section::make('الشروط الإضافية / Additional Terms')
-                    ->collapsible()
-                    ->schema([
-                        Textarea::make('terms_and_conditions')
-                            ->label('الشروط والأحكام / Terms and Conditions')
-                            ->rows(5),
+                        FileUpload::make('contract_file')
+                            ->label('ملف العقد')
+                            ->required()
+                            ->acceptedFileTypes(['application/pdf', 'image/*'])
+                            ->disk('public')
+                            ->directory('contract-files')
+                            ->preserveFilenames()
+                            ->maxSize(10240) // 10MB
+                            ->columnSpan(6),
 
                         Textarea::make('notes')
-                            ->label('ملاحظات / Notes')
-                            ->rows(3),
-                    ]),
+                            ->label('الملاحظات')
+                            ->rows(3)
+                            ->columnSpan(6),
+                    ])
+                    ->columns(12)
+                    ->columnSpanFull(),
             ]);
     }
 
@@ -169,139 +132,102 @@ class PropertyContractResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('contract_number')
-                    ->label('رقم العقد / Contract Number')
-                    ->searchable()
-                    ->sortable()
-                    ->width('150px'),
-
-                TextColumn::make('owner.name')
-                    ->label('المالك / Owner')
-                    ->searchable()
-                    ->sortable(),
-
                 TextColumn::make('property.name')
-                    ->label('العقار / Property')
+                    ->label('العقار')
                     ->searchable()
+                    ->sortable()
+                    ->description(fn (PropertyContract $record): string => $record->owner?->name ?? ''),
+
+                TextColumn::make('contract_date')
+                    ->label('تاريخ العقد')
+                    ->date('d/m/Y')
                     ->sortable(),
 
-                TextColumn::make('commission_rate')
-                    ->label('العمولة % / Commission %')
+                TextColumn::make('duration_months')
+                    ->label('مدة التعاقد')
                     ->sortable()
-                    ->formatStateUsing(fn ($state) => number_format($state, 2) . '%')
+                    ->suffix(' شهر')
                     ->alignCenter(),
 
-                TextColumn::make('start_date')
-                    ->label('تاريخ البدء / Start Date')
-                    ->date('d/m/Y')
-                    ->sortable(),
+                TextColumn::make('commission_rate')
+                    ->label('النسبة')
+                    ->sortable()
+                    ->suffix('%')
+                    ->alignCenter(),
 
-                TextColumn::make('end_date')
-                    ->label('تاريخ الانتهاء / End Date')
-                    ->date('d/m/Y')
-                    ->sortable(),
-
-                BadgeColumn::make('contract_status')
-                    ->label('الحالة / Status')
+                BadgeColumn::make('payment_frequency')
+                    ->label('التوريد كل')
                     ->colors([
-                        'secondary' => 'draft',
-                        'success' => 'active',
-                        'warning' => 'suspended',
-                        'danger' => fn ($state) => in_array($state, ['expired', 'terminated']),
+                        'primary' => 'monthly',
+                        'success' => 'quarterly',
+                        'warning' => 'four_monthly',
+                        'info' => 'semi_annually',
+                        'danger' => 'annually',
                     ])
                     ->formatStateUsing(function ($state) {
                         return match($state) {
-                            'draft' => 'مسودة / Draft',
-                            'active' => 'نشط / Active',
-                            'suspended' => 'معلق / Suspended',
-                            'expired' => 'منتهي / Expired',
-                            'terminated' => 'مفسوخ / Terminated',
+                            'monthly' => 'شهر',
+                            'quarterly' => 'ربع سنة',
+                            'semi_annually' => 'نصف سنة',
+                            'annually' => 'سنة',
                             default => $state,
                         };
                     }),
 
-                TextColumn::make('duration_months')
-                    ->label('المدة (شهر) / Duration (Months)')
+                TextColumn::make('payments_count')
+                    ->label('عدد الدفعات')
+                    ->alignCenter()
                     ->sortable()
-                    ->alignCenter(),
+                    ->suffix(' دفعة'),
+
+                TextColumn::make('created_at')
+                    ->label('تاريخ الإنشاء')
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('contract_status')
-                    ->label('الحالة / Status')
-                    ->options([
-                        'draft' => 'مسودة / Draft',
-                        'active' => 'نشط / Active',
-                        'suspended' => 'معلق / Suspended',
-                        'expired' => 'منتهي / Expired',
-                        'terminated' => 'مفسوخ / Terminated',
-                    ]),
-
-                SelectFilter::make('owner_id')
-                    ->label('المالك / Owner')
-                    ->relationship('owner', 'name')
+                SelectFilter::make('property_id')
+                    ->label('العقار')
+                    ->relationship('property', 'name')
                     ->searchable(),
 
-                Filter::make('commission_range')
+                SelectFilter::make('payment_frequency')
+                    ->label('تكرار السداد')
+                    ->options([
+                        'monthly' => 'شهري',
+                        'quarterly' => 'ربع سنوي',
+                        'four_monthly' => 'ثلث سنوي',
+                        'semi_annually' => 'نصف سنوي',
+                        'annually' => 'سنوي',
+                    ]),
+
+                Filter::make('contract_date_range')
                     ->form([
                         Grid::make(2)
                             ->schema([
-                                TextInput::make('commission_from')
-                                    ->label('من / From')
-                                    ->numeric()
-                                    ->suffix('%'),
-                                TextInput::make('commission_to')
-                                    ->label('إلى / To')
-                                    ->numeric()
-                                    ->suffix('%'),
+                                DatePicker::make('contract_date_from')
+                                    ->label('من تاريخ'),
+                                DatePicker::make('contract_date_until')
+                                    ->label('إلى تاريخ'),
                             ]),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
                             ->when(
-                                $data['commission_from'],
-                                fn (Builder $query, $commission): Builder => $query->where('commission_rate', '>=', $commission),
+                                $data['contract_date_from'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('contract_date', '>=', $date),
                             )
                             ->when(
-                                $data['commission_to'],
-                                fn (Builder $query, $commission): Builder => $query->where('commission_rate', '<=', $commission),
+                                $data['contract_date_until'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('contract_date', '<=', $date),
                             );
                     })
-                    ->label('نطاق العمولة % / Commission Range %'),
-
-                Filter::make('date_range')
-                    ->form([
-                        Grid::make(2)
-                            ->schema([
-                                DatePicker::make('start_from')
-                                    ->label('من تاريخ / From Date'),
-                                DatePicker::make('start_until')
-                                    ->label('إلى تاريخ / To Date'),
-                            ]),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when(
-                                $data['start_from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('start_date', '>=', $date),
-                            )
-                            ->when(
-                                $data['start_until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('start_date', '<=', $date),
-                            );
-                    })
-                    ->label('فترة العقد / Contract Period'),
-
-                Filter::make('expiring_soon')
-                    ->toggle()
-                    ->query(fn (Builder $query): Builder => $query->expiring(30))
-                    ->label('ينتهي قريباً / Expiring Soon'),
+                    ->label('نطاق تاريخ العقد'),
             ])
             ->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
-            ->actions([
-                ViewAction::make(),
-                EditAction::make()
-                    ->visible(fn (PropertyContract $record) => in_array($record->contract_status, ['draft', 'active'])),
-                // Add custom actions like renew, terminate here
+            ->recordActions([
+                EditAction::make(),
             ])
             ->defaultSort('created_at', 'desc');
     }

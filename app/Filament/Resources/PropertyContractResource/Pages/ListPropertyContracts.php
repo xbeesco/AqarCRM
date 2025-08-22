@@ -14,7 +14,7 @@ class ListPropertyContracts extends ListRecords
     {
         return [
             Actions\CreateAction::make()
-                ->label('إنشاء عقد ملكية جديد / Create New Property Contract'),
+                ->label('إنشاء عقد ملكية جديد'),
         ];
     }
 }
