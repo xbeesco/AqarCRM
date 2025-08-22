@@ -76,8 +76,8 @@ class AdminPanelProvider extends PanelProvider
                         NavigationGroup::make('العقارات')
                             ->items([
                                 ...array_map(fn($item) => $item->icon('heroicon-o-home'), 
-                                    array: \App\Filament\Resources\UnitResource::getNavigationItems()),
-                                ...array_map(fn($item) => $item->icon('heroicon-o-building-office'), 
+                                    \App\Filament\Resources\Units\UnitResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-building-office-2'), 
                                     \App\Filament\Resources\PropertyResource::getNavigationItems()),
                             ]),
                         NavigationGroup::make('المستخدمين')
@@ -95,8 +95,10 @@ class AdminPanelProvider extends PanelProvider
                                     \App\Filament\Resources\LocationResource::getNavigationItems()),
                                 ...array_map(fn($item) => $item->icon('heroicon-o-sparkles'), 
                                     \App\Filament\Resources\UnitFeatureResource::getNavigationItems()),
-                                ...array_map(fn($item) => $item->icon('heroicon-o-check-badge'), 
-                                    \App\Filament\Resources\UnitStatusResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-bookmark'), 
+                                    \App\Filament\Resources\UnitCategories\UnitCategoryResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-tag'), 
+                                    \App\Filament\Resources\UnitTypes\UnitTypeResource::getNavigationItems()),
                                 ...array_map(fn($item) => $item->icon('heroicon-o-star'), 
                                     \App\Filament\Resources\PropertyFeatureResource::getNavigationItems()),
                                 ...array_map(fn($item) => $item->icon('heroicon-o-signal'), 

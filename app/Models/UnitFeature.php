@@ -50,7 +50,7 @@ class UnitFeature extends Model
      */
     public function units(): BelongsToMany
     {
-        return $this->belongsToMany(Unit::class, 'unit_feature_unit')
+        return $this->belongsToMany(Unit::class, 'unit_unit_feature')
                     ->withPivot('value')
                     ->withTimestamps();
     }

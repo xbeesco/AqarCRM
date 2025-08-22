@@ -10,46 +10,33 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 class Unit extends Model
 {
     protected $fillable = [
+        'name',
         'property_id',
-        'unit_number',
-        'floor_number',
-        'area_sqm',
+        'unit_type_id',
+        'unit_category_id',
         'rooms_count',
         'bathrooms_count',
+        'balconies_count',
+        'floor_number',
+        'has_laundry_room',
+        'electricity_account_number',
+        'water_expenses',
+        'floor_plan_file',
+        'area_sqm',
         'rent_price',
-        'unit_type',
-        'unit_ranking',
-        'direction',
-        'view_type',
-        'status_id',
-        'current_tenant_id',
-        'furnished',
-        'has_balcony',
-        'has_parking',
-        'has_storage',
-        'has_maid_room',
+        'status',
         'notes',
-        'available_from',
-        'last_maintenance_date',
-        'next_maintenance_date',
-        'is_active',
     ];
 
     protected $casts = [
         'area_sqm' => 'decimal:2',
         'rent_price' => 'decimal:2',
+        'water_expenses' => 'decimal:2',
         'floor_number' => 'integer',
         'rooms_count' => 'integer',
         'bathrooms_count' => 'integer',
-        'furnished' => 'boolean',
-        'has_balcony' => 'boolean',
-        'has_parking' => 'boolean',
-        'has_storage' => 'boolean',
-        'has_maid_room' => 'boolean',
-        'is_active' => 'boolean',
-        'available_from' => 'date',
-        'last_maintenance_date' => 'date',
-        'next_maintenance_date' => 'date',
+        'balconies_count' => 'integer',
+        'has_laundry_room' => 'boolean',
     ];
 
     /**
@@ -61,19 +48,27 @@ class Unit extends Model
     }
 
     /**
-     * Get the status of the unit
+     * Get the unit type
      */
-    public function status(): BelongsTo
+    public function unitType(): BelongsTo
     {
-        return $this->belongsTo(UnitStatus::class, 'status_id');
+        return $this->belongsTo(UnitType::class);
+    }
+
+    /**
+     * Get the unit category
+     */
+    public function unitCategory(): BelongsTo
+    {
+        return $this->belongsTo(UnitCategory::class);
     }
 
     /**
      * Get the current tenant of the unit
      */
-    public function currentTenant(): BelongsTo
+    public function tenant(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'current_tenant_id');
+        return $this->belongsTo(User::class, 'tenant_id');
     }
 
     /**
@@ -81,7 +76,7 @@ class Unit extends Model
      */
     public function features(): BelongsToMany
     {
-        return $this->belongsToMany(UnitFeature::class, 'unit_feature_unit')
+        return $this->belongsToMany(UnitFeature::class, 'unit_unit_feature')
                     ->withPivot('value')
                     ->withTimestamps();
     }
@@ -99,9 +94,7 @@ class Unit extends Model
      */
     public function scopeAvailable($query)
     {
-        return $query->whereHas('status', function ($q) {
-            $q->where('is_available', true);
-        })->where('current_tenant_id', null);
+        return $query->where('status', 'available');
     }
 
     /**
@@ -109,7 +102,7 @@ class Unit extends Model
      */
     public function scopeOccupied($query)
     {
-        return $query->whereNotNull('current_tenant_id');
+        return $query->where('status', 'occupied');
     }
 
     /**
