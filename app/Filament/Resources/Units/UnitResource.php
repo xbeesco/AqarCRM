@@ -50,34 +50,35 @@ class UnitResource extends Resource
     {
         return $schema->schema([
             Section::make('المعلومات الأساسية')
+                ->columnSpanFull()
+                ->columns(10)
                 ->schema([
-                    Grid::make(3)->schema([
+                                            Select::make('unit_type_id')
+                            ->label('نوع الوحدة')
+                            ->options(UnitType::where('is_active', true)->orderBy('sort_order')->pluck('name_ar', 'id'))
+                            ->searchable()
+                            ->required()
+                            ->columnSpan(2),
+
                         TextInput::make('name')
                             ->label('اسم الوحدة')
                             ->required()
-                            ->columnSpan(2),
-                            
+                            ->columnSpan(4),
+
                         Select::make('property_id')
                             ->label('العقار')
                             ->relationship('property', 'name')
                             ->searchable()
                             ->required()
-                            ->columnSpan(1),
-                    ]),
-                    
-                    Grid::make(2)->schema([
-                        Select::make('unit_type_id')
-                            ->label('نوع الوحدة')
-                            ->options(UnitType::where('is_active', true)->orderBy('sort_order')->pluck('name_ar', 'id'))
-                            ->searchable()
-                            ->required(),
-                            
+                            ->columnSpan(2),
+
+
                         Select::make('unit_category_id')
                             ->label('تصنيف الوحدة')
                             ->options(UnitCategory::where('is_active', true)->orderBy('sort_order')->pluck('name_ar', 'id'))
                             ->searchable()
-                            ->required(),
-                    ]),
+                            ->required()
+                            ->columnSpan(2),
                 ]),
                 
             Section::make('التفاصيل')
@@ -104,7 +105,7 @@ class UnitResource extends Resource
                             ->nullable(),
                     ]),
                     
-                    Grid::make(3)->schema([
+                    Grid::make(4)->schema([
                         Select::make('has_laundry_room')
                             ->label('غرفة غسيل')
                             ->options([
@@ -122,42 +123,15 @@ class UnitResource extends Resource
                             ->numeric()
                             ->prefix('ر.س')
                             ->nullable(),
-                    ]),
-                    
-                    Grid::make(2)->schema([
-                        TextInput::make('area_sqm')
+                                                TextInput::make('area_sqm')
                             ->label('المساحة (م²)')
                             ->numeric()
                             ->suffix('م²')
                             ->nullable(),
-                            
-                        TextInput::make('rent_price')
-                            ->label('سعر الإيجار')
-                            ->numeric()
-                            ->prefix('ر.س')
-                            ->nullable(),
+
                     ]),
                     
-                    Select::make('status')
-                        ->label('الحالة')
-                        ->options([
-                            'available' => 'متاح',
-                            'occupied' => 'مشغول',
-                            'maintenance' => 'تحت الصيانة',
-                            'reserved' => 'محجوز',
-                        ])
-                        ->default('available')
-                        ->required(),
-                ]),
-                
-            Section::make('المميزات والملفات')
-                ->schema([
-                    CheckboxList::make('features')
-                        ->label('المميزات')
-                        ->relationship('features', 'name_ar')
-                        ->columns(4)
-                        ->columnSpanFull(),
-                        
+                    
                     FileUpload::make('floor_plan_file')
                         ->label('مخطط الوحدة')
                         ->directory('units/floor-plans')
@@ -165,7 +139,17 @@ class UnitResource extends Resource
                         ->maxSize(5120) // 5MB
                         ->downloadable()
                         ->columnSpanFull(),
-                        
+
+                ]),
+                
+            Section::make('المميزات')
+                ->schema([
+                    CheckboxList::make('features')
+                        ->hiddenLabel()
+                        ->relationship('features', 'name_ar')
+                        ->columns(4)
+                        ->columnSpanFull(),
+                                                
                     Textarea::make('notes')
                         ->label('ملاحظات')
                         ->rows(3)

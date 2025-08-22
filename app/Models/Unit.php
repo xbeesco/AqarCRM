@@ -39,6 +39,11 @@ class Unit extends Model
         'has_laundry_room' => 'boolean',
     ];
 
+    protected $attributes = [
+        'status' => 'available',
+        'has_laundry_room' => false,
+    ];
+
     /**
      * Get the property that owns the unit
      */
