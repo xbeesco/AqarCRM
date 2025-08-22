@@ -92,7 +92,7 @@ class PropertyStatus extends Model
      */
     public function properties(): HasMany
     {
-        return $this->hasMany(Property::class);
+        return $this->hasMany(Property::class, 'status_id');
     }
 
 }

@@ -14,19 +14,14 @@ class Property extends Model
     
     protected $fillable = [
         'name', 
-        'owner_id', 
-        'status', 
-        'type', 
+        'owner_id',
+        'type_id',
+        'status_id',
         'location_id',
         'address', 
-        'latitude',
-        'longitude',
         'postal_code', 
         'parking_spots', 
         'elevators',
-        'has_elevator',
-        'area_sqm', 
-        'garden_area',
         'build_year', 
         'floors_count', 
         'notes'
@@ -34,13 +29,8 @@ class Property extends Model
     
     protected $casts = [
         'build_year' => 'integer',
-        'area_sqm' => 'decimal:2',
-        'garden_area' => 'decimal:2',
-        'latitude' => 'decimal:8',
-        'longitude' => 'decimal:8',
         'parking_spots' => 'integer',
         'elevators' => 'integer',
-        'has_elevator' => 'boolean',
         'floors_count' => 'integer',
     ];
     
@@ -52,6 +42,16 @@ class Property extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);
+    }
+    
+    public function propertyType(): BelongsTo
+    {
+        return $this->belongsTo(PropertyType::class, 'type_id');
+    }
+    
+    public function propertyStatus(): BelongsTo
+    {
+        return $this->belongsTo(PropertyStatus::class, 'status_id');
     }
     
     public function units(): HasMany
@@ -66,7 +66,7 @@ class Property extends Model
     
     public function features(): BelongsToMany
     {
-        return $this->belongsToMany(PropertyFeature::class, 'property_feature_property')
+        return $this->belongsToMany(PropertyFeature::class, 'property_property_feature')
                     ->withPivot('value')
                     ->withTimestamps();
     }
@@ -99,14 +99,4 @@ class Property extends Model
             ->count();
     }
     
-    public function getCoordinatesAttribute(): ?array
-    {
-        if ($this->latitude && $this->longitude) {
-            return [
-                'lat' => (float) $this->latitude,
-                'lng' => (float) $this->longitude,
-            ];
-        }
-        return null;
-    }
 }

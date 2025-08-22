@@ -4,15 +4,20 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\PropertyResource\Pages;
 use App\Models\Property;
+use App\Models\PropertyType;
+use App\Models\PropertyStatus;
+use App\Models\PropertyFeature;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Columns\Column;
 use Filament\Tables\Table;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Grid;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Tables\Columns\TextColumn;
@@ -55,46 +60,18 @@ class PropertyResource extends Resource
                             ->columnSpan(1),
                     ]),
                     
-                    Grid::make(3)->schema([
-                        Select::make('status')
+                    Grid::make(2)->schema([
+                        Select::make('status_id')
                             ->label('حالة العقار')
-                            ->options([
-                                'active' => 'نشط',
-                                'inactive' => 'غير نشط',
-                                'maintenance' => 'تحت الصيانة'
-                            ])
+                            ->options(PropertyStatus::where('is_active', true)->orderBy('sort_order')->pluck('name_ar', 'id'))
+                            ->searchable()
                             ->required(),
                             
-                        Select::make('type')
+                        Select::make('type_id')
                             ->label('نوع العقار')
-                            ->options([
-                                'residential' => 'سكني',
-                                'commercial' => 'تجاري',
-                                'mixed' => 'مختلط'
-                            ])
+                            ->options(PropertyType::where('is_active', true)->orderBy('sort_order')->pluck('name_ar', 'id'))
+                            ->searchable()
                             ->required(),
-                            
-                        TextInput::make('area_sqm')
-                            ->label('المساحة الإجمالية (م²)')
-                            ->numeric()
-                            ->suffix('م²'),
-                    ]),
-                    
-                    Grid::make(3)->schema([
-                        TextInput::make('garden_area')
-                            ->label('مساحة الحديقة (م²)')
-                            ->numeric()
-                            ->suffix('م²'),
-                            
-                        TextInput::make('latitude')
-                            ->label('خط العرض')
-                            ->numeric()
-                            ->step(0.0000001),
-                            
-                        TextInput::make('longitude')
-                            ->label('خط الطول')
-                            ->numeric()
-                            ->step(0.0000001),
                     ]),
                 ]),
                 
@@ -119,38 +96,41 @@ class PropertyResource extends Resource
                 ]),
                 
             Section::make('تفاصيل إضافية')
+                ->ColumnSpanFull()
                 ->schema([
                     Grid::make(4)->schema([
                         TextInput::make('parking_spots')
                             ->label('عدد المواقف')
                             ->numeric()
-                            ->default(0),
+                            ->nullable(),
                             
                         TextInput::make('elevators')
                             ->label('عدد المصاعد')
                             ->numeric()
-                            ->default(0),
+                            ->nullable(),
                             
                         TextInput::make('floors_count')
                             ->label('عدد الطوابق')
-                            ->numeric(),
+                            ->numeric()
+                            ->nullable(),
                             
                         TextInput::make('build_year')
                             ->label('سنة البناء')
                             ->numeric()
                             ->minValue(1900)
-                            ->maxValue(date('Y')),
+                            ->maxValue(date('Y'))
+                            ->nullable(),
                     ]),
-                    
-                    Grid::make(2)->schema([
-                        Toggle::make('has_elevator')
-                            ->label('يوجد مصعد')
-                            ->default(false),
-                    ]),
-                    
+                                        
+                    CheckboxList::make('features')
+                        ->label('المميزات')
+                        ->relationship('features', 'name_ar')
+                        ->columns(4)
+                        ->columnSpanFull(),
+
                     Textarea::make('notes')
                         ->label('ملاحظات خاصة')
-                        ->rows(3)
+                        ->rows(2)
                         ->columnSpanFull(),
                 ]),
         ]);
@@ -169,35 +149,16 @@ class PropertyResource extends Resource
                     ->label('المالك')
                     ->searchable(),
                     
-                BadgeColumn::make('status')
+                BadgeColumn::make('propertyStatus.name_ar')
                     ->label('الحالة')
-                    ->colors([
-                        'success' => 'active',
-                        'warning' => 'maintenance',
-                        'danger' => 'inactive',
-                    ])
-                    ->formatStateUsing(fn ($state) => match($state) {
-                        'active' => 'نشط',
-                        'inactive' => 'غير نشط',
-                        'maintenance' => 'تحت الصيانة',
-                        default => $state,
-                    }),
+                    ->color(fn ($record) => $record->propertyStatus?->color ? 
+                        str_replace('#', '', $record->propertyStatus->color) : 'gray'),
                     
-                TextColumn::make('type')
-                    ->label('النوع')
-                    ->formatStateUsing(fn ($state) => match($state) {
-                        'residential' => 'سكني',
-                        'commercial' => 'تجاري',
-                        'mixed' => 'مختلط',
-                        default => $state,
-                    }),
+                TextColumn::make('propertyType.name_ar')
+                    ->label('النوع'),
                     
                 TextColumn::make('location.name')
                     ->label('الموقع'),
-                    
-                TextColumn::make('area_sqm')
-                    ->label('المساحة')
-                    ->suffix(' م²'),
                     
                 TextColumn::make('total_units')
                     ->label('عدد الوحدات')
@@ -214,22 +175,6 @@ class PropertyResource extends Resource
                     ->color('success'),
             ])
             ->filters([
-                SelectFilter::make('status')
-                    ->label('الحالة')
-                    ->options([
-                        'active' => 'نشط',
-                        'inactive' => 'غير نشط',
-                        'maintenance' => 'تحت الصيانة'
-                    ]),
-                    
-                SelectFilter::make('type')
-                    ->label('النوع')
-                    ->options([
-                        'residential' => 'سكني',
-                        'commercial' => 'تجاري',
-                        'mixed' => 'مختلط'
-                    ]),
-                    
                 SelectFilter::make('owner')
                     ->label('المالك')
                     ->relationship('owner', 'name'),
@@ -237,13 +182,6 @@ class PropertyResource extends Resource
                 SelectFilter::make('location')
                     ->label('الموقع')
                     ->relationship('location', 'name'),
-                    
-                SelectFilter::make('has_elevator')
-                    ->label('يوجد مصعد')
-                    ->options([
-                        true => 'نعم',
-                        false => 'لا',
-                    ]),
             ], layout: \Filament\Tables\Enums\FiltersLayout::AboveContent)
             ->actions([
                 EditAction::make(),
