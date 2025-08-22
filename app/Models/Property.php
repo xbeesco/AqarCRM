@@ -76,14 +76,14 @@ class Property extends Model
         $totalUnits = $this->units()->count();
         if ($totalUnits === 0) return 0;
         
-        $occupiedUnits = $this->units()->whereNotNull('current_tenant_id')->count();
+        $occupiedUnits = $this->units()->where('status', 'occupied')->count();
         return ($occupiedUnits / $totalUnits) * 100;
     }
     
     public function getMonthlyRevenueAttribute(): float
     {
         return $this->units()
-            ->whereNotNull('current_tenant_id')
+            ->where('status', 'occupied')
             ->sum('rent_price');
     }
     
@@ -95,7 +95,7 @@ class Property extends Model
     public function getAvailableUnits(): int
     {
         return $this->units()
-            ->whereNull('current_tenant_id')
+            ->where('status', 'available')
             ->count();
     }
     
