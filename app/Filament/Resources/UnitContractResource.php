@@ -12,21 +12,16 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Grid;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\FileUpload;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\Filter;
-use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
-use Filament\Actions\DeleteAction;
 use Illuminate\Database\Eloquent\Builder;
+
 class UnitContractResource extends Resource
 {
     protected static ?string $model = UnitContract::class;
@@ -41,186 +36,102 @@ class UnitContractResource extends Resource
     {
         return $schema
             ->schema([
-                Section::make('أطراف العقد / Contract Parties')
+                Section::make('بيانات العقد')
                     ->schema([
-                        Grid::make(3)
-                            ->schema([
-                                Select::make('tenant_id')
-                                    ->label('المستأجر / Tenant')
-                                    ->required()
-                                    ->searchable()
-                                    ->relationship('tenant', 'name')
-                                    ->options(User::role('tenant')->pluck('name', 'id')),
+                        Select::make('property_id')
+                            ->label('العقار')
+                            ->required()
+                            ->searchable()
+                            ->relationship('property', 'name')
+                            ->live()
+                            ->afterStateUpdated(fn (callable $set) => $set('unit_id', null))
+                            ->columnSpan(4),
 
-                                Select::make('unit_id')
-                                    ->label('الوحدة / Unit')
-                                    ->required()
-                                    ->searchable()
-                                    ->relationship('unit', 'unit_number')
-                                    ->reactive()
-                                    ->afterStateUpdated(function (callable $set, $state) {
-                                        if ($state) {
-                                            $unit = Unit::find($state);
-                                            if ($unit) {
-                                                $set('property_id', $unit->property_id);
-                                                $set('monthly_rent', $unit->rent_amount ?? 0);
-                                            }
-                                        }
-                                    }),
+                        Select::make('unit_id')
+                            ->label('الوحدة')
+                            ->required()
+                            ->searchable()
+                            ->relationship('unit', 'name')
+                            ->options(function (callable $get) {
+                                $propertyId = $get('property_id');
+                                if (!$propertyId) {
+                                    return [];
+                                }
+                                return Unit::where('property_id', $propertyId)
+                                    ->pluck('name', 'id');
+                            })
+                            ->live()
+                            ->afterStateUpdated(function (callable $set, $state) {
+                                if ($state) {
+                                    $unit = Unit::find($state);
+                                    if ($unit) {
+                                        $set('monthly_rent', $unit->rent_price ?? 0);
+                                    }
+                                }
+                            })
+                            ->columnSpan(4),
 
-                                Select::make('property_id')
-                                    ->label('العقار / Property')
-                                    ->required()
-                                    ->searchable()
-                                    ->relationship('property', 'name')
-                                    ->disabled(),
-                            ]),
-                    ]),
+                        Select::make('tenant_id')
+                            ->label('المستأجر')
+                            ->required()
+                            ->searchable()
+                            ->relationship('tenant', 'name')
+                            ->options(User::whereHas('roles', function($q) { 
+                                $q->where('name', 'tenant'); 
+                            })->pluck('name', 'id'))
+                            ->columnSpan(4),
 
-                Section::make('الشروط المالية / Financial Terms')
-                    ->schema([
-                        Grid::make(2)
-                            ->schema([
-                                TextInput::make('monthly_rent')
-                                    ->label('الإيجار الشهري / Monthly Rent')
-                                    ->numeric()
-                                    ->required()
-                                    ->minValue(0.01)
-                                    ->step(0.01)
-                                    ->prefix('SAR'),
+                        DatePicker::make('contract_date')
+                            ->label('تاريخ بداية العقد')
+                            ->required()
+                            ->default(now())
+                            ->columnSpan(4),
 
-                                TextInput::make('security_deposit')
-                                    ->label('التأمين / Security Deposit')
-                                    ->numeric()
-                                    ->required()
-                                    ->minValue(0)
-                                    ->step(0.01)
-                                    ->prefix('SAR')
-                                    ->helperText('عادة ما يكون شهر واحد'),
+                        TextInput::make('duration_months')
+                            ->label('مدة التعاقد بالشهر')
+                            ->numeric()
+                            ->required()
+                            ->minValue(1)
+                            ->suffix('شهر')
+                            ->columnSpan(4),
 
-                                Select::make('payment_frequency')
-                                    ->label('دورية الدفع / Payment Frequency')
-                                    ->required()
-                                    ->default('monthly')
-                                    ->options([
-                                        'monthly' => 'شهري / Monthly',
-                                        'quarterly' => 'ربع سنوي / Quarterly',
-                                        'semi_annually' => 'نصف سنوي / Semi-Annual',
-                                        'annually' => 'سنوي / Annual',
-                                    ]),
+                        Select::make('payment_frequency')
+                            ->label('سداد الدفعات')
+                            ->required()
+                            ->options([
+                                'monthly' => 'شهر',
+                                'quarterly' => 'ربع سنة',
+                                'semi_annually' => 'نصف سنة',
+                                'annually' => 'سنة',
+                            ])
+                            ->default('monthly')
+                            ->columnSpan(4),
 
-                                Select::make('payment_method')
-                                    ->label('طريقة الدفع / Payment Method')
-                                    ->required()
-                                    ->default('bank_transfer')
-                                    ->options([
-                                        'bank_transfer' => 'تحويل بنكي / Bank Transfer',
-                                        'cash' => 'نقد / Cash',
-                                        'check' => 'شيك / Check',
-                                        'online' => 'دفع إلكتروني / Online Payment',
-                                    ]),
-                            ]),
-                    ]),
+                        TextInput::make('monthly_rent')
+                            ->label('قيمة الإيجار بالشهر')
+                            ->numeric()
+                            ->required()
+                            ->minValue(0.01)
+                            ->step(0.01)
+                            ->prefix('SAR')
+                            ->columnSpan(4),
 
-                Section::make('فترة العقد / Contract Period')
-                    ->schema([
-                        Grid::make(3)
-                            ->schema([
-                                DatePicker::make('start_date')
-                                    ->label('تاريخ بدء العقد / Contract Start Date')
-                                    ->required()
-                                    ->default(now())
-                                    ->reactive()
-                                    ->afterStateUpdated(function (callable $set, callable $get, $state) {
-                                        $duration = $get('duration_months');
-                                        if ($state && $duration) {
-                                            $endDate = \Carbon\Carbon::parse($state)->addMonths($duration)->subDay();
-                                            $set('end_date', $endDate);
-                                        }
-                                    }),
-
-                                TextInput::make('duration_months')
-                                    ->label('مدة العقد بالشهور / Contract Duration (Months)')
-                                    ->numeric()
-                                    ->required()
-                                    ->default(12)
-                                    ->minValue(1)
-                                    ->maxValue(120)
-                                    ->reactive()
-                                    ->afterStateUpdated(function (callable $set, callable $get, $state) {
-                                        $startDate = $get('start_date');
-                                        if ($startDate && $state) {
-                                            $endDate = \Carbon\Carbon::parse($startDate)->addMonths($state)->subDay();
-                                            $set('end_date', $endDate);
-                                        }
-                                    }),
-
-                                DatePicker::make('end_date')
-                                    ->label('تاريخ انتهاء العقد / Contract End Date')
-                                    ->required()
-                                    ->disabled()
-                                    ->helperText('يتم حسابه تلقائياً / Auto-calculated'),
-                            ]),
-                    ]),
-
-                Section::make('الشروط الإضافية / Additional Terms')
-                    ->schema([
-                        Grid::make(3)
-                            ->schema([
-                                TextInput::make('grace_period_days')
-                                    ->label('فترة السماح (أيام) / Grace Period (Days)')
-                                    ->numeric()
-                                    ->required()
-                                    ->default(5)
-                                    ->minValue(0)
-                                    ->maxValue(30),
-
-                                TextInput::make('late_fee_rate')
-                                    ->label('نسبة غرامة التأخير % / Late Fee Rate %')
-                                    ->numeric()
-                                    ->required()
-                                    ->default(0)
-                                    ->minValue(0)
-                                    ->maxValue(100)
-                                    ->step(0.01)
-                                    ->suffix('%'),
-
-                                TextInput::make('evacuation_notice_days')
-                                    ->label('فترة إشعار الإخلاء / Evacuation Notice (Days)')
-                                    ->numeric()
-                                    ->required()
-                                    ->default(30)
-                                    ->minValue(1)
-                                    ->maxValue(365),
-                            ]),
-
-                        Grid::make(2)
-                            ->schema([
-                                Toggle::make('utilities_included')
-                                    ->label('المرافق مشمولة / Utilities Included')
-                                    ->default(false),
-
-                                Toggle::make('furnished')
-                                    ->label('مفروش / Furnished')
-                                    ->default(false),
-                            ]),
-                    ]),
-
-                Section::make('الشروط والأحكام / Terms and Conditions')
-                    ->collapsible()
-                    ->schema([
-                        Textarea::make('terms_and_conditions')
-                            ->label('الشروط والأحكام / Terms and Conditions')
-                            ->rows(5),
-
-                        Textarea::make('special_conditions')
-                            ->label('الشروط الخاصة / Special Conditions')
-                            ->rows(3),
+                        FileUpload::make('contract_file')
+                            ->label('صورة العقد')
+                            ->acceptedFileTypes(['application/pdf', 'image/*'])
+                            ->disk('public')
+                            ->directory('unit-contracts')
+                            ->preserveFilenames()
+                            ->maxSize(10240)
+                            ->columnSpan(4),
 
                         Textarea::make('notes')
-                            ->label('ملاحظات / Notes')
-                            ->rows(3),
-                    ]),
+                            ->label('ملاحظات اخري')
+                            ->rows(3)
+                            ->columnSpan(12),
+                    ])
+                    ->columns(12)
+                    ->columnSpanFull(),
             ]);
     }
 
@@ -228,165 +139,80 @@ class UnitContractResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('contract_number')
-                    ->label('رقم العقد / Contract Number')
+                TextColumn::make('property.name')
+                    ->label('العقار')
                     ->searchable()
-                    ->sortable()
-                    ->width('150px'),
+                    ->sortable(),
+
+                TextColumn::make('unit.name')
+                    ->label('الوحدة')
+                    ->searchable()
+                    ->sortable(),
 
                 TextColumn::make('tenant.name')
-                    ->label('المستأجر / Tenant')
+                    ->label('المستأجر')
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('property.name')
-                    ->label('العقار / Property')
-                    ->searchable()
+                TextColumn::make('contract_date')
+                    ->label('تاريخ العقد')
+                    ->date('d/m/Y')
                     ->sortable(),
 
-                TextColumn::make('unit.unit_number')
-                    ->label('رقم الوحدة / Unit Number')
-                    ->sortable(),
+                TextColumn::make('duration_months')
+                    ->label('مدة التعاقد')
+                    ->sortable()
+                    ->suffix(' شهر')
+                    ->alignCenter(),
+
+                TextColumn::make('payment_frequency')
+                    ->label('سداد الدفعات')
+                    ->formatStateUsing(function ($state) {
+                        return match($state) {
+                            'monthly' => 'شهر',
+                            'quarterly' => 'ربع سنة',
+                            'semi_annually' => 'نصف سنة',
+                            'annually' => 'سنة',
+                            default => $state,
+                        };
+                    })
+                    ->badge(),
 
                 TextColumn::make('monthly_rent')
-                    ->label('الإيجار الشهري / Monthly Rent')
+                    ->label('الإيجار الشهري')
                     ->money('SAR')
                     ->sortable()
                     ->alignEnd(),
 
-                TextColumn::make('start_date')
-                    ->label('تاريخ البدء / Start Date')
-                    ->date('d/m/Y')
-                    ->sortable(),
-
-                TextColumn::make('end_date')
-                    ->label('تاريخ الانتهاء / End Date')
-                    ->date('d/m/Y')
-                    ->sortable(),
-
-                BadgeColumn::make('contract_status')
-                    ->label('الحالة / Status')
-                    ->colors([
-                        'secondary' => 'draft',
-                        'success' => 'active',
-                        'warning' => 'expired',
-                        'danger' => 'terminated',
-                        'info' => 'renewed',
-                    ])
-                    ->formatStateUsing(function ($state) {
-                        return match($state) {
-                            'draft' => 'مسودة / Draft',
-                            'active' => 'نشط / Active',
-                            'expired' => 'منتهي / Expired',
-                            'terminated' => 'مفسوخ / Terminated',
-                            'renewed' => 'مجدد / Renewed',
-                            default => $state,
-                        };
-                    }),
-
-                BadgeColumn::make('payment_frequency')
-                    ->label('دورية الدفع / Payment Frequency')
-                    ->formatStateUsing(function ($state) {
-                        return match($state) {
-                            'monthly' => 'شهري / Monthly',
-                            'quarterly' => 'ربع سنوي / Quarterly',
-                            'semi_annually' => 'نصف سنوي / Semi-Annual',
-                            'annually' => 'سنوي / Annual',
-                            default => $state,
-                        };
-                    }),
+                TextColumn::make('created_at')
+                    ->label('تاريخ الإنشاء')
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('contract_status')
-                    ->label('الحالة / Status')
-                    ->options([
-                        'draft' => 'مسودة / Draft',
-                        'active' => 'نشط / Active',
-                        'expired' => 'منتهي / Expired',
-                        'terminated' => 'مفسوخ / Terminated',
-                        'renewed' => 'مجدد / Renewed',
-                    ]),
-
-                SelectFilter::make('tenant_id')
-                    ->label('المستأجر / Tenant')
-                    ->relationship('tenant', 'name')
-                    ->searchable(),
-
                 SelectFilter::make('property_id')
-                    ->label('العقار / Property')
+                    ->label('العقار')
                     ->relationship('property', 'name')
                     ->searchable(),
 
+                SelectFilter::make('tenant_id')
+                    ->label('المستأجر')
+                    ->relationship('tenant', 'name')
+                    ->searchable(),
+
                 SelectFilter::make('payment_frequency')
-                    ->label('دورية الدفع / Payment Frequency')
+                    ->label('سداد الدفعات')
                     ->options([
-                        'monthly' => 'شهري / Monthly',
-                        'quarterly' => 'ربع سنوي / Quarterly',
-                        'semi_annually' => 'نصف سنوي / Semi-Annual',
-                        'annually' => 'سنوي / Annual',
+                        'monthly' => 'شهر',
+                        'quarterly' => 'ربع سنة',
+                        'semi_annually' => 'نصف سنة',
+                        'annually' => 'سنة',
                     ]),
-
-                Filter::make('rent_range')
-                    ->form([
-                        Grid::make(2)
-                            ->schema([
-                                TextInput::make('rent_from')
-                                    ->label('من / From')
-                                    ->numeric()
-                                    ->prefix('SAR'),
-                                TextInput::make('rent_to')
-                                    ->label('إلى / To')
-                                    ->numeric()
-                                    ->prefix('SAR'),
-                            ]),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when(
-                                $data['rent_from'],
-                                fn (Builder $query, $rent): Builder => $query->where('monthly_rent', '>=', $rent),
-                            )
-                            ->when(
-                                $data['rent_to'],
-                                fn (Builder $query, $rent): Builder => $query->where('monthly_rent', '<=', $rent),
-                            );
-                    })
-                    ->label('نطاق الإيجار / Rent Range'),
-
-                Filter::make('date_range')
-                    ->form([
-                        Grid::make(2)
-                            ->schema([
-                                DatePicker::make('start_from')
-                                    ->label('من تاريخ / From Date'),
-                                DatePicker::make('start_until')
-                                    ->label('إلى تاريخ / To Date'),
-                            ]),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when(
-                                $data['start_from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('start_date', '>=', $date),
-                            )
-                            ->when(
-                                $data['start_until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('start_date', '<=', $date),
-                            );
-                    })
-                    ->label('فترة العقد / Contract Period'),
-
-                Filter::make('expiring_soon')
-                    ->toggle()
-                    ->query(fn (Builder $query): Builder => $query->expiring(30))
-                    ->label('ينتهي قريباً / Expiring Soon'),
             ])
             ->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
-            ->actions([
-                ViewAction::make(),
-                EditAction::make()
-                    ->visible(fn (UnitContract $record) => in_array($record->contract_status, ['draft', 'active'])),
-                // Add custom actions like payments, renew, terminate here
+            ->recordActions([
+                EditAction::make(),
             ])
             ->defaultSort('created_at', 'desc');
     }
@@ -403,7 +229,6 @@ class UnitContractResource extends Resource
         return [
             'index' => Pages\ListUnitContracts::route('/'),
             'create' => Pages\CreateUnitContract::route('/create'),
-            'view' => Pages\ViewUnitContract::route('/{record}'),
             'edit' => Pages\EditUnitContract::route('/{record}/edit'),
         ];
     }

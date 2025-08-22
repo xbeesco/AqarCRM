@@ -14,7 +14,7 @@ class ListUnitContracts extends ListRecords
     {
         return [
             Actions\CreateAction::make()
-                ->label('إنشاء عقد إيجار جديد / Create New Unit Contract'),
+                ->label('إنشاء عقد إيجار جديد'),
         ];
     }
 }
