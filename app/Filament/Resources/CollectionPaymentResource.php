@@ -28,9 +28,9 @@ use BackedEnum;
 class CollectionPaymentResource extends Resource
 {
     protected static ?string $model = CollectionPayment::class;
-    protected static ?string $navigationLabel = 'دفعات التحصيل';
-    protected static ?string $modelLabel = 'دفعة تحصيل';
-    protected static ?string $pluralModelLabel = 'دفعات التحصيل';
+    protected static ?string $navigationLabel = 'دفعات المستأجرين';
+    protected static ?string $modelLabel = 'دفعة مستأجر';
+    protected static ?string $pluralModelLabel = 'دفعات المستأجرين';
     // Navigation properties removed - managed centrally in AdminPanelProvider
 
     public static function form(Schema $schema): Schema

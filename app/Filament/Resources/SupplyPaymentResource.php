@@ -27,16 +27,16 @@ class SupplyPaymentResource extends Resource
 {
     protected static ?string $model = SupplyPayment::class;
 
-    protected static ?string $navigationLabel = 'دفعات التوريد';
+    protected static ?string $navigationLabel = 'دفعات الملاك';
 
-    protected static ?string $modelLabel = 'دفعة توريد';
+    protected static ?string $modelLabel = 'دفعة مالك';
 
-    protected static ?string $pluralModelLabel = 'دفعات التوريد';
+    protected static ?string $pluralModelLabel = 'دفعات الملاك';
 
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
-            Section::make('معلومات دفعة التوريد')
+            Section::make('معلومات دفعة المالك')
                 ->schema([
                     Grid::make(3)->schema([
                         Select::make('property_contract_id')
