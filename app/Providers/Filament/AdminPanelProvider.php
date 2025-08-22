@@ -68,17 +68,17 @@ class AdminPanelProvider extends PanelProvider
                             ]),
                         NavigationGroup::make('التعاقدات')
                             ->items([
-                                ...array_map(fn($item) => $item->icon('heroicon-o-document-check'), 
-                                    \App\Filament\Resources\PropertyContractResource::getNavigationItems()),
                                 ...array_map(fn($item) => $item->icon('heroicon-o-clipboard-document-check'), 
                                     \App\Filament\Resources\UnitContractResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-document-check'), 
+                                    \App\Filament\Resources\PropertyContractResource::getNavigationItems()),
                             ]),
                         NavigationGroup::make('العقارات')
                             ->items([
+                                ...array_map(fn($item) => $item->icon('heroicon-o-home'), 
+                                    array: \App\Filament\Resources\UnitResource::getNavigationItems()),
                                 ...array_map(fn($item) => $item->icon('heroicon-o-building-office'), 
                                     \App\Filament\Resources\PropertyResource::getNavigationItems()),
-                                ...array_map(fn($item) => $item->icon('heroicon-o-home'), 
-                                    \App\Filament\Resources\UnitResource::getNavigationItems()),
                             ]),
                         NavigationGroup::make('المستخدمين')
                             ->items([
