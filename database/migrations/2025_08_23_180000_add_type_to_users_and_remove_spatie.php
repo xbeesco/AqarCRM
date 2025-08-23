@@ -47,30 +47,31 @@ return new class extends Migration
         
         // تحديد النوع بناءً على وجود بيانات خاصة بكل نوع
         // للمستخدمين الذين لم يتم تحديد نوعهم بعد
-        DB::statement("
-            UPDATE users 
-            SET type = 'owner' 
-            WHERE type = 'employee' 
-            AND (commercial_register IS NOT NULL 
-                 OR tax_number IS NOT NULL 
-                 OR bank_account_number IS NOT NULL)
-        ");
+        if (Schema::hasColumn('users', 'commercial_register') || 
+            Schema::hasColumn('users', 'tax_number') || 
+            Schema::hasColumn('users', 'bank_account_number')) {
+            DB::statement("
+                UPDATE users 
+                SET type = 'owner' 
+                WHERE type = 'employee' 
+                AND (commercial_register IS NOT NULL 
+                     OR tax_number IS NOT NULL 
+                     OR bank_account_number IS NOT NULL)
+            ");
+        }
         
-        DB::statement("
-            UPDATE users 
-            SET type = 'tenant' 
-            WHERE type = 'employee' 
-            AND current_property_id IS NOT NULL
-        ");
-        
-        DB::statement("
-            UPDATE users 
-            SET type = 'employee' 
-            WHERE type = 'employee' 
-            AND (employee_id IS NOT NULL 
-                 OR department IS NOT NULL 
-                 OR position IS NOT NULL)
-        ");
+        if (Schema::hasColumn('users', 'employee_id') || 
+            Schema::hasColumn('users', 'department') || 
+            Schema::hasColumn('users', 'position')) {
+            DB::statement("
+                UPDATE users 
+                SET type = 'employee' 
+                WHERE type = 'employee' 
+                AND (employee_id IS NOT NULL 
+                     OR department IS NOT NULL 
+                     OR position IS NOT NULL)
+            ");
+        }
     }
 
     /**
