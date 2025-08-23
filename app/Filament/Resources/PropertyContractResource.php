@@ -29,11 +29,11 @@ class PropertyContractResource extends Resource
 {
     protected static ?string $model = PropertyContract::class;
 
-    protected static ?string $navigationLabel = 'عقود الملاك';
+    protected static ?string $navigationLabel = 'تعاقدات الملاك';
 
-    protected static ?string $modelLabel = 'عقد ملكية';
+    protected static ?string $modelLabel = 'تعاقد';
 
-    protected static ?string $pluralModelLabel = 'عقود الملاك';
+    protected static ?string $pluralModelLabel = 'تعاقدات الملاك';
 
     public static function form(Schema $schema): Schema
     {
@@ -135,7 +135,6 @@ class PropertyContractResource extends Resource
                 TextColumn::make('property.name')
                     ->label('العقار')
                     ->searchable()
-                    ->sortable()
                     ->description(fn (PropertyContract $record): string => $record->owner?->name ?? ''),
 
                 TextColumn::make('contract_date')
@@ -201,33 +200,9 @@ class PropertyContractResource extends Resource
                         'semi_annually' => 'نصف سنوي',
                         'annually' => 'سنوي',
                     ]),
-
-                Filter::make('contract_date_range')
-                    ->form([
-                        Grid::make(2)
-                            ->schema([
-                                DatePicker::make('contract_date_from')
-                                    ->label('من تاريخ'),
-                                DatePicker::make('contract_date_until')
-                                    ->label('إلى تاريخ'),
-                            ]),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when(
-                                $data['contract_date_from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('contract_date', '>=', $date),
-                            )
-                            ->when(
-                                $data['contract_date_until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('contract_date', '<=', $date),
-                            );
-                    })
-                    ->label('نطاق تاريخ العقد'),
             ])
-            ->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
             ->recordActions([
-                EditAction::make(),
+                //EditAction::make(),
             ])
             ->defaultSort('created_at', 'desc');
     }
