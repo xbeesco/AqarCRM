@@ -75,7 +75,7 @@ class AdminPanelProvider extends PanelProvider
                         NavigationGroup::make('العقارات')
                             ->items([
                                 ...array_map(fn($item) => $item->icon('heroicon-o-home'), 
-                                    \App\Filament\Resources\Units\UnitResource::getNavigationItems()),
+                                    \App\Filament\Resources\UnitResource::getNavigationItems()),
                                 ...array_map(fn($item) => $item->icon('heroicon-o-building-office-2'), 
                                     \App\Filament\Resources\PropertyResource::getNavigationItems()),
                             ]),

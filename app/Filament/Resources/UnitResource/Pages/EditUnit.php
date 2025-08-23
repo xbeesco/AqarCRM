@@ -12,12 +12,7 @@ class EditUnit extends EditRecord
 
     protected function getHeaderActions(): array
     {
-        return [
-            Actions\ViewAction::make()
-                ->label('عرض / View'),
-            Actions\DeleteAction::make()
-                ->label('حذف / Delete'),
-        ];
+        return [];
     }
 
     protected function getRedirectUrl(): string

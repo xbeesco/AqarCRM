@@ -14,7 +14,7 @@ class ListUnits extends ListRecords
     {
         return [
             Actions\CreateAction::make()
-                ->label('إنشاء وحدة جديدة / Create New Unit'),
+                ->label('إضافة وحدة'),
         ];
     }
 }
