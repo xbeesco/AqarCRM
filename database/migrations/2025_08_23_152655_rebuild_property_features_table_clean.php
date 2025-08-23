@@ -11,6 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // تعطيل فحص المفاتيح الأجنبية مؤقتاً
+        Schema::disableForeignKeyConstraints();
+        
+        // حذف الجداول المرتبطة أولاً
+        Schema::dropIfExists('property_property_feature');
+        Schema::dropIfExists('property_features');
+        
+        // إنشاء جدول المميزات بالهيكل النهائي الشامل
         Schema::create('property_features', function (Blueprint $table) {
             $table->id();
             $table->string('name_ar', 100)->index();
@@ -28,12 +36,28 @@ return new class extends Migration
             $table->integer('properties_count')->default(0);
             $table->timestamps();
 
-            // Indexes
+            // فهارس لتحسين الأداء
             $table->index(['category', 'sort_order'], 'idx_property_features_category');
             $table->index(['is_active'], 'idx_property_features_active');
             $table->index(['value_type'], 'idx_property_features_value_type');
             $table->index(['name_ar', 'name_en'], 'idx_property_features_name_search');
         });
+
+        // إنشاء جدول الربط بين العقارات والمميزات
+        Schema::create('property_property_feature', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('property_id')->constrained()->onDelete('cascade');
+            $table->foreignId('property_feature_id')->constrained('property_features')->onDelete('cascade');
+            $table->string('value')->nullable(); // قيمة الميزة إذا كانت تتطلب قيمة
+            $table->timestamps();
+
+            $table->unique(['property_id', 'property_feature_id'], 'uk_property_feature');
+            $table->index('property_id', 'idx_property_property_feature_property');
+            $table->index('property_feature_id', 'idx_property_property_feature_feature');
+        });
+        
+        // إعادة تفعيل فحص المفاتيح الأجنبية
+        Schema::enableForeignKeyConstraints();
     }
 
     /**
@@ -41,6 +65,9 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::disableForeignKeyConstraints();
+        Schema::dropIfExists('property_property_feature');
         Schema::dropIfExists('property_features');
+        Schema::enableForeignKeyConstraints();
     }
 };
