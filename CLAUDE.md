@@ -51,7 +51,6 @@ how a task work ?
 عملية الاختبارات الخاصه ب playwright يجب ان تغطي كل الشاشات الخاصه بال resource  
 عملية الاختبارات الخاصه ب playwright يجب ان تغطي كل الحالات ال حرجة 
 عملية الاختبارات الخاصه ب playwright يجب ان تغطي كل  عمليات الداخليه بحيث نختبر ما سيواجهه المستخدم في العملايت المعقدة
-4- make a git commit with a shot sentence  متعملش اي  commit  غير لما تجرب كل الاختبارات التي تتناسب مع هذا التعديل
 
 
 always make the table filters above the table https://filamentphp.com/docs/4.x/tables/filters/layout#displaying-filters-above-the-table-content
