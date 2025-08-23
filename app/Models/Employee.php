@@ -29,9 +29,13 @@ class Employee extends User
             ]);
         });
 
-        // Auto-set type on creation if not set
+        // Auto-set type on creation
         static::creating(function ($employee) {
-            if (!$employee->type) {
+            // Only set type to EMPLOYEE if it's not already an admin type
+            if (!$employee->type || !in_array($employee->type, [
+                UserType::ADMIN->value,
+                UserType::SUPER_ADMIN->value
+            ])) {
                 $employee->type = UserType::EMPLOYEE->value;
             }
         });
