@@ -28,11 +28,21 @@ class Location extends Model
     {
         parent::boot();
         
-        static::saved(function ($location) {
-            $location->updatePath();
-            if ($location->wasChanged('path')) {
-                $location->saveQuietly();
+        static::saving(function ($location) {
+            // تحديث المستوى بناءً على الموقع الأب
+            if ($location->parent_id) {
+                $parent = self::find($location->parent_id);
+                if ($parent) {
+                    $location->level = $parent->level + 1;
+                }
+            } else {
+                $location->level = 1;
             }
+        });
+        
+        static::saved(function ($location) {
+            // تحديث الـ path مرة واحدة فقط بدون حفظ إضافي
+            $location->updatePathWithoutSaving();
         });
     }
     
@@ -173,51 +183,70 @@ class Location extends Model
     }
     
     /**
-     * Update the path field for hierarchical ordering
+     * Update the path field for hierarchical ordering without saving
      */
-    public function updatePath(): void
+    public function updatePathWithoutSaving(): void
     {
-        if ($this->id) {
-            if ($this->parent_id) {
-                $parent = self::find($this->parent_id);
-                
-                if ($parent) {
-                    // Ensure parent has a path first
-                    if (!$parent->path) {
-                        $parent->updatePath();
-                        $parent->saveQuietly();
-                    }
-                    
-                    // Get the order of this item among siblings (based on creation order)
-                    $siblings = self::where('parent_id', $this->parent_id)
-                        ->orderBy('id')
-                        ->pluck('id')
-                        ->toArray();
-                    
-                    $siblingOrder = array_search($this->id, $siblings) + 1;
-                    
-                    $newPath = $parent->path . '/' . str_pad($siblingOrder, 4, '0', STR_PAD_LEFT);
-                } else {
-                    $newPath = '/0001'; // fallback if parent not found
+        if (!$this->id) {
+            return;
+        }
+        
+        $newPath = $this->calculatePath();
+        
+        if ($this->path !== $newPath) {
+            // تحديث الـ path مباشرة في قاعدة البيانات بدون trigger events
+            self::where('id', $this->id)->update(['path' => $newPath]);
+            $this->path = $newPath;
+            
+            // تحديث paths الأطفال
+            $this->updateChildrenPaths();
+        }
+    }
+    
+    /**
+     * Calculate the path for this location
+     */
+    protected function calculatePath(): string
+    {
+        if ($this->parent_id) {
+            $parent = self::find($this->parent_id);
+            
+            if ($parent) {
+                // التأكد من أن الأب لديه path
+                if (!$parent->path) {
+                    $parent->updatePathWithoutSaving();
                 }
-            } else {
-                // For root level, get order among all root items
-                $roots = self::whereNull('parent_id')
+                
+                // الحصول على ترتيب هذا العنصر بين الأشقاء
+                $siblings = self::where('parent_id', $this->parent_id)
                     ->orderBy('id')
                     ->pluck('id')
                     ->toArray();
                 
-                $rootOrder = array_search($this->id, $roots) + 1;
-                $newPath = '/' . str_pad($rootOrder, 4, '0', STR_PAD_LEFT);
-            }
-            
-            if ($this->path !== $newPath) {
-                $this->path = $newPath;
+                $siblingOrder = array_search($this->id, $siblings) + 1;
                 
-                // Update children paths when parent path changes
-                $this->updateChildrenPaths();
+                return $parent->path . '/' . str_pad($siblingOrder, 4, '0', STR_PAD_LEFT);
+            } else {
+                return '/0001'; // fallback if parent not found
             }
+        } else {
+            // للعناصر الجذر
+            $roots = self::whereNull('parent_id')
+                ->orderBy('id')
+                ->pluck('id')
+                ->toArray();
+            
+            $rootOrder = array_search($this->id, $roots) + 1;
+            return '/' . str_pad($rootOrder, 4, '0', STR_PAD_LEFT);
         }
+    }
+    
+    /**
+     * Update the path field for hierarchical ordering (للاستخدام اليدوي فقط)
+     */
+    public function updatePath(): void
+    {
+        $this->updatePathWithoutSaving();
     }
     
     /**
@@ -227,8 +256,7 @@ class Location extends Model
     {
         $children = $this->children;
         foreach ($children as $child) {
-            $child->updatePath();
-            $child->saveQuietly();
+            $child->updatePathWithoutSaving();
         }
     }
     
