@@ -192,7 +192,17 @@ class OwnerResource extends Resource
                   // البحث بدون مسافات
                   ->orWhereRaw("REPLACE(name, ' ', '') LIKE ?", ["%{$searchWithoutSpaces}%"])
                   // البحث مع تجاهل المسافات في الكلمة المبحوث عنها
-                  ->orWhere('name', 'LIKE', "%{$searchWithSpaces}%");
+                  ->orWhere('name', 'LIKE', "%{$searchWithSpaces}%")
+                  // البحث بالتواريخ - تاريخ الإنشاء
+                  ->orWhereRaw("DATE_FORMAT(created_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
+                  ->orWhereRaw("DATE_FORMAT(created_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
+                  ->orWhereRaw("DATE_FORMAT(created_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
+                  ->orWhereRaw("DATE_FORMAT(created_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"])
+                  // البحث بالتواريخ - تاريخ الحذف
+                  ->orWhereRaw("DATE_FORMAT(deleted_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
+                  ->orWhereRaw("DATE_FORMAT(deleted_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
+                  ->orWhereRaw("DATE_FORMAT(deleted_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
+                  ->orWhereRaw("DATE_FORMAT(deleted_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"]);
         })
         ->limit(50)
         ->get()
@@ -203,6 +213,8 @@ class OwnerResource extends Resource
                 details: [
                     'الهاتف' => $record->phone ?? 'غير محدد',
                     'الهاتف الثاني' => $record->secondary_phone ?? 'غير محدد',
+                    'تاريخ الإنشاء' => $record->created_at?->format('Y-m-d') ?? 'غير محدد',
+                    'تاريخ الحذف' => $record->deleted_at?->format('Y-m-d') ?? 'نشط',
                 ],
                 actions: []
             );
