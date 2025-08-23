@@ -5,9 +5,6 @@ namespace App\Filament\Resources\UnitCategories;
 use App\Filament\Resources\UnitCategories\Pages\ManageUnitCategories;
 use App\Models\UnitCategory;
 use BackedEnum;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
@@ -35,8 +32,14 @@ class UnitCategoryResource extends Resource
         return $schema
             ->components([
                 TextInput::make('name_ar')
+                    ->label('الاسم بالعربية')
                     ->required()
-                    ->maxLength(255),
+                    ->maxLength(100),
+                
+                TextInput::make('name_en')
+                    ->label('الاسم بالإنجليزية')
+                    ->required()
+                    ->maxLength(100),
             ]);
     }
 
@@ -46,19 +49,20 @@ class UnitCategoryResource extends Resource
             ->recordTitleAttribute('name_ar')
             ->columns([
                 TextColumn::make('name_ar')
-                    ->searchable(),
+                    ->label('الاسم بالعربية'),
+                
+                TextColumn::make('name_en')
+                    ->label('الاسم بالإنجليزية'),
             ])
+            ->paginated(false)
             ->filters([
                 //
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
             ])
             ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
+                // إزالة bulk actions
             ]);
     }
 

@@ -15,7 +15,6 @@ class UnitCategory extends Model
         'name_ar',
         'name_en',
         'slug',
-        'color',
         'icon',
         'description',
         'is_active',
@@ -56,7 +55,7 @@ class UnitCategory extends Model
 
     public function getBadgeColorAttribute(): string
     {
-        return $this->color ?: '#6B7280';
+        return '#6B7280';
     }
 
     public function scopeActive($query)
