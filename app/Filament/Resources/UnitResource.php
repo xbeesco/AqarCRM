@@ -19,6 +19,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Actions\EditAction;
@@ -50,6 +51,7 @@ class UnitResource extends Resource
                         ->relationship('property', 'name')
                         ->searchable()
                         ->required()
+                        ->preload()
                         ->columnSpan(3),
                     
                     Select::make('unit_type_id')
@@ -73,78 +75,83 @@ class UnitResource extends Resource
                         ->columnSpan(3),
                 ]),
 
-                Section::make('التفاصيل')
-                    ->columnSpan(1)
-                    ->schema([
-                        Grid::make(3)->schema([
-                            TextInput::make('rent_price')
-                                ->label('سعر الايجار الاستدلالي')
-                                ->numeric()
-                                ->required()
-                                ->minValue(0)
-                                ->prefix('ريال'),
-                            TextInput::make('rooms_count')
-                                ->label('عدد الغرف')
-                                ->numeric()
-                                ->minValue(0)
-                                ->maxValue(20)
-                                ->nullable(),
-                            
-                            TextInput::make('bathrooms_count')
-                                ->label('عدد دورات المياه')
-                                ->numeric()
-                                ->minValue(0)
-                                ->maxValue(10)
-                                ->nullable(),
-                            
-                            TextInput::make('balconies_count')
-                                ->label('عدد الشرفات')
-                                ->numeric()
-                                ->minValue(0)
-                                ->maxValue(10)
-                                ->nullable(),
-                            
-                            TextInput::make('floor_number')
-                                ->label('رقم الطابق')
-                                ->numeric()
-                                ->minValue(0)
-                                ->maxValue(100)
-                                ->nullable(),
-                            
-                            Select::make('has_laundry_room')
-                                ->label('غرفة غسيل')
-                                ->options([
-                                    1 => 'نعم',
-                                    0 => 'لا',
-                                ])
-                                ->default(0),
-                            
-                            TextInput::make('electricity_account_number')
-                                ->label('رقم حساب الكهرباء')
-                                ->maxLength(255)
-                                ->nullable(),
-                            
-                            TextInput::make('water_expenses')
-                                ->label('مصروف المياه')
-                                ->numeric()
-                                ->minValue(0)
-                                ->prefix('ريال')
-                                ->nullable(),
-                            
-                            TextInput::make('area_sqm')
-                                ->label('المساحة')
-                                ->numeric()
-                                ->minValue(0)
-                                ->suffix('م²')
-                                ->nullable(),
-                        ]),
-                    ]),
+            Section::make('التفاصيل')
+                ->columnSpan(1)
+                ->schema([
+                    Grid::make(3)->schema([
+                        TextInput::make('rent_price')
+                            ->label('سعر الايجار الاستدلالي')
+                            ->numeric()
+                            ->required()
+                            ->minValue(0)
+                            ->prefix('ريال'),
+                        TextInput::make('floor_number')
+                            ->label('رقم الطابق')
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->nullable(),
+                        TextInput::make('area_sqm')
+                            ->label('المساحة')
+                            ->numeric()
+                            ->minValue(0)
+                            ->suffix('م²')
+                            ->nullable(),
 
-                Section::make('المميزات')
-                    ->columnSpan(1)
-                    ->schema([
-                        // يمكن إضافة المميزات هنا لاحقاً
+                        TextInput::make('rooms_count')
+                            ->label('عدد الغرف')
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(20)
+                            ->nullable(),
+                        
+                        TextInput::make('bathrooms_count')
+                            ->label('عدد دورات المياه')
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(10)
+                            ->nullable(),
+                        
+                        TextInput::make('balconies_count')
+                            ->label('عدد الشرفات')
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(10)
+                            ->nullable(),
+                        
+                        
+                        Select::make('has_laundry_room')
+                            ->label('غرفة غسيل')
+                            ->options([
+                                1 => 'نعم',
+                                0 => 'لا',
+                            ])
+                            ->default(0),
+                        
+                        TextInput::make('electricity_account_number')
+                            ->label('رقم حساب الكهرباء')
+                            ->maxLength(255)
+                            ->nullable(),
+                        
+                        TextInput::make('water_expenses')
+                            ->label('مصروف المياه')
+                            ->numeric()
+                            ->minValue(0)
+                            ->prefix('ريال')
+                            ->nullable(),
+                        
                     ]),
+                ]),
+
+            Section::make('المميزات')
+                ->columnSpan(1)
+                ->schema([
+                    CheckboxList::make('features')
+                        ->label('مميزات الوحدة')
+                        ->hiddenLabel()
+                        ->relationship('features', 'name_ar')
+                        ->columns(3),
+                ]),
 
             Section::make('المخططات والملاحظات')
                 ->columnSpanFull()
