@@ -24,7 +24,8 @@ return new class extends Migration
             $table->enum('unit_ranking', ['economy', 'standard', 'premium', 'luxury'])->nullable()->index();
             $table->enum('direction', ['north', 'south', 'east', 'west', 'northeast', 'northwest', 'southeast', 'southwest'])->nullable();
             $table->enum('view_type', ['street', 'garden', 'sea', 'city', 'mountain', 'courtyard'])->nullable();
-            $table->foreignId('status_id')->constrained('unit_statuses')->cascadeOnUpdate()->restrictOnDelete();
+            // $table->foreignId('status_id')->constrained('unit_statuses')->cascadeOnUpdate()->restrictOnDelete();
+            $table->unsignedBigInteger('status_id')->nullable();
             $table->foreignId('current_tenant_id')->nullable()->constrained('users')->cascadeOnUpdate()->nullOnDelete();
             $table->boolean('furnished')->default(false)->index();
             $table->boolean('has_balcony')->default(false);
@@ -40,10 +41,10 @@ return new class extends Migration
 
             // Indexes
             $table->index(['property_id', 'unit_number'], 'idx_units_property_unit');
-            $table->index(['status_id', 'is_active'], 'idx_units_status_active');
+            // $table->index(['status_id', 'is_active'], 'idx_units_status_active');
             $table->index(['unit_type', 'unit_ranking'], 'idx_units_type_ranking');
             $table->index(['rent_price', 'rooms_count'], 'idx_units_rent_range');
-            $table->index(['status_id', 'available_from', 'is_active'], 'idx_units_availability');
+            // $table->index(['status_id', 'available_from', 'is_active'], 'idx_units_availability');
             $table->index(['current_tenant_id', 'is_active'], 'idx_units_tenant_search');
 
             // Unique constraint
