@@ -22,6 +22,8 @@ use Filament\Tables\Filters\TrashedFilter;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\GlobalSearch\GlobalSearchResult;
+use Illuminate\Support\Collection;
 class EmployeeResource extends Resource
 {
     protected static ?string $model = Employee::class;
@@ -31,6 +33,8 @@ class EmployeeResource extends Resource
     protected static ?string $modelLabel = 'موظف';
 
     protected static ?string $pluralModelLabel = 'الموظفين';
+    
+    protected static ?string $recordTitleAttribute = 'name';
 
     public static function form(Schema $schema): Schema
     {
@@ -160,5 +164,71 @@ class EmployeeResource extends Resource
             'edit' => Pages\EditEmployee::route('/{record}/edit'),
             'view' => Pages\ViewEmployee::route('/{record}'),
         ];
+    }
+    
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'email', 'phone', 'secondary_phone'];
+    }
+    
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->withoutGlobalScopes([SoftDeletingScope::class]);
+    }
+    
+    public static function getGlobalSearchResults(string $search): Collection
+    {
+        // تنظيف البحث وإزالة الهمزات
+        $normalizedSearch = str_replace(
+            ['أ', 'إ', 'آ', 'ء', 'ؤ', 'ئ'],
+            ['ا', 'ا', 'ا', '', 'و', 'ي'],
+            $search
+        );
+        
+        // إزالة المسافات الزائدة
+        $searchWithoutSpaces = str_replace(' ', '', $normalizedSearch);
+        $searchWithSpaces = str_replace(' ', '%', $normalizedSearch);
+        
+        $query = static::getModel()::query()->withoutGlobalScopes([SoftDeletingScope::class]);
+        
+        return $query->where(function (Builder $query) use ($normalizedSearch, $searchWithoutSpaces, $searchWithSpaces, $search) {
+            // البحث العادي
+            $query->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('email', 'LIKE', "%{$search}%")
+                  ->orWhere('phone', 'LIKE', "%{$search}%")
+                  ->orWhere('secondary_phone', 'LIKE', "%{$search}%")
+                  // البحث بدون همزات
+                  ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(name, 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا'), 'ء', ''), 'ؤ', 'و'), 'ئ', 'ي') LIKE ?", ["%{$normalizedSearch}%"])
+                  // البحث بدون مسافات
+                  ->orWhereRaw("REPLACE(name, ' ', '') LIKE ?", ["%{$searchWithoutSpaces}%"])
+                  // البحث مع تجاهل المسافات في الكلمة المبحوث عنها
+                  ->orWhere('name', 'LIKE', "%{$searchWithSpaces}%")
+                  // البحث بالتواريخ - تاريخ الإنشاء
+                  ->orWhereRaw("DATE_FORMAT(created_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
+                  ->orWhereRaw("DATE_FORMAT(created_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
+                  ->orWhereRaw("DATE_FORMAT(created_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
+                  ->orWhereRaw("DATE_FORMAT(created_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"])
+                  // البحث بالتواريخ - تاريخ الحذف
+                  ->orWhereRaw("DATE_FORMAT(deleted_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
+                  ->orWhereRaw("DATE_FORMAT(deleted_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
+                  ->orWhereRaw("DATE_FORMAT(deleted_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
+                  ->orWhereRaw("DATE_FORMAT(deleted_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"]);
+        })
+        ->limit(50)
+        ->get()
+        ->map(function ($record) {
+            return new \Filament\GlobalSearch\GlobalSearchResult(
+                title: $record->name,
+                url: static::getUrl('edit', ['record' => $record]),
+                details: [
+                    'البريد الإلكتروني' => $record->email ?? 'غير محدد',
+                    'الهاتف' => $record->phone ?? 'غير محدد',
+                    'الهاتف الثاني' => $record->secondary_phone ?? 'غير محدد',
+                    'تاريخ الإنشاء' => $record->created_at?->format('Y-m-d') ?? 'غير محدد',
+                    'الحالة' => $record->deleted_at ? 'محذوف' : 'نشط',
+                ],
+                actions: []
+            );
+        });
     }
 }
