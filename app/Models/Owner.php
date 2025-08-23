@@ -5,7 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Spatie\Permission\Models\Role;
+use App\Enums\UserType;
+use App\Helpers\AppHelper;
 
 class Owner extends User
 {
@@ -21,31 +22,20 @@ class Owner extends User
     {
         parent::boot();
 
-        // Add global scope to filter by owner role
+        // Add global scope to filter by owner type
         static::addGlobalScope('owner', function (Builder $builder) {
-            $builder->whereHas('roles', function ($query) {
-                $query->where('name', 'owner');
-            });
+            $builder->where('type', UserType::OWNER->value);
         });
 
-        // Auto-assign owner role and set user_type on creation
+        // Auto-set type and generate email/password on creation
         static::creating(function ($owner) {
-            $owner->user_type = 'owner';
+            $owner->type = UserType::OWNER->value;
             // Auto-generate email and password from phone
             if ($owner->phone && !$owner->email) {
-                $owner->email = $owner->phone . '@towntop.sa';
+                $owner->email = AppHelper::generateEmailFromPhone($owner->phone);
             }
             if ($owner->phone && !$owner->password) {
                 $owner->password = bcrypt($owner->phone);
-            }
-        });
-
-        static::created(function ($owner) {
-            $ownerRole = Role::firstOrCreate(
-                ['name' => 'owner', 'guard_name' => 'web']
-            );
-            if ($ownerRole && !$owner->hasRole('owner')) {
-                $owner->assignRole($ownerRole);
             }
         });
     }

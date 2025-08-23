@@ -5,15 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Spatie\Permission\Models\Role;
+use App\Enums\UserType;
 
 class Employee extends User
 {
     use HasFactory, SoftDeletes;
 
     protected $table = 'users';
-
-
 
     /**
      * Boot the model.
@@ -22,24 +20,19 @@ class Employee extends User
     {
         parent::boot();
 
-        // Add global scope to filter by employee role
+        // Add global scope to filter by employee types
         static::addGlobalScope('employee', function (Builder $builder) {
-            $builder->whereHas('roles', function ($query) {
-                $query->where('name', 'employee');
-            });
+            $builder->whereIn('type', [
+                UserType::EMPLOYEE->value,
+                UserType::ADMIN->value,
+                UserType::SUPER_ADMIN->value,
+            ]);
         });
 
-        // Auto-assign employee role and set user_type on creation
+        // Auto-set type on creation if not set
         static::creating(function ($employee) {
-            $employee->user_type = 'employee';
-        });
-
-        static::created(function ($employee) {
-            $employeeRole = Role::firstOrCreate(
-                ['name' => 'employee', 'guard_name' => 'web']
-            );
-            if ($employeeRole && !$employee->hasRole('employee')) {
-                $employee->assignRole($employeeRole);
+            if (!$employee->type) {
+                $employee->type = UserType::EMPLOYEE->value;
             }
         });
     }

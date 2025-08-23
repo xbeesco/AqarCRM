@@ -7,21 +7,16 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Spatie\Permission\Traits\HasRoles;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use App\Enums\UserType;
+use App\Services\UserPermissions;
+use App\Helpers\AppHelper;
 
 class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRoles, SoftDeletes;
-    
-    /**
-     * The guard for this model.
-     *
-     * @var string
-     */
-    protected $guard_name = 'web';
+    use HasFactory, Notifiable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -35,7 +30,7 @@ class User extends Authenticatable implements FilamentUser
         'phone',
         'secondary_phone',
         'identity_file',
-        'user_type',
+        'type',
         // Employee fields
         'employee_id',
         'department',
@@ -81,6 +76,10 @@ class User extends Authenticatable implements FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'deleted_at' => 'datetime',
+            'joining_date' => 'date',
+            'birth_date' => 'date',
+            'salary' => 'decimal:2',
+            'ownership_documents' => 'array',
         ];
     }
 
@@ -105,8 +104,8 @@ class User extends Authenticatable implements FilamentUser
      */
     public function generateEmailFromPhone()
     {
-        if ($this->phone && in_array($this->user_type, ['owner', 'tenant'])) {
-            return $this->phone . '@towntop.sa';
+        if ($this->phone && in_array($this->type, [UserType::OWNER->value, UserType::TENANT->value])) {
+            return AppHelper::generateEmailFromPhone($this->phone);
         }
         return $this->email;
     }
@@ -116,7 +115,7 @@ class User extends Authenticatable implements FilamentUser
      */
     public function generatePasswordFromPhone()
     {
-        if ($this->phone && in_array($this->user_type, ['owner', 'tenant'])) {
+        if ($this->phone && in_array($this->type, [UserType::OWNER->value, UserType::TENANT->value])) {
             return bcrypt($this->phone);
         }
         return $this->password;
@@ -127,9 +126,18 @@ class User extends Authenticatable implements FilamentUser
      */
     public function scopeEmployees($query)
     {
-        return $query->whereHas('roles', function($q) {
-            $q->where('name', 'employee');
-        });
+        return $query->where('type', UserType::EMPLOYEE->value);
+    }
+
+    /**
+     * Scope for admins
+     */
+    public function scopeAdmins($query)
+    {
+        return $query->whereIn('type', [
+            UserType::SUPER_ADMIN->value,
+            UserType::ADMIN->value,
+        ]);
     }
 
     /**
@@ -137,9 +145,7 @@ class User extends Authenticatable implements FilamentUser
      */
     public function scopeOwners($query)
     {
-        return $query->whereHas('roles', function($q) {
-            $q->where('name', 'owner');
-        });
+        return $query->where('type', UserType::OWNER->value);
     }
 
     /**
@@ -147,17 +153,92 @@ class User extends Authenticatable implements FilamentUser
      */
     public function scopeTenants($query)
     {
-        return $query->whereHas('roles', function($q) {
-            $q->where('name', 'tenant');
-        });
+        return $query->where('type', UserType::TENANT->value);
+    }
+    
+    /**
+     * Scope by user type
+     */
+    public function scopeOfType($query, $type)
+    {
+        if ($type instanceof UserType) {
+            $type = $type->value;
+        }
+        return $query->where('type', $type);
     }
 
+    /**
+     * Get user type enum
+     */
+    public function getUserType(): ?UserType
+    {
+        return $this->type ? UserType::tryFrom($this->type) : null;
+    }
+    
+    /**
+     * Get user type label
+     */
+    public function getTypeLabel(): string
+    {
+        $userType = $this->getUserType();
+        return $userType ? $userType->label() : 'غير محدد';
+    }
+    
+    /**
+     * Get user type color
+     */
+    public function getTypeColor(): string
+    {
+        $userType = $this->getUserType();
+        return $userType ? $userType->color() : 'gray';
+    }
+    
+    /**
+     * Check if user is super admin
+     */
+    public function isSuperAdmin(): bool
+    {
+        return $this->type === UserType::SUPER_ADMIN->value;
+    }
+    
+    /**
+     * Check if user is admin
+     */
+    public function isAdmin(): bool
+    {
+        return $this->type === UserType::ADMIN->value;
+    }
+    
+    /**
+     * Check if user is employee
+     */
+    public function isEmployee(): bool
+    {
+        return $this->type === UserType::EMPLOYEE->value;
+    }
+    
+    /**
+     * Check if user is owner
+     */
+    public function isOwner(): bool
+    {
+        return $this->type === UserType::OWNER->value;
+    }
+    
+    /**
+     * Check if user is tenant
+     */
+    public function isTenant(): bool
+    {
+        return $this->type === UserType::TENANT->value;
+    }
+    
     /**
      * Filament access control
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        // Allow super_admin, admin, and employee to access admin panel
-        return $this->hasAnyRole(['super_admin', 'admin', 'employee']);
+        $userType = $this->getUserType();
+        return $userType ? $userType->canAccessPanel() : false;
     }
 }

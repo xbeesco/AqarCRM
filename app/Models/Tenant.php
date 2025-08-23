@@ -5,7 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Spatie\Permission\Models\Role;
+use App\Enums\UserType;
+use App\Helpers\AppHelper;
 
 class Tenant extends User
 {
@@ -21,31 +22,20 @@ class Tenant extends User
     {
         parent::boot();
 
-        // Add global scope to filter by tenant role
+        // Add global scope to filter by tenant type
         static::addGlobalScope('tenant', function (Builder $builder) {
-            $builder->whereHas('roles', function ($query) {
-                $query->where('name', 'tenant');
-            });
+            $builder->where('type', UserType::TENANT->value);
         });
 
-        // Auto-assign tenant role and set user_type on creation
+        // Auto-set type and generate email/password on creation
         static::creating(function ($tenant) {
-            $tenant->user_type = 'tenant';
+            $tenant->type = UserType::TENANT->value;
             // Auto-generate email and password from phone
             if ($tenant->phone && !$tenant->email) {
-                $tenant->email = $tenant->phone . '@towntop.sa';
+                $tenant->email = AppHelper::generateEmailFromPhone($tenant->phone);
             }
             if ($tenant->phone && !$tenant->password) {
                 $tenant->password = bcrypt($tenant->phone);
-            }
-        });
-
-        static::created(function ($tenant) {
-            $tenantRole = Role::firstOrCreate(
-                ['name' => 'tenant', 'guard_name' => 'web']
-            );
-            if ($tenantRole && !$tenant->hasRole('tenant')) {
-                $tenant->assignRole($tenantRole);
             }
         });
     }
