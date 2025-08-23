@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('unit_types', function (Blueprint $table) {
             $table->id();
             $table->string('name_ar', 100);
-            $table->string('name_en', 100)->nullable();
+            $table->string('name_en', 100);
             $table->string('slug', 120)->unique();
             $table->string('icon', 50)->nullable()->default('heroicon-o-home');
             $table->text('description')->nullable();

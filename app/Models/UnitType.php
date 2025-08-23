@@ -48,6 +48,11 @@ class UnitType extends Model
         return $this->hasMany(Unit::class);
     }
 
+    public function getCurrentNameAttribute(): string
+    {
+        return app()->getLocale() === 'ar' ? $this->name_ar : ($this->name_en ?: $this->name_ar);
+    }
+
     public function getNameAttribute(): string
     {
         return app()->getLocale() === 'ar' ? $this->name_ar : ($this->name_en ?: $this->name_ar);

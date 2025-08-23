@@ -5,9 +5,6 @@ namespace App\Filament\Resources\UnitTypes;
 use App\Filament\Resources\UnitTypes\Pages\ManageUnitTypes;
 use App\Models\UnitType;
 use BackedEnum;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
@@ -28,15 +25,19 @@ class UnitTypeResource extends Resource
     
     protected static ?string $pluralModelLabel = 'أنواع الوحدات';
 
-    protected static ?string $recordTitleAttribute = 'name_ar';
-
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
                 TextInput::make('name_ar')
+                    ->label('الاسم بالعربية')
                     ->required()
-                    ->maxLength(255),
+                    ->maxLength(100),
+                
+                TextInput::make('name_en')
+                    ->label('الاسم بالإنجليزية')
+                    ->required()
+                    ->maxLength(100),
             ]);
     }
 
@@ -46,19 +47,20 @@ class UnitTypeResource extends Resource
             ->recordTitleAttribute('name_ar')
             ->columns([
                 TextColumn::make('name_ar')
-                    ->searchable(),
+                    ->label('الاسم بالعربية'),
+                
+                TextColumn::make('name_en')
+                    ->label('الاسم بالإنجليزية'),
             ])
+            ->paginated(false)
             ->filters([
                 //
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
             ])
             ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
+                // إزالة bulk actions
             ]);
     }
 
