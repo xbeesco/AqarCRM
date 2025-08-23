@@ -3,370 +3,163 @@
 namespace App\Filament\Pages;
 
 use Filament\Pages\Page;
-use Filament\Tables\Concerns\InteractsWithTable;
-use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\IconColumn;
-use Filament\Actions\Action as TableAction;
-use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Columns\BadgeColumn;
+use Filament\Tables\Columns\ToggleColumn;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Str;
-use Illuminate\Database\Eloquent\Builder;
-use Sushi\Sushi;
-use Illuminate\Database\Eloquent\Model;
-use App\Filament\Pages\ModuleEditor;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Illuminate\Support\Collection;
 
-// Model for modules data using Sushi
-class ModuleData extends Model
+class ModulesManager extends Page
 {
-    use Sushi;
+    protected static ?string $navigationLabel = 'إدارة الوحدات';
+    protected static ?string $title = 'إدارة وحدات النظام';
     
-    protected $schema = [
-        'id' => 'integer',
-        'name' => 'string',
-        'path' => 'string',
-        'description' => 'text',
-        'full_description' => 'text',
-        'file_size' => 'integer',
-        'last_modified' => 'datetime',
-        'status' => 'string',
-        'has_models' => 'boolean',
-        'has_acf' => 'boolean',
-        'models_count' => 'integer',
-    ];
+    protected string $view = 'filament.pages.modules-manager';
     
-    public function getRows()
+    public Collection $modules;
+    
+    public function mount(): void
     {
-        $modulesPath = base_path('.docs/modules');
-        $modules = [];
-
-        if (!File::exists($modulesPath)) {
-            File::makeDirectory($modulesPath, 0755, true);
-        }
-
-        $files = File::files($modulesPath);
-        $index = 1;
+        // تحميل بيانات الوحدات
+        $this->modules = collect($this->getModulesData());
+    }
+    
+    protected function getModulesData(): array
+    {
+        return [
+            [
+                'id' => 1,
+                'name' => 'إدارة العقارات',
+                'key' => 'properties',
+                'description' => 'إدارة العقارات والوحدات السكنية',
+                'status' => 'active',
+                'completion' => 95,
+                'tables' => ['properties', 'units'],
+                'features' => 'إضافة، تعديل، حذف، البحث المتقدم',
+                'notes' => 'يحتاج تحسين واجهة البحث',
+            ],
+            [
+                'id' => 2,
+                'name' => 'إدارة العقود',
+                'key' => 'contracts',
+                'description' => 'عقود الإيجار والملكية',
+                'status' => 'in_progress',
+                'completion' => 75,
+                'tables' => ['unit_contracts', 'property_contracts'],
+                'features' => 'إنشاء العقود، التجديد التلقائي، التنبيهات',
+                'notes' => 'قيد التطوير - يحتاج ربط مع المدفوعات',
+            ],
+            [
+                'id' => 3,
+                'name' => 'النظام المالي',
+                'key' => 'payments',
+                'description' => 'المدفوعات والتحصيل والتوريد',
+                'status' => 'in_progress',
+                'completion' => 60,
+                'tables' => ['collection_payments', 'supply_payments'],
+                'features' => 'تسجيل المدفوعات، التقارير المالية، الفواتير',
+                'notes' => 'يحتاج تطوير نظام التقارير',
+            ],
+            [
+                'id' => 4,
+                'name' => 'إدارة المستخدمين',
+                'key' => 'users',
+                'description' => 'الملاك والمستأجرين والموظفين',
+                'status' => 'active',
+                'completion' => 90,
+                'tables' => ['users'],
+                'features' => 'إدارة الصلاحيات، الأدوار، البحث الذكي',
+                'notes' => 'تم إزالة Spatie والعمل بنظام مخصص',
+            ],
+            [
+                'id' => 5,
+                'name' => 'الصيانة والإصلاحات',
+                'key' => 'maintenance',
+                'description' => 'طلبات الصيانة وإدارة المقاولين',
+                'status' => 'pending',
+                'completion' => 20,
+                'tables' => ['property_repairs', 'maintenance_requests'],
+                'features' => 'طلبات الصيانة، جدولة الأعمال، تتبع التكاليف',
+                'notes' => 'لم يبدأ التطوير بعد',
+            ],
+            [
+                'id' => 6,
+                'name' => 'التقارير والإحصائيات',
+                'key' => 'reports',
+                'description' => 'التقارير المالية والإدارية',
+                'status' => 'pending',
+                'completion' => 15,
+                'tables' => [],
+                'features' => 'تقارير مخصصة، لوحات معلومات، تصدير البيانات',
+                'notes' => 'يحتاج تصميم واجهات التقارير',
+            ],
+            [
+                'id' => 7,
+                'name' => 'استيراد البيانات',
+                'key' => 'import',
+                'description' => 'استيراد البيانات من WordPress',
+                'status' => 'pending',
+                'completion' => 10,
+                'tables' => [],
+                'features' => 'استيراد الملاك، المستأجرين، العقارات، العقود',
+                'notes' => 'يحتاج كتابة scripts للاستيراد',
+            ],
+            [
+                'id' => 8,
+                'name' => 'البيانات المرجعية',
+                'key' => 'reference_data',
+                'description' => 'المواقع، الأنواع، الفئات، المميزات',
+                'status' => 'active',
+                'completion' => 100,
+                'tables' => ['locations', 'unit_types', 'unit_categories', 'unit_features'],
+                'features' => 'إدارة كاملة للبيانات المرجعية',
+                'notes' => 'مكتمل - تم التبسيط حسب المتطلبات',
+            ],
+        ];
+    }
+    
+    public function toggleModuleStatus($moduleId): void
+    {
+        $module = collect($this->modules)->firstWhere('id', $moduleId);
         
-        foreach ($files as $file) {
-            if ($file->getExtension() === 'json') {
-                $content = File::get($file->getPathname());
-                $data = json_decode($content, true);
-                $isValid = json_last_error() === JSON_ERROR_NONE;
-                
-                $modules[] = [
-                    'id' => $index++,  // Use incremental ID for Sushi
-                    'name' => $file->getFilenameWithoutExtension(),
-                    'path' => $file->getPathname(),
-                    'description' => $isValid ? ($data['meta']['description'] ?? 'No description') : 'Invalid JSON file',
-                    'full_description' => $isValid ? ($data['meta']['description'] ?? '') : 'Invalid JSON file',
-                    'file_size' => $file->getSize(),
-                    'last_modified' => \Carbon\Carbon::createFromTimestamp($file->getMTime()),
-                    'status' => $isValid ? 'valid' : 'invalid',
-                    'has_models' => $isValid && isset($data['models']),
-                    'has_acf' => $isValid && isset($data['acf_field_analysis']),
-                    'models_count' => $isValid ? count($data['models'] ?? []) : 0,
-                ];
-            }
-        }
-
-        return $modules;
-    }
-}
-
-class ModulesManager extends Page implements HasTable
-{
-    use InteractsWithTable;
-
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
-    protected static string|\UnitEnum|null $navigationGroup = 'System';
-    protected static ?int $navigationSort = 100;
-    protected static string|null $title = 'Modules Manager';
-    protected static string|null $navigationLabel = 'Modules Manager';
-    protected static ?string $slug = 'modules-manager';
-    
-    protected function getViewData(): array
-    {
-        return [];
-    }
-    
-    public function getView(): string
-    {
-        return 'filament.pages.modules-manager';
-    }
-
-    public function table(Table $table): Table
-    {
-        return $table
-            ->query(ModuleData::query())
-            ->columns([
-                TextColumn::make('name')
-                    ->label('Module Name')
-                    ->searchable()
-                    ->sortable()
-                    ->formatStateUsing(fn ($state) => Str::title(str_replace(['-', '_'], ' ', $state)))
-                    ->icon('heroicon-o-folder')
-                    ->iconColor('primary')
-                    ->weight('bold'),
-
-                                
-                TextColumn::make('models_count')
-                    ->label('Models')
-                    ->badge()
-                    ->color(fn ($state) => $state > 0 ? 'success' : 'gray')
-                    ->alignCenter(),
-                
-                TextColumn::make('file_size')
-                    ->label('Size')
-                    ->formatStateUsing(fn ($state) => $this->formatFileSize($state))
-                    ->sortable()
-                    ->alignEnd()
-                    ->color('gray'),
-                
-                TextColumn::make('last_modified')
-                    ->label('Last Modified')
-                    ->dateTime('M j, Y g:i A')
-                    ->sortable()
-                    ->color('gray')
-                    ->description(fn ($record) => $record->last_modified ? \Carbon\Carbon::parse($record->last_modified)->diffForHumans() : ''),
-                
-                TextColumn::make('status')
-                    ->label('Status')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'valid' => 'success',
-                        'invalid' => 'danger',
-                        default => 'gray',
-                    })
-                    ->icon(fn (string $state): string => match ($state) {
-                        'valid' => 'heroicon-o-check',
-                        'invalid' => 'heroicon-o-x-mark',
-                        default => '',
-                    })
-            ])
-            ->recordActions([
-                TableAction::make('edit')
-                    ->label('Edit')
-                    ->icon('heroicon-o-pencil')
-                    ->color('primary')
-                    ->url(fn ($record) => ModuleEditor::getUrl(['module' => $record->name]))
-                    ->openUrlInNewTab(false),
-            ])
-            ->headerActions([
-                TableAction::make('create')
-                    ->label('Add New Module')
-                    ->icon('heroicon-o-plus')
-                    ->color('success')
-                    ->form([
-                        TextInput::make('module_name')
-                            ->label('Module Name')
-                            ->required()
-                            ->placeholder('properties, units, contracts')
-                            ->regex('/^[a-z_]+$/')
-                            ->validationMessages([
-                                'regex' => 'Only lowercase English letters and underscores are allowed',
-                            ]),
-                        TextInput::make('version')
-                            ->label('Version')
-                            ->default('1.0.0')
-                            ->placeholder('1.0.0'),
-                        Textarea::make('description')
-                            ->label('Description')
-                            ->required()
-                            ->placeholder('Describe what this module does')
-                            ->rows(3),
-                    ])
-                    ->modalHeading('Create New Module')
-                    ->modalDescription('Enter the basic information for your new module')
-                    ->modalSubmitActionLabel('Create Module')
-                    ->action(fn (array $data) => $this->createNewModule($data)),
-            ])
-            ->bulkActions([])
-            ->defaultSort('name')
-            ->striped()
-            ->paginated(false)
-            ->poll('60s');
-    }
-
-    protected function formatFileSize($bytes): string
-    {
-        $units = ['B', 'KB', 'MB', 'GB'];
-        $bytes = max($bytes, 0);
-        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
-        $pow = min($pow, count($units) - 1);
-        $bytes /= pow(1024, $pow);
-        
-        return round($bytes, 2) . ' ' . $units[$pow];
-    }
-    
-    protected function getTableEmptyStateHeading(): ?string
-    {
-        return 'No modules found';
-    }
-    
-    protected function getTableEmptyStateDescription(): ?string
-    {
-        return 'No module files were found in the .docs/modules directory.';
-    }
-    
-    protected function getTableEmptyStateIcon(): ?string
-    {
-        return 'heroicon-o-folder-open';
-    }
-
-    protected function validateModule($path): void
-    {
-        try {
-            $content = File::get($path);
-            $data = json_decode($content, true);
-            
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                Notification::make()
-                    ->title('Validation Failed')
-                    ->body('Invalid JSON: ' . json_last_error_msg())
-                    ->danger()
-                    ->send();
-                return;
-            }
-
-            // Validate required fields
-            $errors = [];
-            
-            if (!isset($data['meta'])) {
-                $errors[] = 'Missing "meta" section';
-            } else {
-                if (!isset($data['meta']['module'])) {
-                    $errors[] = 'Missing "meta.module" field';
-                }
-                if (!isset($data['meta']['description'])) {
-                    $errors[] = 'Missing "meta.description" field';
-                }
-                if (!isset($data['meta']['schema_definition'])) {
-                    $errors[] = 'Missing "meta.schema_definition" section';
-                }
-            }
-
-            if (empty($errors)) {
-                Notification::make()
-                    ->title('Validation Successful')
-                    ->body('Module structure is valid!')
-                    ->success()
-                    ->send();
-            } else {
-                Notification::make()
-                    ->title('Validation Warnings')
-                    ->body(implode(', ', $errors))
-                    ->warning()
-                    ->send();
-            }
-            
-        } catch (\Exception $e) {
+        if ($module) {
             Notification::make()
-                ->title('Validation Error')
-                ->body($e->getMessage())
-                ->danger()
-                ->send();
-        }
-    }
-
-    protected function backupModule($path): void
-    {
-        try {
-            $backupDir = base_path('.docs/modules/backups');
-            
-            if (!File::exists($backupDir)) {
-                File::makeDirectory($backupDir, 0755, true);
-            }
-
-            $filename = pathinfo($path, PATHINFO_FILENAME);
-            $timestamp = now()->format('Y-m-d_H-i-s');
-            $backupPath = $backupDir . '/' . $filename . '_' . $timestamp . '.json';
-            
-            File::copy($path, $backupPath);
-            
-            Notification::make()
-                ->title('Backup Created')
-                ->body('Module backed up successfully!')
+                ->title('تم تحديث حالة الوحدة')
+                ->body("تم تحديث حالة وحدة: {$module['name']}")
                 ->success()
                 ->send();
-                
-        } catch (\Exception $e) {
-            Notification::make()
-                ->title('Backup Failed')
-                ->body($e->getMessage())
-                ->danger()
-                ->send();
         }
     }
     
-    public function createNewModule($data = []): void
+    public function getStatusColor(string $status): string
     {
-        // This method will be called from a modal form
-        try {
-            $moduleName = Str::slug($data['module_name']);
-            $modulePath = base_path('.docs/modules/' . $moduleName . '.json');
-            
-            if (File::exists($modulePath)) {
-                Notification::make()
-                    ->title('Module Already Exists')
-                    ->body("A module named '{$moduleName}' already exists.")
-                    ->danger()
-                    ->send();
-                return;
-            }
-            
-            // Create the module structure
-            $moduleData = [
-                'meta' => [
-                    'module' => $moduleName,
-                    'version' => $data['version'] ?? '1.0.0',
-                    'description' => $data['description'] ?? 'New module description',
-                    'schema_definition' => []
-                ],
-                'models' => [],
-                'relationships' => [],
-                'shared' => [
-                    'processes' => [],
-                    'screens' => [],
-                    'utilities' => [
-                        'helpers' => [],
-                        'validators' => [],
-                        'transformers' => []
-                    ]
-                ],
-                'tests' => [
-                    'unit' => [],
-                    'feature' => [],
-                    'playwright_mcp' => []
-                ]
-            ];
-            
-            // Write the JSON file
-            $jsonContent = json_encode(
-                $moduleData,
-                JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-            );
-            
-            File::put($modulePath, $jsonContent);
-            
-            Notification::make()
-                ->title('Module Created')
-                ->body("Module '{$moduleName}' has been created successfully.")
-                ->success()
-                ->send();
-                
-            // Redirect to the module editor
-            redirect()->to(ModuleEditor::getUrl(['module' => $moduleName]));
-                
-        } catch (\Exception $e) {
-            Notification::make()
-                ->title('Creation Failed')
-                ->body('Error: ' . $e->getMessage())
-                ->danger()
-                ->send();
-        }
+        return match($status) {
+            'active' => 'success',
+            'in_progress' => 'warning',
+            'pending' => 'gray',
+            default => 'gray',
+        };
+    }
+    
+    public function getStatusLabel(string $status): string
+    {
+        return match($status) {
+            'active' => 'مفعل',
+            'in_progress' => 'قيد التطوير',
+            'pending' => 'في الانتظار',
+            default => 'غير محدد',
+        };
+    }
+    
+    public function getCompletionColor(int $completion): string
+    {
+        if ($completion >= 80) return 'success';
+        if ($completion >= 50) return 'warning';
+        return 'danger';
     }
 }
