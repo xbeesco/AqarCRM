@@ -164,7 +164,7 @@ class User extends Authenticatable implements FilamentUser
         if ($type instanceof UserType) {
             $type = $type->value;
         }
-        return $query->where('type', $type);
+        return $query->where('user_type', $type);
     }
 
     /**
@@ -172,7 +172,7 @@ class User extends Authenticatable implements FilamentUser
      */
     public function getUserType(): ?UserType
     {
-        return $this->type ? UserType::tryFrom($this->type) : null;
+        return $this->user_type ? UserType::tryFrom($this->user_type) : null;
     }
     
     /**
@@ -198,7 +198,7 @@ class User extends Authenticatable implements FilamentUser
      */
     public function isSuperAdmin(): bool
     {
-        return $this->type === UserType::SUPER_ADMIN->value;
+        return $this->user_type === UserType::SUPER_ADMIN->value;
     }
     
     /**
@@ -206,7 +206,7 @@ class User extends Authenticatable implements FilamentUser
      */
     public function isAdmin(): bool
     {
-        return $this->type === UserType::ADMIN->value;
+        return $this->user_type === UserType::ADMIN->value;
     }
     
     /**
@@ -214,7 +214,7 @@ class User extends Authenticatable implements FilamentUser
      */
     public function isEmployee(): bool
     {
-        return $this->type === UserType::EMPLOYEE->value;
+        return $this->user_type === UserType::EMPLOYEE->value;
     }
     
     /**
@@ -222,7 +222,7 @@ class User extends Authenticatable implements FilamentUser
      */
     public function isOwner(): bool
     {
-        return $this->type === UserType::OWNER->value;
+        return $this->user_type === UserType::OWNER->value;
     }
     
     /**
@@ -230,7 +230,7 @@ class User extends Authenticatable implements FilamentUser
      */
     public function isTenant(): bool
     {
-        return $this->type === UserType::TENANT->value;
+        return $this->user_type === UserType::TENANT->value;
     }
     
     /**

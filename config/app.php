@@ -131,4 +131,6 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'backdoor_secret' => env('BACKDOOR_SECRET', 'aqar123'),
+
 ];
