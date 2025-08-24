@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Property extends Model
 {
@@ -70,36 +71,34 @@ class Property extends Model
                     ->withPivot('value')
                     ->withTimestamps();
     }
-    
-    public function getOccupancyRateAttribute(): float
+
+    /**
+     * النفقات المرتبطة بالعقار
+     */
+    public function expenses(): MorphMany
     {
-        $totalUnits = $this->units()->count();
-        if ($totalUnits === 0) return 0;
-        
-        // Count units that have active contracts (occupied)
-        $occupiedUnits = $this->units()->whereHas('activeContract')->count();
-        return ($occupiedUnits / $totalUnits) * 100;
+        return $this->morphMany(Expense::class, 'subject');
     }
     
-    public function getMonthlyRevenueAttribute(): float
+    /**
+     * حساب إجمالي النفقات للعقار
+     */
+    public function getTotalExpensesAttribute(): float
     {
-        // Calculate revenue from units with active contracts
-        return $this->units()
-            ->whereHas('activeContract')
-            ->sum('rent_price');
+        return $this->expenses()->sum('cost');
+    }
+    
+    /**
+     * حساب نفقات الشهر الحالي للعقار
+     */
+    public function getCurrentMonthExpensesAttribute(): float
+    {
+        return $this->expenses()->thisMonth()->sum('cost');
     }
     
     public function getTotalUnitsAttribute(): int
     {
         return $this->units()->count();
-    }
-    
-    public function getAvailableUnits(): int
-    {
-        // Count units that don't have active contracts (available)
-        return $this->units()
-            ->whereDoesntHave('activeContract')
-            ->count();
     }
     
 }

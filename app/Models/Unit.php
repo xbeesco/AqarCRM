@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Unit extends Model
@@ -83,28 +84,26 @@ class Unit extends Model
     }
 
     /**
-     * Get the active contract for this unit
+     * النفقات المرتبطة بالوحدة
      */
-    public function activeContract()
+    public function expenses(): MorphMany
     {
-        return $this->hasOne(UnitContract::class)
-                    ->where('start_date', '<=', now())
-                    ->whereRaw('DATE_ADD(start_date, INTERVAL duration_months MONTH) >= ?', [now()]);
+        return $this->morphMany(Expense::class, 'subject');
     }
-
+    
     /**
-     * Check if unit is occupied (has active contract)
+     * حساب إجمالي النفقات للوحدة
      */
-    public function isOccupied(): bool
+    public function getTotalExpensesAttribute(): float
     {
-        return $this->activeContract()->exists();
+        return $this->expenses()->sum('cost');
     }
-
+    
     /**
-     * Check if unit is available (no active contract)
+     * حساب نفقات الشهر الحالي للوحدة
      */
-    public function isAvailable(): bool
+    public function getCurrentMonthExpensesAttribute(): float
     {
-        return !$this->isOccupied();
+        return $this->expenses()->thisMonth()->sum('cost');
     }
 }

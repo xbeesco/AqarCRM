@@ -22,7 +22,7 @@ class CreateEmployee extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         // التأكد من أن نوع المستخدم موظف
-        $data['user_type'] = 'employee';
+        $data['type'] = 'employee';
         
         return $data;
     }

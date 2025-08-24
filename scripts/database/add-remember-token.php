@@ -22,10 +22,10 @@ if (Schema::hasColumn('users', 'remember_token')) {
 }
 
 echo "\n📊 فحص المستخدمين الموجودين:\n";
-$users = DB::table('users')->select('id', 'email', 'user_type')->get();
+$users = DB::table('users')->select('id', 'email', 'type')->get();
 
 foreach ($users as $user) {
-    echo "   - {$user->email} (type: {$user->user_type})\n";
+    echo "   - {$user->email} (type: {$user->type})\n";
 }
 
 echo "\n✅ اكتمل الإعداد\n";
