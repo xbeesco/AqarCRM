@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -11,11 +12,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            // Make username and email nullable for owners and tenants
-            $table->string('username')->nullable()->change();
-            $table->string('email')->nullable()->change();
-        });
+        // Use raw SQL to make email nullable without doctrine/dbal
+        DB::statement('ALTER TABLE users MODIFY email VARCHAR(255) NULL');
     }
 
     /**
@@ -24,7 +22,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('username')->nullable(false)->change();
             $table->string('email')->nullable(false)->change();
         });
     }
