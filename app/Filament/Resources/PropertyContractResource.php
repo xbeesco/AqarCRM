@@ -201,7 +201,8 @@ class PropertyContractResource extends Resource
                     ]),
             ])
             ->recordActions([
-                //EditAction::make(),
+                EditAction::make()
+                    ->visible(fn () => auth()->user()?->type === 'super_admin'),
             ])
             ->defaultSort('created_at', 'desc');
     }

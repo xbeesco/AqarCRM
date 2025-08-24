@@ -20,6 +20,8 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
+use Filament\Actions\DeleteAction;
 use Illuminate\Database\Eloquent\Builder;
 
 class UnitContractResource extends Resource
@@ -238,7 +240,8 @@ class UnitContractResource extends Resource
             ])
             //->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
             ->recordActions([
-                //EditAction::make(),
+                EditAction::make()
+                    ->visible(fn () => auth()->user()?->type === 'super_admin'),
             ])
             ->defaultSort('created_at', 'desc');
     }
@@ -254,9 +257,61 @@ class UnitContractResource extends Resource
     {
         return [
             'index' => Pages\ListUnitContracts::route('/'),
-                        'create' => Pages\CreateUnitContract::route('/create'),
+            'create' => Pages\CreateUnitContract::route('/create'),
             'view' => Pages\ViewUnitContracts::route('/{record}'),
-            'edit' => Pages\EditUnitContract::route('/{record}/edit'),
+            'edit' => Pages\EditUnitContract::route('/{record}/edit'), // Only accessible by super_admin
         ];
+    }
+    
+    /**
+     * Only super_admin can edit contracts
+     */
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        $user = auth()->user();
+        return $user && $user->type === 'super_admin';
+    }
+    
+    /**
+     * Only super_admin can delete contracts
+     */
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        $user = auth()->user();
+        return $user && $user->type === 'super_admin';
+    }
+    
+    /**
+     * Only admins and employees can create contracts
+     */
+    public static function canCreate(): bool
+    {
+        $user = auth()->user();
+        return $user && in_array($user->type, ['super_admin', 'admin', 'employee']);
+    }
+    
+    /**
+     * Filter records based on user type
+     */
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+        
+        if ($user) {
+            switch ($user->type) {
+                case 'owner':
+                    // Owners see contracts for their properties only
+                    return $query->whereHas('property', function ($q) use ($user) {
+                        $q->where('owner_id', $user->id);
+                    });
+                    
+                case 'tenant':
+                    // Tenants see only their own contracts
+                    return $query->where('tenant_id', $user->id);
+            }
+        }
+        
+        return $query;
     }
 }
