@@ -21,7 +21,6 @@ use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -30,6 +29,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\GlobalSearch\GlobalSearchResult;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 class PropertyResource extends Resource
 {
     protected static ?string $model = Property::class;
@@ -151,10 +151,10 @@ class PropertyResource extends Resource
                     ->label('المالك')
                     ->searchable(),
                     
-                BadgeColumn::make('propertyStatus.name_ar')
+                TextColumn::make('propertyStatus.name_ar')
                     ->label('الحالة')
-                    ->color(fn ($record) => $record->propertyStatus?->color ? 
-                        str_replace('#', '', $record->propertyStatus->color) : 'gray'),
+                    ->badge()
+                    ->color(fn ($record) => $record->propertyStatus?->color ?? 'gray'),
                     
                 TextColumn::make('propertyType.name_ar')
                     ->label('النوع'),
@@ -175,11 +175,8 @@ class PropertyResource extends Resource
                     ->label('الموقع')
                     ->relationship('location', 'name'),
             ], layout: \Filament\Tables\Enums\FiltersLayout::AboveContent)
-            ->actions([
+            ->recordActions([
                 EditAction::make(),
-            ])
-            ->bulkActions([
-                // Remove bulk actions as per requirements
             ]);
     }
 
@@ -199,34 +196,117 @@ class PropertyResource extends Resource
         ];
     }
 
-    //protected static ?string $recordTitleAttribute = 'name';
+    protected static ?string $recordTitleAttribute = 'name';
     
-    // public static function getGloballySearchableAttributes(): array
-    // {
-    //     return ['name', 'address', 'notes', 'owner.name', 'location.name_ar', 'location.name_en'];
-    // }
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'code',
+            'name', 
+            'address', 
+            'postal_code',
+            'parking_spots',
+            'elevators',
+            'built_year',
+            'floors_count',
+            'notes',
+            'owner.name',
+            'owner.email',
+            'owner.phone',
+            'location.name',
+            'location.name_ar',
+            'location.name_en',
+            'propertyType.name_ar',
+            'propertyType.name_en',
+            'propertyStatus.name_ar',
+            'propertyStatus.name_en',
+            'created_at',
+            'updated_at'
+        ];
+    }
     
-    // public static function getGlobalSearchResultDetails($record): array
-    // {
-    //     return [
-    //         'المالك' => $record->owner?->name ?? 'غير محدد',
-    //         'الموقع' => $record->location?->name_ar ?? 'غير محدد',
-    //         'العنوان' => $record->address ?? 'غير محدد',
-    //     ];
-    // }
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()
+            ->with(['owner', 'location', 'propertyType', 'propertyStatus']);
+    }
     
-    // public static function getGlobalSearchEloquentQuery(): Builder
-    // {
-    //     return parent::getGlobalSearchEloquentQuery()->with(['owner', 'location']);
-    // }
-    
-    // public static function getGlobalSearchResultActions($record): array
-    // {
-    //     return [
-    //         Action::make('edit')
-    //             ->label('تحرير')
-    //             ->icon('heroicon-s-pencil')
-    //             ->url(static::getUrl('edit', ['record' => $record])),
-    //     ];
-    // }
+    public static function getGlobalSearchResults(string $search): Collection
+    {
+        $search = trim($search);
+        
+        // Remove Arabic hamza variations for better search
+        $normalizedSearch = str_replace(['أ', 'إ', 'آ'], 'ا', $search);
+        $normalizedSearch = str_replace(['ة'], 'ه', $normalizedSearch);
+        
+        return static::getGlobalSearchEloquentQuery()
+            ->where(function (Builder $query) use ($search, $normalizedSearch) {
+                // Search in property fields
+                $query->where('code', 'LIKE', "%{$search}%")
+                    ->orWhere('name', 'LIKE', "%{$normalizedSearch}%")
+                    ->orWhere('address', 'LIKE', "%{$normalizedSearch}%")
+                    ->orWhere('postal_code', 'LIKE', "%{$search}%")
+                    ->orWhere('notes', 'LIKE', "%{$normalizedSearch}%")
+                    ->orWhere('parking_spots', $search)
+                    ->orWhere('elevators', $search)
+                    ->orWhere('built_year', $search)
+                    ->orWhere('floors_count', $search);
+                
+                // Search in owner
+                $query->orWhereHas('owner', function ($q) use ($search, $normalizedSearch) {
+                    $q->where('name', 'LIKE', "%{$normalizedSearch}%")
+                      ->orWhere('email', 'LIKE', "%{$search}%")
+                      ->orWhere('phone', 'LIKE', "%{$search}%");
+                });
+                
+                // Search in location
+                $query->orWhereHas('location', function ($q) use ($search, $normalizedSearch) {
+                    $q->where('name', 'LIKE', "%{$normalizedSearch}%")
+                      ->orWhere('name_ar', 'LIKE', "%{$normalizedSearch}%")
+                      ->orWhere('name_en', 'LIKE', "%{$search}%");
+                });
+                
+                // Search in property type
+                $query->orWhereHas('propertyType', function ($q) use ($search, $normalizedSearch) {
+                    $q->where('name_ar', 'LIKE', "%{$normalizedSearch}%")
+                      ->orWhere('name_en', 'LIKE', "%{$search}%");
+                });
+                
+                // Search in property status
+                $query->orWhereHas('propertyStatus', function ($q) use ($search, $normalizedSearch) {
+                    $q->where('name_ar', 'LIKE', "%{$normalizedSearch}%")
+                      ->orWhere('name_en', 'LIKE', "%{$search}%");
+                });
+                
+                // Search in dates (multiple formats)
+                if (preg_match('/\d{4}/', $search)) {
+                    $query->orWhereYear('created_at', $search)
+                          ->orWhereYear('updated_at', $search);
+                }
+                
+                if (preg_match('/\d{1,2}[-\/]\d{1,2}/', $search)) {
+                    $dateParts = preg_split('/[-\/]/', $search);
+                    if (count($dateParts) == 2) {
+                        $query->orWhereMonth('created_at', $dateParts[1])
+                              ->whereDay('created_at', $dateParts[0]);
+                    }
+                }
+            })
+            ->limit(50)
+            ->get()
+            ->map(function ($record) {
+                return new GlobalSearchResult(
+                    title: $record->name . ' (' . $record->code . ')',
+                    url: static::getUrl('edit', ['record' => $record]),
+                    details: [
+                        'المالك' => $record->owner?->name ?? 'غير محدد',
+                        'الموقع' => $record->location?->name ?? 'غير محدد',
+                        'النوع' => $record->propertyType?->name_ar ?? 'غير محدد',
+                        'الحالة' => $record->propertyStatus?->name_ar ?? 'غير محدد',
+                        'العنوان' => $record->address ?? 'غير محدد',
+                    ],
+                    actions: []
+                );
+            });
+    }
 }
