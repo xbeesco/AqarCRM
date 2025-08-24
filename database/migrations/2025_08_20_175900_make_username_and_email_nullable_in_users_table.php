@@ -12,8 +12,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Use raw SQL to make email nullable without doctrine/dbal
-        DB::statement('ALTER TABLE users MODIFY email VARCHAR(255) NULL');
+        // فحص وتعديل username لو موجود
+        if (Schema::hasColumn('users', 'username')) {
+            DB::statement('ALTER TABLE users MODIFY username VARCHAR(255) NULL');
+        }
+        
+        // فحص وتعديل email لو موجود
+        if (Schema::hasColumn('users', 'email')) {
+            DB::statement('ALTER TABLE users MODIFY email VARCHAR(255) NULL');
+        }
     }
 
     /**
@@ -21,8 +28,14 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->string('email')->nullable(false)->change();
-        });
+        // فحص وإرجاع username لو موجود
+        if (Schema::hasColumn('users', 'username')) {
+            DB::statement('ALTER TABLE users MODIFY username VARCHAR(255) NOT NULL');
+        }
+        
+        // فحص وإرجاع email لو موجود
+        if (Schema::hasColumn('users', 'email')) {
+            DB::statement('ALTER TABLE users MODIFY email VARCHAR(255) NOT NULL');
+        }
     }
 };
