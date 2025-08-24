@@ -105,7 +105,7 @@ class UnitContractResource extends Resource
                             ->options(User::where('type', 'tenant')->pluck('name', 'id'))
                             ->columnSpan(4),
 
-                        DatePicker::make('contract_date')
+                        DatePicker::make('start_date')
                             ->label('تاريخ بداية العقد')
                             ->required()
                             ->default(now())
@@ -180,7 +180,7 @@ class UnitContractResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('contract_date')
+                TextColumn::make('start_date')
                     ->label('تاريخ العقد')
                     ->date('d/m/Y')
                     ->sortable(),

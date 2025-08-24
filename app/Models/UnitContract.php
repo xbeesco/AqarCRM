@@ -52,15 +52,57 @@ class UnitContract extends Model
         'terminated_at' => 'datetime',
     ];
 
-    /**
-     * Get the end date calculated from contract_date and duration_months.
-     */
-    public function getEndDateAttribute()
+    protected static function boot()
     {
-        if (!$this->contract_date || !$this->duration_months) {
-            return null;
-        }
-        return $this->contract_date->copy()->addMonths($this->duration_months);
+        parent::boot();
+        
+        static::creating(function ($contract) {
+            // Generate contract number if not set
+            if (empty($contract->contract_number)) {
+                $year = date('Y');
+                $lastContract = static::whereYear('created_at', $year)
+                    ->orderBy('id', 'desc')
+                    ->first();
+                
+                $number = $lastContract ? intval(substr($lastContract->contract_number, -4)) + 1 : 1;
+                $contract->contract_number = sprintf('UC-%s-%04d', $year, $number);
+            }
+            
+            // Calculate end_date if not set
+            if (empty($contract->end_date) && $contract->start_date && $contract->duration_months) {
+                $startDate = \Carbon\Carbon::parse($contract->start_date);
+                $contract->end_date = $startDate->copy()->addMonths($contract->duration_months)->subDay();
+            }
+            
+            // Set default values if not provided
+            if (is_null($contract->security_deposit)) {
+                $contract->security_deposit = $contract->monthly_rent ?? 0;
+            }
+            
+            if (is_null($contract->grace_period_days)) {
+                $contract->grace_period_days = 5;
+            }
+            
+            if (is_null($contract->late_fee_rate)) {
+                $contract->late_fee_rate = 5.00;
+            }
+            
+            if (is_null($contract->evacuation_notice_days)) {
+                $contract->evacuation_notice_days = 30;
+            }
+            
+            if (is_null($contract->contract_status)) {
+                $contract->contract_status = 'draft';
+            }
+        });
+        
+        static::updating(function ($contract) {
+            // Recalculate end_date if start_date or duration_months changed
+            if ($contract->isDirty(['start_date', 'duration_months']) && $contract->start_date && $contract->duration_months) {
+                $startDate = \Carbon\Carbon::parse($contract->start_date);
+                $contract->end_date = $startDate->copy()->addMonths($contract->duration_months)->subDay();
+            }
+        });
     }
 
     /**
