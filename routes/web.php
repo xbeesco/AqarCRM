@@ -166,7 +166,7 @@ Route::get('/test-access', function () {
     
     return [
         'user' => $user->email,
-        'user_type' => $user->user_type,
+        'type' => $user->type,
         'authenticated' => auth()->check(),
         'canAccessPanel' => $canAccess,
         'redirect_to_admin' => $canAccess ? 'Should work!' : 'Will get 403'

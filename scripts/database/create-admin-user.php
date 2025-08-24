@@ -16,11 +16,11 @@ $admin = User::updateOrCreate(
         'name' => 'مدير النظام',
         'password' => Hash::make('password'),
         'phone' => '0500000000',
-        'user_type' => UserType::SUPER_ADMIN->value, // استخدام النظام الجديد
+        'type' => UserType::SUPER_ADMIN->value, // استخدام النظام الجديد
     ]
 );
 
 echo "✅ تم إنشاء مستخدم المدير:\n";
 echo "   البريد الإلكتروني: admin@aqarcrm.test\n";
 echo "   كلمة المرور: password\n";
-echo "   النوع: " . $admin->user_type . "\n";
+echo "   النوع: " . $admin->type . "\n";
