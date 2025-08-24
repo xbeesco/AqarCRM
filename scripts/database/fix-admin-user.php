@@ -12,12 +12,12 @@ echo "🔧 إصلاح مستخدم Admin...\n\n";
 $user = User::where('email', 'admin@aqarcrm.test')->first();
 
 if ($user) {
-    $user->user_type = UserType::SUPER_ADMIN->value;
+    $user->type = UserType::SUPER_ADMIN->value;
     $user->save();
     
     echo "✅ تم تحديث المستخدم:\n";
     echo "   Email: " . $user->email . "\n";
-    echo "   Type: " . $user->user_type . "\n";
+    echo "   Type: " . $user->type . "\n";
     
     // التحقق من canAccessPanel
     $canAccess = $user->canAccessPanel(new \Filament\Panel('admin'));
@@ -31,11 +31,11 @@ if ($user) {
         'email' => 'admin@aqarcrm.test',
         'password' => bcrypt('password'),
         'phone' => '0500000000',
-        'user_type' => UserType::SUPER_ADMIN->value,
+        'type' => UserType::SUPER_ADMIN->value,
     ]);
     
     echo "✅ تم إنشاء المستخدم:\n";
     echo "   Email: " . $user->email . "\n";
     echo "   Password: password\n";
-    echo "   Type: " . $user->user_type . "\n";
+    echo "   Type: " . $user->type . "\n";
 }

@@ -62,8 +62,8 @@ class AdminPanelProvider extends PanelProvider
                                     \App\Filament\Resources\CollectionPaymentResource::getNavigationItems()),
                                 ...array_map(fn($item) => $item->icon('heroicon-o-arrow-up-tray'), 
                                     \App\Filament\Resources\SupplyPaymentResource::getNavigationItems()),
-                                ...array_map(fn($item) => $item->icon('heroicon-o-calculator'), 
-                                    \App\Filament\Resources\OperationResource::getNavigationItems()),
+                                ...array_map(fn($item) => $item->icon('heroicon-o-banknotes'), 
+                                    \App\Filament\Resources\ExpenseResource::getNavigationItems()),
                             ]),
                         NavigationGroup::make('التعاقدات')
                             ->items([

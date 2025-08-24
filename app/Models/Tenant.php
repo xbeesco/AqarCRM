@@ -24,12 +24,12 @@ class Tenant extends User
 
         // Add global scope to filter by tenant type
         static::addGlobalScope('tenant', function (Builder $builder) {
-            $builder->where('user_type', UserType::TENANT->value);
+            $builder->where('type', UserType::TENANT->value);
         });
 
         // Auto-set type and generate email/password on creation
         static::creating(function ($tenant) {
-            $tenant->user_type = UserType::TENANT->value;
+            $tenant->type = UserType::TENANT->value;
             // Auto-generate email and password from phone
             if ($tenant->phone && !$tenant->email) {
                 $tenant->email = AppHelper::generateEmailFromPhone($tenant->phone);

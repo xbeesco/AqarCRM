@@ -20,7 +20,7 @@ $problematicMigrations = [
     '2025_08_21_011222_add_phone_columns_to_users_table',
     '2025_08_21_042109_add_missing_columns_to_locations_table',
     '2025_08_21_045944_add_arabic_english_names_to_locations_table',
-    '2025_08_21_add_user_type_to_users_table',
+    '2025_08_21_add_type_to_users_table',
     '2025_08_23_034207_add_code_to_locations_table',
     '2025_08_23_040346_remove_name_en_from_locations_table',
 ];
