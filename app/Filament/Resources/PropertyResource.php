@@ -8,7 +8,7 @@ use App\Models\PropertyType;
 use App\Models\PropertyStatus;
 use App\Models\PropertyFeature;
 use Filament\Forms;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Columns\Column;
@@ -28,7 +28,6 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Schemas\Schema;
 use Filament\GlobalSearch\GlobalSearchResult;
 use Illuminate\Database\Eloquent\Builder;
 class PropertyResource extends Resource
@@ -56,6 +55,7 @@ class PropertyResource extends Resource
                             ->label('المالك')
                             ->relationship('owner', 'name')
                             ->searchable()
+                            ->preload()
                             ->required()
                             ->columnSpan(1),
                     ]),
@@ -81,6 +81,7 @@ class PropertyResource extends Resource
                         ->label('الموقع')
                         ->relationship('location', 'name')
                         ->searchable()
+                        ->preload()
                         ->nullable(),
                         
                     Grid::make(2)->schema([
@@ -115,7 +116,7 @@ class PropertyResource extends Resource
                             ->numeric()
                             ->nullable(),
                             
-                        TextInput::make('build_year')
+                        TextInput::make('built_year')
                             ->label('سنة البناء')
                             ->numeric()
                             ->minValue(1900)

@@ -14,6 +14,7 @@ class Property extends Model
     use HasFactory;
     
     protected $fillable = [
+        'code',
         'name', 
         'owner_id',
         'type_id',
@@ -23,17 +24,37 @@ class Property extends Model
         'postal_code', 
         'parking_spots', 
         'elevators',
-        'build_year', 
+        'built_year', 
         'floors_count', 
         'notes'
     ];
     
     protected $casts = [
-        'build_year' => 'integer',
+        'built_year' => 'integer',
         'parking_spots' => 'integer',
         'elevators' => 'integer',
         'floors_count' => 'integer',
     ];
+    
+    protected static function boot()
+    {
+        parent::boot();
+        
+        static::creating(function ($property) {
+            if (empty($property->code)) {
+                // Generate unique code: PROP-YYYYMM-XXXX
+                $year = date('Y');
+                $month = date('m');
+                $lastProperty = static::whereYear('created_at', $year)
+                    ->whereMonth('created_at', $month)
+                    ->orderBy('id', 'desc')
+                    ->first();
+                
+                $number = $lastProperty ? intval(substr($lastProperty->code, -4)) + 1 : 1;
+                $property->code = sprintf('PROP-%s%s-%04d', $year, $month, $number);
+            }
+        });
+    }
     
     public function owner(): BelongsTo
     {
