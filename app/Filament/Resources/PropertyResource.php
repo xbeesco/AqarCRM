@@ -201,7 +201,6 @@ class PropertyResource extends Resource
     public static function getGloballySearchableAttributes(): array
     {
         return [
-            'code',
             'name', 
             'address', 
             'postal_code',
@@ -242,8 +241,7 @@ class PropertyResource extends Resource
         return static::getGlobalSearchEloquentQuery()
             ->where(function (Builder $query) use ($search, $normalizedSearch) {
                 // Search in property fields
-                $query->where('code', 'LIKE', "%{$search}%")
-                    ->orWhere('name', 'LIKE', "%{$normalizedSearch}%")
+                $query->where('name', 'LIKE', "%{$normalizedSearch}%")
                     ->orWhere('address', 'LIKE', "%{$normalizedSearch}%")
                     ->orWhere('postal_code', 'LIKE', "%{$search}%")
                     ->orWhere('notes', 'LIKE', "%{$normalizedSearch}%")
@@ -296,7 +294,7 @@ class PropertyResource extends Resource
             ->get()
             ->map(function ($record) {
                 return new GlobalSearchResult(
-                    title: $record->name . ' (' . $record->code . ')',
+                    title: $record->name,
                     url: static::getUrl('edit', ['record' => $record]),
                     details: [
                         'المالك' => $record->owner?->name ?? 'غير محدد',
