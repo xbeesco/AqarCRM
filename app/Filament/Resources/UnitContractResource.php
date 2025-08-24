@@ -26,11 +26,11 @@ class UnitContractResource extends Resource
 {
     protected static ?string $model = UnitContract::class;
 
-    protected static ?string $navigationLabel = 'عقود الوحدات';
+    protected static ?string $navigationLabel = 'تعاقدات المستأجرين';
 
-    protected static ?string $modelLabel = 'عقد وحدة';
+    protected static ?string $modelLabel = 'تعاقد مستأجر';
 
-    protected static ?string $pluralModelLabel = 'عقود الوحدات';
+    protected static ?string $pluralModelLabel = 'تعاقدات المستأجرين';
 
     public static function form(Schema $schema): Schema
     {
@@ -43,6 +43,7 @@ class UnitContractResource extends Resource
                             ->required()
                             ->searchable()
                             ->relationship('property', 'name')
+                            ->preload()
                             ->live()
                             ->afterStateUpdated(fn (callable $set) => $set('unit_id', null))
                             ->columnSpan(4),
@@ -50,19 +51,44 @@ class UnitContractResource extends Resource
                         Select::make('unit_id')
                             ->label('الوحدة')
                             ->required()
-                            ->searchable()
-                            ->relationship('unit', 'name')
+                            ->native(false)
+                            ->placeholder(fn (callable $get): string => 
+                                !$get('property_id') ? 'اختر العقار أولاً' : 'اختر الوحدة'
+                            )
                             ->options(function (callable $get) {
                                 $propertyId = $get('property_id');
                                 if (!$propertyId) {
                                     return [];
                                 }
-                                return Unit::where('property_id', $propertyId)
+                                $units = Unit::where('property_id', $propertyId)
                                     ->pluck('name', 'id');
+                                
+                                if ($units->isEmpty()) {
+                                    return ['0' => 'لا توجد وحدات متاحة لهذا العقار'];
+                                }
+                                
+                                return $units;
+                            })
+                            ->disabled(function (callable $get): bool {
+                                if (!$get('property_id')) {
+                                    return true;
+                                }
+                                $unitsCount = Unit::where('property_id', $get('property_id'))->count();
+                                return $unitsCount === 0;
+                            })
+                            ->helperText(function (callable $get): ?string {
+                                if (!$get('property_id')) {
+                                    return 'اختر العقار أولاً';
+                                }
+                                $unitsCount = Unit::where('property_id', $get('property_id'))->count();
+                                if ($unitsCount === 0) {
+                                    return '⚠️ لا توجد وحدات مضافة لهذا العقار';
+                                }
+                                return 'عدد الوحدات المتاحة: ' . $unitsCount;
                             })
                             ->live()
                             ->afterStateUpdated(function (callable $set, $state) {
-                                if ($state) {
+                                if ($state && $state !== '0') {
                                     $unit = Unit::find($state);
                                     if ($unit) {
                                         $set('monthly_rent', $unit->rent_price ?? 0);
@@ -76,36 +102,14 @@ class UnitContractResource extends Resource
                             ->required()
                             ->searchable()
                             ->relationship('tenant', 'name')
-                            ->options(User::whereHas('roles', function($q) { 
-                                $q->where('name', 'tenant'); 
-                            })->pluck('name', 'id'))
+                            ->options(User::where('type', 'tenant')->pluck('name', 'id'))
                             ->columnSpan(4),
 
                         DatePicker::make('contract_date')
                             ->label('تاريخ بداية العقد')
                             ->required()
                             ->default(now())
-                            ->columnSpan(4),
-
-                        TextInput::make('duration_months')
-                            ->label('مدة التعاقد بالشهر')
-                            ->numeric()
-                            ->required()
-                            ->minValue(1)
-                            ->suffix('شهر')
-                            ->columnSpan(4),
-
-                        Select::make('payment_frequency')
-                            ->label('سداد الدفعات')
-                            ->required()
-                            ->options([
-                                'monthly' => 'شهر',
-                                'quarterly' => 'ربع سنة',
-                                'semi_annually' => 'نصف سنة',
-                                'annually' => 'سنة',
-                            ])
-                            ->default('monthly')
-                            ->columnSpan(4),
+                            ->columnSpan(3),
 
                         TextInput::make('monthly_rent')
                             ->label('قيمة الإيجار بالشهر')
@@ -114,21 +118,43 @@ class UnitContractResource extends Resource
                             ->minValue(0.01)
                             ->step(0.01)
                             ->prefix('SAR')
-                            ->columnSpan(4),
+                            ->columnSpan(3),
+
+                        TextInput::make('duration_months')
+                            ->label('مدة التعاقد بالشهر')
+                            ->numeric()
+                            ->required()
+                            ->minValue(1)
+                            ->suffix('شهر')
+                            ->columnSpan(3),
+
+                        Select::make('payment_frequency')
+                            ->label('التحصيل كل')
+                            ->required()
+                            ->searchable()
+                            ->options([
+                                'monthly' => 'شهر',
+                                'quarterly' => 'ربع سنة',
+                                'semi_annually' => 'نصف سنة',
+                                'annually' => 'سنة',
+                            ])
+                            ->default('monthly')
+                            ->columnSpan(3),
 
                         FileUpload::make('contract_file')
                             ->label('صورة العقد')
+                            ->required()
                             ->acceptedFileTypes(['application/pdf', 'image/*'])
                             ->disk('public')
                             ->directory('unit-contracts')
                             ->preserveFilenames()
                             ->maxSize(10240)
-                            ->columnSpan(4),
+                            ->columnSpan(6),
 
                         Textarea::make('notes')
                             ->label('ملاحظات اخري')
                             ->rows(3)
-                            ->columnSpan(12),
+                            ->columnSpan(6),
                     ])
                     ->columns(12)
                     ->columnSpanFull(),
@@ -169,10 +195,10 @@ class UnitContractResource extends Resource
                     ->label('سداد الدفعات')
                     ->formatStateUsing(function ($state) {
                         return match($state) {
-                            'monthly' => 'شهر',
-                            'quarterly' => 'ربع سنة',
-                            'semi_annually' => 'نصف سنة',
-                            'annually' => 'سنة',
+                            'monthly' => 'شهري',
+                            'quarterly' => 'ربع سنوي',
+                            'semi_annually' => 'نصف سنوي',
+                            'annually' => 'سنوي',
                             default => $state,
                         };
                     })
@@ -204,15 +230,15 @@ class UnitContractResource extends Resource
                 SelectFilter::make('payment_frequency')
                     ->label('سداد الدفعات')
                     ->options([
-                        'monthly' => 'شهر',
-                        'quarterly' => 'ربع سنة',
-                        'semi_annually' => 'نصف سنة',
-                        'annually' => 'سنة',
+                        'monthly' => 'شهري',
+                        'quarterly' => 'ربع سنوي',
+                        'semi_annually' => 'نصف سنوي',
+                        'annually' => 'سنوي',
                     ]),
             ])
-            ->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
+            //->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
             ->recordActions([
-                EditAction::make(),
+                //EditAction::make(),
             ])
             ->defaultSort('created_at', 'desc');
     }
@@ -228,7 +254,8 @@ class UnitContractResource extends Resource
     {
         return [
             'index' => Pages\ListUnitContracts::route('/'),
-            'create' => Pages\CreateUnitContract::route('/create'),
+                        'create' => Pages\CreateUnitContract::route('/create'),
+            'view' => Pages\ViewUnitContracts::route('/{record}'),
             'edit' => Pages\EditUnitContract::route('/{record}/edit'),
         ];
     }
