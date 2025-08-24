@@ -20,6 +20,10 @@ use Filament\Actions\ViewAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Illuminate\Database\Eloquent\Builder;
+use Filament\GlobalSearch\GlobalSearchResult;
+use Illuminate\Support\Collection;
+
 class UnitFeatureResource extends Resource
 {
     protected static ?string $model = UnitFeature::class;
@@ -29,6 +33,8 @@ class UnitFeatureResource extends Resource
     protected static ?string $modelLabel = 'ميزة وحدة';
 
     protected static ?string $pluralModelLabel = 'مميزات الوحدات';
+    
+    protected static ?string $recordTitleAttribute = 'name_ar';
 
     public static function form(Schema $schema): Schema
     {
@@ -90,9 +96,9 @@ class UnitFeatureResource extends Resource
                         Select::make('value_type')
                             ->label('نوع القيمة / Value Type')
                             ->options(UnitFeature::getValueTypeOptions())
-                            ->visible(fn ($get) => $get('requires_value'))
+                            ->visible(fn (callable $get) => $get('requires_value'))
                             ->reactive()
-                            ->required(fn ($get) => $get('requires_value')),
+                            ->required(fn (callable $get) => $get('requires_value')),
                         
                         Repeater::make('value_options_repeater')
                             ->label('خيارات القيمة / Value Options')
@@ -104,8 +110,8 @@ class UnitFeatureResource extends Resource
                                     ->label('القيمة / Value')
                                     ->required(),
                             ])
-                            ->visible(fn ($get) => $get('requires_value') && $get('value_type') === 'select')
-                            ->required(fn ($get) => $get('requires_value') && $get('value_type') === 'select')
+                            ->visible(fn (callable $get) => $get('requires_value') && $get('value_type') === 'select')
+                            ->required(fn (callable $get) => $get('requires_value') && $get('value_type') === 'select')
                             ->addActionLabel('إضافة خيار / Add Option')
                             ->minItems(1)
                             ->collapsible()
@@ -231,5 +237,124 @@ class UnitFeatureResource extends Resource
             'view' => Pages\ViewUnitFeature::route('/{record}'),
             'edit' => Pages\EditUnitFeature::route('/{record}/edit'),
         ];
+    }
+    
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->orderBy('category')
+            ->orderBy('sort_order')
+            ->orderBy('name_ar');
+    }
+    
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name_ar', 'name_en', 'slug', 'description_ar', 'description_en', 'category'];
+    }
+    
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery();
+    }
+    
+    public static function getGlobalSearchResults(string $search): Collection
+    {
+        // تنظيف البحث وإزالة الهمزات
+        $normalizedSearch = str_replace(
+            ['أ', 'إ', 'آ', 'ء', 'ؤ', 'ئ'],
+            ['ا', 'ا', 'ا', '', 'و', 'ي'],
+            $search
+        );
+        
+        // إزالة المسافات الزائدة
+        $searchWithoutSpaces = str_replace(' ', '', $normalizedSearch);
+        $searchWithSpaces = str_replace(' ', '%', $normalizedSearch);
+        
+        // البحث في الأرقام
+        $isNumeric = is_numeric($search);
+        
+        // التحقق من البحث بأسماء الفئات العربية وتحويلها للإنجليزية
+        $categorySearch = null;
+        $arabicCategories = [
+            'اساسيات' => 'basic',
+            'أساسيات' => 'basic',
+            'مرافق' => 'amenities',
+            'امان' => 'safety',
+            'أمان' => 'safety',
+            'فاخر' => 'luxury',
+            'خدمات' => 'services',
+        ];
+        
+        // البحث في أسماء الفئات العربية
+        foreach ($arabicCategories as $arabic => $english) {
+            if (stripos($arabic, $search) !== false || stripos($arabic, $normalizedSearch) !== false) {
+                $categorySearch = $english;
+                break;
+            }
+        }
+        
+        $query = static::getModel()::query();
+        
+        return $query->where(function (Builder $query) use ($normalizedSearch, $searchWithoutSpaces, $searchWithSpaces, $search, $isNumeric, $categorySearch) {
+            // البحث العادي
+            $query->where('name_ar', 'LIKE', "%{$search}%")
+                  ->orWhere('name_en', 'LIKE', "%{$search}%")
+                  ->orWhere('slug', 'LIKE', "%{$search}%")
+                  ->orWhere('description_ar', 'LIKE', "%{$search}%")
+                  ->orWhere('description_en', 'LIKE', "%{$search}%")
+                  ->orWhere('category', 'LIKE', "%{$search}%")
+                  // البحث بدون همزات في الاسم العربي
+                  ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(name_ar, 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا'), 'ء', ''), 'ؤ', 'و'), 'ئ', 'ي') LIKE ?", ["%{$normalizedSearch}%"])
+                  ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(description_ar, 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا'), 'ء', ''), 'ؤ', 'و'), 'ئ', 'ي') LIKE ?", ["%{$normalizedSearch}%"])
+                  // البحث بدون مسافات
+                  ->orWhereRaw("REPLACE(name_ar, ' ', '') LIKE ?", ["%{$searchWithoutSpaces}%"])
+                  ->orWhereRaw("REPLACE(name_en, ' ', '') LIKE ?", ["%{$searchWithoutSpaces}%"])
+                  // البحث مع تجاهل المسافات في الكلمة المبحوث عنها
+                  ->orWhere('name_ar', 'LIKE', "%{$searchWithSpaces}%")
+                  ->orWhere('name_en', 'LIKE', "%{$searchWithSpaces}%");
+                  
+            // البحث بالفئة العربية المحولة
+            if ($categorySearch) {
+                $query->orWhere('category', '=', $categorySearch);
+            }
+            
+            // البحث في قيم الفئات الإنجليزية مباشرة
+            $englishCategories = ['basic', 'amenities', 'safety', 'luxury', 'services'];
+            $searchLower = strtolower($search);
+            foreach ($englishCategories as $cat) {
+                if (stripos($cat, $searchLower) !== false) {
+                    $query->orWhere('category', '=', $cat);
+                }
+            }
+                  
+            // البحث في الأرقام إذا كان البحث رقمي
+            if ($isNumeric) {
+                $query->orWhere('sort_order', '=', $search);
+            }
+        })
+        ->limit(50)
+        ->get()
+        ->map(function ($record) {
+            // الحصول على اسم الفئة
+            $categoryName = UnitFeature::getCategoryOptions()[$record->category] ?? $record->category;
+            
+            // تحديد نوع القيمة
+            $valueType = 'لا يتطلب قيمة';
+            if ($record->requires_value) {
+                $valueType = UnitFeature::getValueTypeOptions()[$record->value_type] ?? $record->value_type;
+            }
+            
+            return new \Filament\GlobalSearch\GlobalSearchResult(
+                title: $record->name_ar . ' / ' . $record->name_en,
+                url: static::getUrl('edit', ['record' => $record]),
+                details: [
+                    'الفئة' => $categoryName,
+                    'المعرف' => $record->slug,
+                    'نوع القيمة' => $valueType,
+                    'الحالة' => $record->is_active ? 'نشط' : 'غير نشط',
+                ],
+                actions: []
+            );
+        });
     }
 }

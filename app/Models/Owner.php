@@ -24,12 +24,12 @@ class Owner extends User
 
         // Add global scope to filter by owner type
         static::addGlobalScope('owner', function (Builder $builder) {
-            $builder->where('type', UserType::OWNER->value);
+            $builder->where('user_type', UserType::OWNER->value);
         });
 
         // Auto-set type and generate email/password on creation
         static::creating(function ($owner) {
-            $owner->type = UserType::OWNER->value;
+            $owner->user_type = UserType::OWNER->value;
             // Auto-generate email and password from phone
             if ($owner->phone && !$owner->email) {
                 $owner->email = AppHelper::generateEmailFromPhone($owner->phone);

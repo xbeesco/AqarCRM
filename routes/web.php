@@ -143,3 +143,32 @@ Route::get('/force-logout', function () {
 
     return redirect('/')->with('info', 'No active session');
 })->name('force.logout');
+
+// Test access route
+Route::get('/test-access', function () {
+    $user = User::where('email', 'admin@aqarcrm.test')->first();
+    
+    if (!$user) {
+        return 'User not found';
+    }
+    
+    // Login the user
+    auth()->login($user);
+    
+    // Check if logged in
+    if (!auth()->check()) {
+        return 'Failed to login';
+    }
+    
+    // Check panel access
+    $panel = \Filament\Facades\Filament::getPanel('admin');
+    $canAccess = $user->canAccessPanel($panel);
+    
+    return [
+        'user' => $user->email,
+        'user_type' => $user->user_type,
+        'authenticated' => auth()->check(),
+        'canAccessPanel' => $canAccess,
+        'redirect_to_admin' => $canAccess ? 'Should work!' : 'Will get 403'
+    ];
+});
