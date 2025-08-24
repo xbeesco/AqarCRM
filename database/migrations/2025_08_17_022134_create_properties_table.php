@@ -11,23 +11,25 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('properties', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->foreignId('owner_id')->constrained('users');
-            $table->enum('status', ['active', 'inactive', 'maintenance'])->default('active');
-            $table->enum('type', ['residential', 'commercial', 'mixed'])->default('residential');
-            $table->foreignId('location_id')->nullable()->constrained('locations');
-            $table->string('address');
-            $table->string('postal_code')->nullable();
-            $table->integer('parking_spots')->default(0);
-            $table->integer('elevators')->default(0);
-            $table->decimal('area_sqm', 10, 2)->nullable();
-            $table->integer('build_year')->nullable();
-            $table->integer('floors_count')->nullable();
-            $table->text('notes')->nullable();
-            $table->timestamps();
-        });
+        // إنشاء الجدول فقط إذا لم يكن موجوداً
+        if (!Schema::hasTable('properties')) {
+            Schema::create('properties', function (Blueprint $table) {
+                $table->id();
+                $table->string('name');
+                $table->foreignId('owner_id')->constrained('users');
+                $table->foreignId('type_id')->nullable()->constrained('property_types');
+                $table->foreignId('status_id')->nullable()->constrained('property_statuses');
+                $table->foreignId('location_id')->nullable()->constrained('locations');
+                $table->string('address');
+                $table->string('postal_code')->nullable();
+                $table->integer('parking_spots')->nullable();
+                $table->integer('elevators')->nullable();
+                $table->integer('build_year')->nullable();
+                $table->integer('floors_count')->nullable();
+                $table->text('notes')->nullable();
+                $table->timestamps();
+            });
+        }
     }
 
     /**

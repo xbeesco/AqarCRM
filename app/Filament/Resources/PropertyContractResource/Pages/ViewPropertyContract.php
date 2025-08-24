@@ -12,8 +12,6 @@ class ViewPropertyContract extends ViewRecord
 
     protected function getHeaderActions(): array
     {
-        return [
-            Actions\EditAction::make(),
-        ];
+        return [];
     }
 }

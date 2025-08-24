@@ -41,7 +41,6 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
                 \App\Filament\Pages\ModulesManager::class,
-                \App\Filament\Pages\ModuleEditor::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
@@ -76,7 +75,7 @@ class AdminPanelProvider extends PanelProvider
                         NavigationGroup::make('العقارات')
                             ->items([
                                 ...array_map(fn($item) => $item->icon('heroicon-o-home'), 
-                                    \App\Filament\Resources\Units\UnitResource::getNavigationItems()),
+                                    \App\Filament\Resources\UnitResource::getNavigationItems()),
                                 ...array_map(fn($item) => $item->icon('heroicon-o-building-office-2'), 
                                     \App\Filament\Resources\PropertyResource::getNavigationItems()),
                             ]),

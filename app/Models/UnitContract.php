@@ -10,13 +10,13 @@ class UnitContract extends Model
     use HasFactory;
 
     protected $fillable = [
-        'property_id',
-        'unit_id',
         'tenant_id',
+        'unit_id',
+        'property_id',
         'contract_date',
+        'monthly_rent',
         'duration_months',
         'payment_frequency',
-        'monthly_rent',
         'contract_file',
         'notes',
     ];

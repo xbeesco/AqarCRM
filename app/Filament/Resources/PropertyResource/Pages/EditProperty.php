@@ -13,7 +13,7 @@ class EditProperty extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\DeleteAction::make(),
+            // Actions\DeleteAction::make(), // تم إلغاء زر الحذف
         ];
     }
 }

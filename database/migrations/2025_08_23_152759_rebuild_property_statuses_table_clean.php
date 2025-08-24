@@ -11,6 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // تعطيل فحص المفاتيح الأجنبية مؤقتاً
+        Schema::disableForeignKeyConstraints();
+        
+        // حذف الجدول بالكامل إذا كان موجود
+        Schema::dropIfExists('property_statuses');
+        
+        // إنشاء جدول حالات العقارات بالهيكل النهائي الشامل
         Schema::create('property_statuses', function (Blueprint $table) {
             $table->id();
             $table->string('name_ar', 100)->index();
@@ -26,11 +33,14 @@ return new class extends Migration
             $table->integer('properties_count')->default(0);
             $table->timestamps();
 
-            // Indexes
+            // فهارس لتحسين الأداء
             $table->index(['is_active', 'sort_order'], 'idx_property_statuses_active_sort');
             $table->index(['is_available'], 'idx_property_statuses_available');
             $table->index(['name_ar', 'name_en'], 'idx_property_statuses_name_search');
         });
+        
+        // إعادة تفعيل فحص المفاتيح الأجنبية
+        Schema::enableForeignKeyConstraints();
     }
 
     /**
@@ -38,6 +48,8 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::disableForeignKeyConstraints();
         Schema::dropIfExists('property_statuses');
+        Schema::enableForeignKeyConstraints();
     }
 };

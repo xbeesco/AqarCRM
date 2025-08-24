@@ -36,7 +36,7 @@ class Property extends Model
     
     public function owner(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'owner_id');
+        return $this->belongsTo(Owner::class, 'owner_id');
     }
     
     public function location(): BelongsTo
@@ -76,14 +76,16 @@ class Property extends Model
         $totalUnits = $this->units()->count();
         if ($totalUnits === 0) return 0;
         
-        $occupiedUnits = $this->units()->where('status', 'occupied')->count();
+        // Count units that have active contracts (occupied)
+        $occupiedUnits = $this->units()->whereHas('activeContract')->count();
         return ($occupiedUnits / $totalUnits) * 100;
     }
     
     public function getMonthlyRevenueAttribute(): float
     {
+        // Calculate revenue from units with active contracts
         return $this->units()
-            ->where('status', 'occupied')
+            ->whereHas('activeContract')
             ->sum('rent_price');
     }
     
@@ -94,8 +96,9 @@ class Property extends Model
     
     public function getAvailableUnits(): int
     {
+        // Count units that don't have active contracts (available)
         return $this->units()
-            ->where('status', 'available')
+            ->whereDoesntHave('activeContract')
             ->count();
     }
     

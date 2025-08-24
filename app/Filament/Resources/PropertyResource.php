@@ -44,7 +44,7 @@ class PropertyResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
-            Section::make('بيانات العقار الأساسية')
+            Section::make('البيانات الأساسية')
                 ->schema([
                     Grid::make(3)->schema([
                         TextInput::make('name')
@@ -91,6 +91,7 @@ class PropertyResource extends Resource
                             
                         TextInput::make('postal_code')
                             ->label('الرمز البريدي')
+                            ->numeric()
                             ->columnSpan(1),
                     ]),
                 ]),
