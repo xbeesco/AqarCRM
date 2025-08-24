@@ -164,16 +164,6 @@ class PropertyResource extends Resource
                 TextColumn::make('total_units')
                     ->label('عدد الوحدات')
                     ->default(0),
-                    
-                TextColumn::make('occupancy_rate')
-                    ->label('معدل الإشغال')
-                    ->formatStateUsing(fn ($state) => number_format($state, 1) . '%')
-                    ->color(fn ($state) => $state > 80 ? 'success' : ($state > 50 ? 'warning' : 'danger')),
-                    
-                TextColumn::make('monthly_revenue')
-                    ->label('الإيراد الشهري')
-                    ->formatStateUsing(fn ($state) => number_format($state, 2) . ' ر.س')
-                    ->color('success'),
             ])
             ->filters([
                 SelectFilter::make('owner')

@@ -96,35 +96,9 @@ class Property extends Model
         return $this->expenses()->thisMonth()->sum('cost');
     }
     
-    public function getOccupancyRateAttribute(): float
-    {
-        $totalUnits = $this->units()->count();
-        if ($totalUnits === 0) return 0;
-        
-        // Count units that have active contracts (occupied)
-        $occupiedUnits = $this->units()->whereHas('activeContract')->count();
-        return ($occupiedUnits / $totalUnits) * 100;
-    }
-    
-    public function getMonthlyRevenueAttribute(): float
-    {
-        // Calculate revenue from units with active contracts
-        return $this->units()
-            ->whereHas('activeContract')
-            ->sum('rent_price');
-    }
-    
     public function getTotalUnitsAttribute(): int
     {
         return $this->units()->count();
-    }
-    
-    public function getAvailableUnits(): int
-    {
-        // Count units that don't have active contracts (available)
-        return $this->units()
-            ->whereDoesntHave('activeContract')
-            ->count();
     }
     
 }

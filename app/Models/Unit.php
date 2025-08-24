@@ -84,32 +84,6 @@ class Unit extends Model
     }
 
     /**
-     * Get the active contract for this unit
-     */
-    public function activeContract()
-    {
-        return $this->hasOne(UnitContract::class)
-                    ->where('start_date', '<=', now())
-                    ->whereRaw('DATE_ADD(start_date, INTERVAL duration_months MONTH) >= ?', [now()]);
-    }
-
-    /**
-     * Check if unit is occupied (has active contract)
-     */
-    public function isOccupied(): bool
-    {
-        return $this->activeContract()->exists();
-    }
-
-    /**
-     * Check if unit is available (no active contract)
-     */
-    public function isAvailable(): bool
-    {
-        return !$this->isOccupied();
-    }
-
-    /**
      * النفقات المرتبطة بالوحدة
      */
     public function expenses(): MorphMany
