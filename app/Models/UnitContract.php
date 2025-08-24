@@ -10,21 +10,46 @@ class UnitContract extends Model
     use HasFactory;
 
     protected $fillable = [
+        'contract_number',
         'tenant_id',
         'unit_id',
         'property_id',
-        'contract_date',
         'monthly_rent',
+        'security_deposit',
         'duration_months',
+        'start_date',
+        'end_date',
+        'contract_status',
         'payment_frequency',
-        'contract_file',
+        'payment_method',
+        'grace_period_days',
+        'late_fee_rate',
+        'utilities_included',
+        'furnished',
+        'evacuation_notice_days',
+        'terms_and_conditions',
+        'special_conditions',
         'notes',
+        'created_by',
+        'approved_by',
+        'approved_at',
+        'terminated_reason',
+        'terminated_at',
     ];
 
     protected $casts = [
-        'contract_date' => 'date',
+        'start_date' => 'date',
+        'end_date' => 'date',
         'monthly_rent' => 'decimal:2',
+        'security_deposit' => 'decimal:2',
         'duration_months' => 'integer',
+        'grace_period_days' => 'integer',
+        'late_fee_rate' => 'decimal:2',
+        'utilities_included' => 'boolean',
+        'furnished' => 'boolean',
+        'evacuation_notice_days' => 'integer',
+        'approved_at' => 'datetime',
+        'terminated_at' => 'datetime',
     ];
 
     /**
@@ -68,5 +93,13 @@ class UnitContract extends Model
     public function property()
     {
         return $this->belongsTo(Property::class);
+    }
+    
+    /**
+     * Relationship: Contract has many payments.
+     */
+    public function payments()
+    {
+        return $this->hasMany(CollectionPayment::class, 'unit_contract_id');
     }
 }
