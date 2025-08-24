@@ -15,6 +15,7 @@ class CollectionPayment extends Model
         'unit_id',
         'property_id',
         'tenant_id',
+        'collection_status', // حالة التحصيل
         'payment_status_id',
         'payment_method_id',
         'amount',
@@ -40,23 +41,76 @@ class CollectionPayment extends Model
         'paid_date' => 'date',
         'delay_duration' => 'integer',
     ];
+    
+    // حالات التحصيل
+    const STATUS_COLLECTED = 'collected';      // تم التحصيل
+    const STATUS_DUE = 'due';                  // تستحق التحصيل
+    const STATUS_POSTPONED = 'postponed';      // المؤجلة
+    const STATUS_OVERDUE = 'overdue';          // تجاوزت المدة
+    
+    public static function getStatusOptions()
+    {
+        return [
+            self::STATUS_COLLECTED => 'تم التحصيل',
+            self::STATUS_DUE => 'تستحق التحصيل',
+            self::STATUS_POSTPONED => 'المؤجلة',
+            self::STATUS_OVERDUE => 'تجاوزت المدة',
+        ];
+    }
+    
+    public function getStatusColorAttribute()
+    {
+        return match($this->collection_status) {
+            self::STATUS_COLLECTED => 'success',
+            self::STATUS_DUE => 'warning',
+            self::STATUS_POSTPONED => 'info',
+            self::STATUS_OVERDUE => 'danger',
+            default => 'gray',
+        };
+    }
+    
+    public function getStatusLabelAttribute()
+    {
+        return self::getStatusOptions()[$this->collection_status] ?? $this->collection_status;
+    }
 
     protected static function boot()
     {
         parent::boot();
         
         static::creating(function ($payment) {
+            // توليد رقم الدفعة تلقائياً
             if (empty($payment->payment_number)) {
                 $payment->payment_number = self::generatePaymentNumber();
             }
             
-            // Calculate total amount
-            $payment->total_amount = $payment->amount + $payment->late_fee;
+            // قيمة افتراضية لـ payment_status_id
+            if (empty($payment->payment_status_id)) {
+                $payment->payment_status_id = 2; // الرقم 2 = حالة "تستحق التحصيل"
+            }
+            
+            // قيمة افتراضية للغرامة
+            if (is_null($payment->late_fee)) {
+                $payment->late_fee = 0;
+            }
+            
+            // حساب المجموع الكلي
+            $payment->total_amount = ($payment->amount ?? 0) + ($payment->late_fee ?? 0);
+            
+            // توليد الشهر والسنة للتقارير
+            if (empty($payment->month_year) && !empty($payment->due_date_start)) {
+                $payment->month_year = \Carbon\Carbon::parse($payment->due_date_start)->format('Y-m');
+            }
         });
 
         static::updating(function ($payment) {
-            // Recalculate total amount
-            $payment->total_amount = $payment->amount + $payment->late_fee;
+            // إعادة حساب المجموع الكلي
+            $payment->total_amount = ($payment->amount ?? 0) + ($payment->late_fee ?? 0);
+            
+            // تحديث الشهر والسنة
+            if (empty($payment->month_year) && !empty($payment->due_date_start)) {
+                $payment->month_year = \Carbon\Carbon::parse($payment->due_date_start)->format('Y-m');
+            }
         });
     }
 

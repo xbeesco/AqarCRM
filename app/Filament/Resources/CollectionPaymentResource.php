@@ -21,8 +21,6 @@ use Filament\Actions\ViewAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\Action;
 use Filament\Resources\Resource;
-use App\Models\PaymentStatus;
-use App\Models\PaymentMethod;
 use BackedEnum;
 
 class CollectionPaymentResource extends Resource
@@ -37,122 +35,72 @@ class CollectionPaymentResource extends Resource
     {
         return $schema
             ->schema([
-                Section::make('Payment Information / معلومات الدفعة')
+                Section::make('إضافة دفعة تحصيل')
                     ->schema([
+                        // العقد فقط - مثل النظام القديم
                         Select::make('unit_contract_id')
-                            ->label('Unit Contract / عقد الوحدة')
-                            ->relationship('unitContract', 'contract_number')
-                            ->searchable()
+                            ->label('العقد')
                             ->required()
-                            ->reactive(),
-
-                        Select::make('unit_id')
-                            ->label('Unit / الوحدة')
-                            ->relationship('unit', 'unit_number')
                             ->searchable()
-                            ->required(),
-
-                        Select::make('property_id')
-                            ->label('Property / العقار')
-                            ->relationship('property', 'name')
-                            ->searchable()
-                            ->required(),
-
-                        Select::make('tenant_id')
-                            ->label('Tenant / المستأجر')
-                            ->relationship('tenant', 'name')
-                            ->searchable()
-                            ->required(),
-                    ])->columns(2),
-
-                Section::make('Payment Details / تفاصيل الدفعة')
-                    ->schema([
-                        TextInput::make('payment_number')
-                            ->label('Payment Number / رقم الدفعة')
-                            ->disabled()
-                            ->dehydrated(true),
-
+                            ->preload()
+                            ->options(function () {
+                                return \App\Models\UnitContract::with(['tenant', 'unit', 'property'])
+                                    ->get()
+                                    ->mapWithKeys(function ($contract) {
+                                        $label = sprintf(
+                                            '%s - %s - %s',
+                                            $contract->tenant?->name ?? 'غير محدد',
+                                            $contract->unit?->name ?? 'غير محدد',
+                                            $contract->property?->name ?? 'غير محدد'
+                                        );
+                                        return [$contract->id => $label];
+                                    });
+                            })
+                            ->live()
+                            ->afterStateUpdated(function ($state, callable $set) {
+                                if ($state) {
+                                    $contract = \App\Models\UnitContract::find($state);
+                                    if ($contract) {
+                                        $set('unit_id', $contract->unit_id);
+                                        $set('property_id', $contract->property_id);
+                                        $set('tenant_id', $contract->tenant_id);
+                                        $set('amount', $contract->monthly_rent ?? 0); // تغيير من amount_simple إلى amount
+                                    }
+                                }
+                            }),
+                        
+                        // القيمة المالية - نستخدم الحقل الأصلي
                         TextInput::make('amount')
-                            ->label('Amount / المبلغ')
+                            ->label('القيمة المالية')
                             ->numeric()
+                            ->required()
+                            ->minValue(0.01)
                             ->step(0.01)
-                            ->prefix('SAR')
-                            ->required(),
-
-                        TextInput::make('late_fee')
-                            ->label('Late Fee / غرامة التأخير')
-                            ->numeric()
-                            ->step(0.01)
-                            ->prefix('SAR')
-                            ->default(0.00),
-
-                        TextInput::make('total_amount')
-                            ->label('Total Amount / الإجمالي')
-                            ->numeric()
-                            ->step(0.01)
-                            ->prefix('SAR')
-                            ->disabled()
-                            ->dehydrated(true),
-                    ])->columns(2),
-
-                Section::make('Due Dates / تواريخ الاستحقاق')
-                    ->schema([
+                            ->prefix('SAR'),
+                        
+                        // حالة التحصيل
+                        Select::make('collection_status')
+                            ->label('حالة التحصيل')
+                            ->required()
+                            ->options(CollectionPayment::getStatusOptions())
+                            ->default(CollectionPayment::STATUS_DUE),
+                        
+                        // بداية التاريخ - نستخدم الحقل الأصلي
                         DatePicker::make('due_date_start')
-                            ->label('Due Date Start / تاريخ بداية الاستحقاق')
+                            ->label('بداية التاريخ')
                             ->required()
-                            ->displayFormat('d/m/Y'),
-
+                            ->default(now()->startOfMonth()),
+                        
+                        // إلى التاريخ - نستخدم الحقل الأصلي
                         DatePicker::make('due_date_end')
-                            ->label('Due Date End / تاريخ نهاية الاستحقاق')
+                            ->label('إلى التاريخ')
                             ->required()
-                            ->displayFormat('d/m/Y'),
-
-                        TextInput::make('month_year')
-                            ->label('Month Year / الشهر والسنة')
-                            ->placeholder('YYYY-MM')
-                            ->required(),
-                    ])->columns(3),
-
-                Section::make('Payment Status / حالة الدفعة')
-                    ->schema([
-                        Select::make('payment_status_id')
-                            ->label('Payment Status / حالة الدفعة')
-                            ->relationship('paymentStatus', 'name_ar')
-                            ->required()
-                            ->reactive(),
-
-                        Select::make('payment_method_id')
-                            ->label('Payment Method / طريقة الدفع')
-                            ->relationship('paymentMethod', 'name_ar')
-                            ->searchable()
-                            ->visible(fn ($get) => $get('payment_status_id') == PaymentStatus::COLLECTED),
-
-                        DatePicker::make('paid_date')
-                            ->label('Paid Date / تاريخ السداد')
-                            ->displayFormat('d/m/Y')
-                            ->visible(fn ($get) => $get('payment_status_id') == PaymentStatus::COLLECTED),
-
-                        TextInput::make('payment_reference')
-                            ->label('Payment Reference / مرجع الدفعة')
-                            ->visible(fn ($get) => $get('payment_status_id') == PaymentStatus::COLLECTED),
-                    ])->columns(2),
-
-                Section::make('Delay Information / معلومات التأخير')
-                    ->schema([
-                        TextInput::make('delay_duration')
-                            ->label('Delay Duration (Days) / مدة التأخير (أيام)')
-                            ->numeric()
-                            ->suffix('days')
-                            ->visible(fn ($get) => in_array($get('payment_status_id'), [PaymentStatus::DELAYED, PaymentStatus::OVERDUE])),
-
-                        Textarea::make('delay_reason')
-                            ->label('Delay Reason / سبب التأخير')
-                            ->rows(3)
-                            ->visible(fn ($get) => in_array($get('payment_status_id'), [PaymentStatus::DELAYED, PaymentStatus::OVERDUE])),
-
-                        Textarea::make('late_payment_notes')
-                            ->label('Late Payment Notes / ملاحظات تجاوز فترة الدفع')
-                            ->rows(3),
+                            ->default(now()->endOfMonth()),
+                        
+                        // Hidden fields للحفظ
+                        \Filament\Forms\Components\Hidden::make('unit_id'),
+                        \Filament\Forms\Components\Hidden::make('property_id'),
+                        \Filament\Forms\Components\Hidden::make('tenant_id'),
                     ])->columns(1),
             ]);
     }
@@ -162,96 +110,67 @@ class CollectionPaymentResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('payment_number')
-                    ->label('Payment Number / رقم الدفعة')
+                    ->label('رقم الدفعة')
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('property.name')
-                    ->label('Property / العقار')
+                TextColumn::make('unitContract.tenant.name')
+                    ->label('المستأجر')
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('unit.unit_number')
-                    ->label('Unit / الوحدة')
+                TextColumn::make('unitContract.unit.name')
+                    ->label('الوحدة')
+                    ->searchable()
                     ->sortable(),
 
-                TextColumn::make('tenant.name')
-                    ->label('Tenant / المستأجر')
+                TextColumn::make('unitContract.property.name')
+                    ->label('العقار')
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('amount')
-                    ->label('Amount / المبلغ')
+                    ->label('القيمة المالية')
                     ->money('SAR')
                     ->sortable(),
 
-                TextColumn::make('late_fee')
-                    ->label('Late Fee / غرامة التأخير')
-                    ->money('SAR')
-                    ->sortable(),
+                TextColumn::make('collection_status')
+                    ->label('حالة التحصيل')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => CollectionPayment::getStatusOptions()[$state] ?? $state)
+                    ->color(fn (string $state): string => match ($state) {
+                        CollectionPayment::STATUS_COLLECTED => 'success',
+                        CollectionPayment::STATUS_DUE => 'warning',
+                        CollectionPayment::STATUS_POSTPONED => 'info',
+                        CollectionPayment::STATUS_OVERDUE => 'danger',
+                        default => 'gray',
+                    }),
 
-                TextColumn::make('total_amount')
-                    ->label('Total / الإجمالي')
-                    ->money('SAR')
-                    ->sortable(),
-
-                BadgeColumn::make('paymentStatus.name_ar')
-                    ->label('Status / الحالة')
-                    ->colors([
-                        'warning' => 'worth_collecting',
-                        'success' => 'collected',
-                        'info' => 'delayed',
-                        'danger' => 'overdue',
-                    ]),
-
-                TextColumn::make('due_date_end')
-                    ->label('Due Date / تاريخ الاستحقاق')
+                TextColumn::make('due_date_start')
+                    ->label('من تاريخ')
                     ->date('d/m/Y')
                     ->sortable(),
 
-                TextColumn::make('paid_date')
-                    ->label('Paid Date / تاريخ السداد')
+                TextColumn::make('due_date_end')
+                    ->label('إلى تاريخ')
                     ->date('d/m/Y')
                     ->sortable(),
             ])
-            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContent)
             ->filters([
-                SelectFilter::make('property_id')
-                    ->label('Property / العقار')
-                    ->relationship('property', 'name')
-                    ->multiple(),
-
-                SelectFilter::make('payment_status_id')
-                    ->label('Status / الحالة')
-                    ->relationship('paymentStatus', 'name_ar')
-                    ->multiple(),
-
-                Filter::make('due_date_range')
-                    ->label('Due Date Range / فترة الاستحقاق')
-                    ->form([
-                        DatePicker::make('due_date_from')
-                            ->label('From / من'),
-                        DatePicker::make('due_date_to')
-                            ->label('To / إلى'),
-                    ])
-                    ->query(function ($query, array $data) {
-                        return $query
-                            ->when($data['due_date_from'], 
-                                fn ($q, $date) => $q->where('due_date_end', '>=', $date))
-                            ->when($data['due_date_to'], 
-                                fn ($q, $date) => $q->where('due_date_end', '<=', $date));
-                    }),
-
-                SelectFilter::make('payment_method_id')
-                    ->label('Payment Method / طريقة الدفع')
-                    ->relationship('paymentMethod', 'name_ar'),
-
-                TernaryFilter::make('overdue')
-                    ->label('Overdue Payments / المدفوعات المتأخرة')
-                    ->queries(
-                        true: fn ($query) => $query->overdue(),
-                        false: fn ($query) => $query->whereHas('paymentStatus', fn ($q) => $q->where('is_paid_status', true)),
-                    ),
+                SelectFilter::make('collection_status')
+                    ->label('حالة التحصيل')
+                    ->options(CollectionPayment::getStatusOptions()),
+                
+                SelectFilter::make('unit_contract_id')
+                    ->label('العقد')
+                    ->relationship('unitContract', 'id')
+                    ->searchable()
+                    ->preload(),
+                
+                SelectFilter::make('tenant_id')
+                    ->label('المستأجر')
+                    ->relationship('tenant', 'name')
+                    ->searchable(),
             ])
             ->actions([
                 ViewAction::make(),
