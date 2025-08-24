@@ -17,8 +17,6 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\FileUpload;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\BadgeColumn;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Actions\EditAction;
@@ -50,7 +48,7 @@ class PropertyContractResource extends Resource
                             ->getOptionLabelFromRecordUsing(fn ($record) => $record->name . ' - ' . $record->owner?->name)
                             ->columnSpan(4),
 
-                        DatePicker::make('contract_date')
+                        DatePicker::make('start_date')
                             ->label('تاريخ بداية العمل بالعقد')
                             ->required()
                             ->default(now())
@@ -137,7 +135,7 @@ class PropertyContractResource extends Resource
                     ->searchable()
                     ->description(fn (PropertyContract $record): string => $record->owner?->name ?? ''),
 
-                TextColumn::make('contract_date')
+                TextColumn::make('start_date')
                     ->label('تاريخ العقد')
                     ->date('d/m/Y')
                     ->sortable(),
@@ -154,15 +152,9 @@ class PropertyContractResource extends Resource
                     ->suffix('%')
                     ->alignCenter(),
 
-                BadgeColumn::make('payment_frequency')
+                TextColumn::make('payment_frequency')
                     ->label('التوريد كل')
-                    ->colors([
-                        'primary' => 'monthly',
-                        'success' => 'quarterly',
-                        'warning' => 'four_monthly',
-                        'info' => 'semi_annually',
-                        'danger' => 'annually',
-                    ])
+                    ->badge()
                     ->formatStateUsing(function ($state) {
                         return match($state) {
                             'monthly' => 'شهر',
@@ -171,6 +163,13 @@ class PropertyContractResource extends Resource
                             'annually' => 'سنة',
                             default => $state,
                         };
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        'monthly' => 'primary',
+                        'quarterly' => 'success',
+                        'semi_annually' => 'info',
+                        'annually' => 'danger',
+                        default => 'gray',
                     }),
 
                 TextColumn::make('payments_count')

@@ -10,23 +10,78 @@ class PropertyContract extends Model
     use HasFactory;
 
     protected $fillable = [
+        'contract_number',
+        'owner_id',
         'property_id',
-        'contract_date',
-        'duration_months',
         'commission_rate',
+        'duration_months',
+        'start_date',
+        'end_date',
+        'contract_status',
+        'notary_number',
+        'payment_day',
+        'auto_renew',
+        'notice_period_days',
         'payment_frequency',
-        'payments_count',
-        'contract_file',
+        'terms_and_conditions',
         'notes',
+        'created_by',
+        'approved_by',
+        'approved_at',
+        'terminated_reason',
+        'terminated_at',
     ];
 
     protected $casts = [
-        'contract_date' => 'date',
+        'start_date' => 'date',
+        'end_date' => 'date',
         'commission_rate' => 'decimal:2',
         'duration_months' => 'integer',
-        'payment_frequency' => 'string',
-        'payments_count' => 'integer',
+        'payment_day' => 'integer',
+        'auto_renew' => 'boolean',
+        'notice_period_days' => 'integer',
+        'approved_at' => 'datetime',
+        'terminated_at' => 'datetime',
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+        
+        static::creating(function ($contract) {
+            if (empty($contract->contract_number)) {
+                $year = date('Y');
+                $lastContract = static::whereYear('created_at', $year)
+                    ->orderBy('id', 'desc')
+                    ->first();
+                
+                $number = $lastContract ? intval(substr($lastContract->contract_number, -4)) + 1 : 1;
+                $contract->contract_number = sprintf('PC-%s-%04d', $year, $number);
+            }
+            
+            // Set owner_id from property if not set
+            if (empty($contract->owner_id) && $contract->property_id) {
+                $property = Property::find($contract->property_id);
+                if ($property) {
+                    $contract->owner_id = $property->owner_id;
+                }
+            }
+            
+            // Calculate end_date if not set
+            if (empty($contract->end_date) && $contract->start_date && $contract->duration_months) {
+                $startDate = \Carbon\Carbon::parse($contract->start_date);
+                $contract->end_date = $startDate->copy()->addMonths($contract->duration_months)->subDay();
+            }
+        });
+        
+        static::updating(function ($contract) {
+            // Recalculate end_date if start_date or duration_months changed
+            if ($contract->isDirty(['start_date', 'duration_months']) && $contract->start_date && $contract->duration_months) {
+                $startDate = \Carbon\Carbon::parse($contract->start_date);
+                $contract->end_date = $startDate->copy()->addMonths($contract->duration_months)->subDay();
+            }
+        });
+    }
 
     /**
      * Get owner attribute from property relationship.
@@ -42,7 +97,7 @@ class PropertyContract extends Model
     public function getPaymentsCountAttribute()
     {
         // Return stored value if exists, otherwise calculate
-        if (!is_null($this->attributes['payments_count'])) {
+        if (isset($this->attributes['payments_count']) && !is_null($this->attributes['payments_count'])) {
             return $this->attributes['payments_count'];
         }
 
