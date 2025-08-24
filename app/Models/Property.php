@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Property extends Model
 {
@@ -69,6 +70,30 @@ class Property extends Model
         return $this->belongsToMany(PropertyFeature::class, 'property_feature_property')
                     ->withPivot('value')
                     ->withTimestamps();
+    }
+
+    /**
+     * النفقات المرتبطة بالعقار
+     */
+    public function expenses(): MorphMany
+    {
+        return $this->morphMany(Expense::class, 'subject');
+    }
+    
+    /**
+     * حساب إجمالي النفقات للعقار
+     */
+    public function getTotalExpensesAttribute(): float
+    {
+        return $this->expenses()->sum('cost');
+    }
+    
+    /**
+     * حساب نفقات الشهر الحالي للعقار
+     */
+    public function getCurrentMonthExpensesAttribute(): float
+    {
+        return $this->expenses()->thisMonth()->sum('cost');
     }
     
     public function getOccupancyRateAttribute(): float

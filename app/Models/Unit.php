@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Unit extends Model
@@ -106,5 +107,29 @@ class Unit extends Model
     public function isAvailable(): bool
     {
         return !$this->isOccupied();
+    }
+
+    /**
+     * النفقات المرتبطة بالوحدة
+     */
+    public function expenses(): MorphMany
+    {
+        return $this->morphMany(Expense::class, 'subject');
+    }
+    
+    /**
+     * حساب إجمالي النفقات للوحدة
+     */
+    public function getTotalExpensesAttribute(): float
+    {
+        return $this->expenses()->sum('cost');
+    }
+    
+    /**
+     * حساب نفقات الشهر الحالي للوحدة
+     */
+    public function getCurrentMonthExpensesAttribute(): float
+    {
+        return $this->expenses()->thisMonth()->sum('cost');
     }
 }
