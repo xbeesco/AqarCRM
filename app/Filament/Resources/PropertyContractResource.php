@@ -219,7 +219,50 @@ class PropertyContractResource extends Resource
             'index' => Pages\ListPropertyContracts::route('/'),
             'create' => Pages\CreatePropertyContract::route('/create'),
             'view' => Pages\ViewPropertyContract::route('/{record}'),
-            'edit' => Pages\EditPropertyContract::route('/{record}/edit'),
+            'edit' => Pages\EditPropertyContract::route('/{record}/edit'), // Only accessible by super_admin
         ];
+    }
+    
+    /**
+     * Only super_admin can edit contracts
+     */
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        $user = auth()->user();
+        return $user && $user->type === 'super_admin';
+    }
+    
+    /**
+     * Only super_admin can delete contracts
+     */
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        $user = auth()->user();
+        return $user && $user->type === 'super_admin';
+    }
+    
+    /**
+     * Only admins can create contracts
+     */
+    public static function canCreate(): bool
+    {
+        $user = auth()->user();
+        return $user && in_array($user->type, ['super_admin', 'admin']);
+    }
+    
+    /**
+     * Filter records based on user type
+     */
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+        
+        if ($user && $user->type === 'owner') {
+            // Owners can only see their own contracts
+            return $query->where('owner_id', $user->id);
+        }
+        
+        return $query;
     }
 }
