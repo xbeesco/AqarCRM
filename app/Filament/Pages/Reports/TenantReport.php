@@ -5,7 +5,9 @@ namespace App\Filament\Pages\Reports;
 use Filament\Pages\Page;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
 use Filament\Actions\Action;
 use App\Models\Tenant;
 use App\Models\Unit;
@@ -17,9 +19,11 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Filament\Support\Enums\IconPosition;
 use Illuminate\Support\Facades\DB;
+use App\Enums\UserType;
 
-class TenantReport extends Page
+class TenantReport extends Page implements HasForms
 {
+    use InteractsWithForms;
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-user-group';
     protected static ?string $navigationLabel = 'تقرير المستأجرين';
     protected static ?string $title = 'تقرير المستأجرين';
@@ -57,9 +61,9 @@ class TenantReport extends Page
         ];
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
                 Select::make('tenant_id')
                     ->label('المستأجر')
@@ -115,7 +119,7 @@ class TenantReport extends Page
     {
         return [
             \App\Filament\Widgets\Reports\TenantPaymentsTableWidget::class,
-            \App\Filament\Widgets\Reports\TenantContractsTableWidget::class,
+            // سيتم إضافة widgets إضافية لاحقاً
         ];
     }
 
@@ -288,7 +292,22 @@ class TenantReport extends Page
     public static function canAccess(): bool
     {
         $user = Auth::user();
-        return $user && ($user->hasRole(['admin', 'super_admin']) || $user->can('view_reports'));
+        if (!$user) {
+            return false;
+        }
+        
+        // Check if user type can access reports
+        $userType = UserType::tryFrom($user->type);
+        if (!$userType) {
+            return false;
+        }
+        
+        // Allow admin types to access reports
+        return in_array($userType, [
+            UserType::SUPER_ADMIN,
+            UserType::ADMIN,
+            UserType::EMPLOYEE,
+        ]);
     }
 
     public function mount(): void
@@ -308,8 +327,5 @@ class TenantReport extends Page
         ];
     }
 
-    public function getView(): string
-    {
-        return 'filament.pages.reports.tenant-report';
-    }
+    protected string $view = 'filament.pages.reports.tenant-report';
 }

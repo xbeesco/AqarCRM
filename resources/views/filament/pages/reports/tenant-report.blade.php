@@ -1,22 +1,5 @@
 <x-filament-panels::page>
     <div class="space-y-6">
-        {{-- Form Filters --}}
-        <x-filament-panels::form 
-            wire:submit="$refresh"
-        >
-            {{ $this->form }}
-            
-            <x-filament::actions>
-                <x-filament::button 
-                    wire:click="$refresh"
-                    icon="heroicon-o-arrow-path"
-                    color="primary"
-                    size="sm"
-                >
-                    تحديث التقرير
-                </x-filament::button>
-            </x-filament::actions>
-        </x-filament-panels::form>
 
         {{-- Report Content --}}
         @if($tenant_id)
