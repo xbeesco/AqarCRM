@@ -11,6 +11,7 @@ use Livewire\Attributes\On;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Support\Enums\FontWeight;
+use Filament\Actions\ViewAction;
 
 class TenantPaymentsTableWidget extends BaseWidget
 {
@@ -125,8 +126,8 @@ class TenantPaymentsTableWidget extends BaseWidget
                     ->query(fn ($query) => $query->whereNull('paid_date')),
             ])
             ->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
-            ->actions([
-                Tables\Actions\ViewAction::make()
+            ->recordActions([
+                ViewAction::make()
                     ->label('عرض')
                     ->icon('heroicon-o-eye'),
             ])
@@ -139,7 +140,7 @@ class TenantPaymentsTableWidget extends BaseWidget
             ->emptyStateIcon('heroicon-o-banknotes');
     }
 
-    protected function getTableQuery()
+    protected function getTableQuery(): \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Eloquent\Relations\Relation|null
     {
         if (!$this->tenant_id) {
             return CollectionPayment::query()->whereRaw('0 = 1'); // Return empty query
