@@ -12,7 +12,6 @@ use App\Models\PropertyRepair;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Support\Colors\Color;
 
 class PropertiesTableWidget extends BaseWidget
@@ -137,10 +136,10 @@ class PropertiesTableWidget extends BaseWidget
             ->filters([
                 // يمكن إضافة فلاتر إضافية هنا إذا لزم الأمر
             ])
-            ->actions([
+            ->recordActions([
                 // يمكن إضافة إجراءات هنا
             ])
-            ->bulkActions([
+            ->toolbarActions([
                 // يمكن إضافة إجراءات جماعية هنا
             ])
             ->emptyStateHeading('لا توجد عقارات')
