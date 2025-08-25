@@ -177,7 +177,7 @@ class CollectionPaymentResource extends Resource
                 EditAction::make(),
                 DeleteAction::make(),
             ])
-            ->bulkActions([
+            ->toolbarActions([
                 // Bulk actions here
             ])
             ->defaultSort('created_at', 'desc');

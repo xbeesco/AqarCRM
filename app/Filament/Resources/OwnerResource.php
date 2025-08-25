@@ -131,7 +131,7 @@ class OwnerResource extends Resource
             ->recordActions([
                 EditAction::make(),
             ])
-            ->bulkActions([])
+            ->toolbarActions([])
             ->defaultSort('created_at', 'desc');
     }
 
