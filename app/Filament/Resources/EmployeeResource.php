@@ -131,7 +131,7 @@ class EmployeeResource extends Resource
             ->filters([
             ])
             ->paginated(false)
-            ->actions([
+            ->recordActions([
                 EditAction::make(),
             ])
             ->defaultSort('created_at', 'desc');
