@@ -59,7 +59,6 @@ class UnitFeatureResource extends Resource
                 EditAction::make(),
             ])
             ->toolbarActions([])
-            ->bulkActions([])
             ->toggleColumnsTriggerAction(null)
             ->paginated(false);
     }

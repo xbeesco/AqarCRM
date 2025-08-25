@@ -238,10 +238,10 @@ class UnitResource extends Resource
                     ->label('تصنيف الوحدة')
                     ->relationship('unitCategory', 'name_ar'),
             ])
-            ->actions([
+            ->recordActions([
                 EditAction::make(),
             ])
-            ->bulkActions([]);
+            ->toolbarActions([]);
     }
 
     public static function getRelations(): array

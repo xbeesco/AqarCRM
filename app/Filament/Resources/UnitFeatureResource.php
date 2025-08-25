@@ -149,16 +149,18 @@ class UnitFeatureResource extends Resource
                     ->sortable()
                     ->fontFamily('mono'),
                 
-                Tables\Columns\BadgeColumn::make('category')
+                Tables\Columns\TextColumn::make('category')
                     ->label('الفئة / Category')
+                    ->badge()
                     ->formatStateUsing(fn (string $state): string => UnitFeature::getCategoryOptions()[$state] ?? $state)
-                    ->colors([
-                        'primary' => 'basic',
-                        'success' => 'amenities',
-                        'warning' => 'safety',
-                        'danger' => 'luxury',
-                        'secondary' => 'services',
-                    ])
+                    ->color(fn (string $state): string => match ($state) {
+                        'basic' => 'primary',
+                        'amenities' => 'success',
+                        'safety' => 'warning',
+                        'luxury' => 'danger',
+                        'services' => 'secondary',
+                        default => 'gray',
+                    })
                     ->sortable(),
                 
                 Tables\Columns\TextColumn::make('value_configuration')
@@ -211,13 +213,13 @@ class UnitFeatureResource extends Resource
                     ->falseLabel('غير نشط / Inactive')
                     ->placeholder('الكل / All'),
             ])
-            ->actions([
+            ->recordActions([
                 ViewAction::make()
                     ->label('عرض / View'),
                 EditAction::make()
                     ->label('تعديل / Edit'),
             ])
-            ->bulkActions([
+            ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
                         ->label('حذف / Delete'),
