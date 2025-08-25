@@ -1,5 +1,10 @@
 <x-filament-panels::page>
     <div class="space-y-6">
+        {{-- عرض فورم الفلاتر --}}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            {{ $this->form }}
+        </div>
+        
         @if($this->unit_id)
             @php
                 $data = $this->getUnitData();
@@ -157,11 +162,8 @@
             @endif
         @else
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
-                <svg class="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-                <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">لم يتم اختيار وحدة</h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">يرجى اختيار عقار ثم وحدة من القوائم أعلاه لعرض التقرير.</p>
+                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">لم يتم اختيار وحدة</h3>
+                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">يرجى اختيار عقار ثم وحدة من القوائم أعلاه لعرض التقرير.</p>
             </div>
         @endif
     </div>

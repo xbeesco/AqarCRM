@@ -5,7 +5,9 @@ namespace App\Filament\Pages\Reports;
 use Filament\Pages\Page;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
 use Filament\Actions\Action;
 use App\Models\Unit;
 use App\Models\Property;
@@ -15,9 +17,11 @@ use App\Models\PropertyRepair;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Filament\Support\Enums\IconPosition;
+use App\Enums\UserType;
 
-class UnitReport extends Page
+class UnitReport extends Page implements HasForms
 {
+    use InteractsWithForms;
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-home-modern';
     protected static ?string $navigationLabel = 'تقرير الوحدات';
     protected static ?string $title = 'تقرير الوحدات';
@@ -56,9 +60,9 @@ class UnitReport extends Page
         ];
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
                 Select::make('property_id')
                     ->label('العقار')
@@ -120,15 +124,14 @@ class UnitReport extends Page
     protected function getHeaderWidgets(): array
     {
         return [
-            \App\Filament\Widgets\Reports\UnitStatsWidget::class,
+            // سيتم إضافة widgets لاحقاً
         ];
     }
 
     protected function getFooterWidgets(): array
     {
         return [
-            \App\Filament\Widgets\Reports\UnitPaymentsTableWidget::class,
-            \App\Filament\Widgets\Reports\UnitOccupancyChartWidget::class,
+            // سيتم إضافة widgets لاحقاً
         ];
     }
 
@@ -176,7 +179,7 @@ class UnitReport extends Page
 
         // المدفوعات المستحقة
         $outstandingPayments = CollectionPayment::where('unit_id', $unit->id)
-            ->whereBetween('due_date', [$dateFrom, $dateTo])
+            ->whereBetween('due_date_start', [$dateFrom, $dateTo])
             ->whereHas('paymentStatus', function ($query) {
                 $query->where('is_paid_status', false);
             })
@@ -260,7 +263,22 @@ class UnitReport extends Page
     public static function canAccess(): bool
     {
         $user = Auth::user();
-        return $user && ($user->hasRole(['admin', 'super_admin']) || $user->can('view_reports'));
+        if (!$user) {
+            return false;
+        }
+        
+        // Check if user type can access reports
+        $userType = UserType::tryFrom($user->type);
+        if (!$userType) {
+            return false;
+        }
+        
+        // Allow admin types to access reports
+        return in_array($userType, [
+            UserType::SUPER_ADMIN,
+            UserType::ADMIN,
+            UserType::EMPLOYEE,
+        ]);
     }
 
     public function mount(): void
@@ -281,8 +299,5 @@ class UnitReport extends Page
         ];
     }
 
-    public function getView(): string
-    {
-        return 'filament.pages.reports.unit-report';
-    }
+    protected string $view = 'filament.pages.reports.unit-report';
 }

@@ -88,6 +88,21 @@ class AdminPanelProvider extends PanelProvider
                                 ...array_map(fn($item) => $item->icon('heroicon-o-briefcase'), 
                                     \App\Filament\Resources\EmployeeResource::getNavigationItems()),
                             ]),
+                        NavigationGroup::make('التقارير')
+                            ->items([
+                                NavigationItem::make('تقرير العقارات')
+                                    ->icon('heroicon-o-building-office')
+                                    ->url(fn (): string => \App\Filament\Pages\Reports\PropertyReport::getUrl())
+                                    ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.reports.property-report')),
+                                NavigationItem::make('تقرير الوحدات')
+                                    ->icon('heroicon-o-home-modern')
+                                    ->url(fn (): string => \App\Filament\Pages\Reports\UnitReport::getUrl())
+                                    ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.reports.unit-report')),
+                                NavigationItem::make('تقرير المستأجرين')
+                                    ->icon('heroicon-o-user-group')
+                                    ->url(fn (): string => \App\Filament\Pages\Reports\TenantReport::getUrl())
+                                    ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.reports.tenant-report')),
+                            ]),
                         NavigationGroup::make('التأسيس')
                             ->items([
                                 ...array_map(fn($item) => $item->icon('heroicon-o-map-pin'), 
