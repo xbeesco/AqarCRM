@@ -154,7 +154,7 @@ Select::make('level')
             ->recordActions([
                 EditAction::make()
                     ->modalHeading(fn ($record) => 'تعديل موقع: ' . $record->name)
-                    ->modalButton('حفظ التغييرات')
+                    ->modalSubmitActionLabel('حفظ التغييرات')
                     ->modalWidth('xl'),
             ])
             ->defaultSort('path', 'asc')

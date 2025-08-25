@@ -87,7 +87,7 @@ class EmployeeResource extends Resource
                             ])
                             ->default(UserType::EMPLOYEE->value)
                             ->required()
-                            ->visible(fn () => auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+                            ->visible(fn () => auth()->user->isSuperAdmin() || auth()->user->isAdmin())
                             ->columnSpan(12),
                             
                         TextInput::make('email')
