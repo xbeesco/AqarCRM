@@ -50,13 +50,6 @@ class PropertyReport extends Page implements HasForms
                 ->iconPosition(IconPosition::Before)
                 ->color('success')
                 ->action(fn () => $this->exportToExcel()),
-                
-            Action::make('print')
-                ->label('طباعة')
-                ->icon('heroicon-o-printer')
-                ->iconPosition(IconPosition::Before)
-                ->color('gray')
-                ->action(fn () => $this->printReport()),
         ];
     }
 
@@ -152,7 +145,13 @@ class PropertyReport extends Page implements HasForms
 
         // إحصائيات الوحدات
         $totalUnits = $property->units->count();
-        $occupiedUnits = $property->units->where('current_tenant_id', '!=', null)->count();
+        
+        // حساب الوحدات المشغولة من خلال العقود النشطة
+        $occupiedUnits = UnitContract::whereIn('unit_id', $property->units->pluck('id'))
+            ->where('contract_status', 'active')
+            ->distinct('unit_id')
+            ->count('unit_id');
+            
         $vacantUnits = $totalUnits - $occupiedUnits;
         $occupancyRate = $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100, 2) : 0;
 
@@ -190,7 +189,12 @@ class PropertyReport extends Page implements HasForms
 
         // حساب إجمالي الإيجار الشهري المتوقع
         $monthlyRentPotential = $property->units->sum('rent_price');
-        $actualMonthlyRent = $property->units->where('current_tenant_id', '!=', null)->sum('rent_price');
+        
+        // حساب الإيجار الشهري الفعلي من الوحدات المؤجرة
+        $occupiedUnitIds = UnitContract::whereIn('unit_id', $property->units->pluck('id'))
+            ->where('contract_status', 'active')
+            ->pluck('unit_id');
+        $actualMonthlyRent = $property->units->whereIn('id', $occupiedUnitIds)->sum('rent_price');
 
         return [
             'property' => $property,
@@ -223,10 +227,6 @@ class PropertyReport extends Page implements HasForms
         $this->js('alert("سيتم تنفيذ تصدير Excel قريباً")');
     }
 
-    protected function printReport()
-    {
-        $this->js('window.print()');
-    }
 
     public static function canAccess(): bool
     {

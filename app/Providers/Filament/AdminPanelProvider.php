@@ -102,6 +102,10 @@ class AdminPanelProvider extends PanelProvider
                                     ->icon('heroicon-o-user-group')
                                     ->url(fn (): string => \App\Filament\Pages\Reports\TenantReport::getUrl())
                                     ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.reports.tenant-report')),
+                                NavigationItem::make('تقرير الملاك')
+                                    ->icon('heroicon-o-document-chart-bar')
+                                    ->url(fn (): string => \App\Filament\Pages\Reports\OwnerReport::getUrl())
+                                    ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.reports.owner-report')),
                             ]),
                         NavigationGroup::make('التأسيس')
                             ->items([

@@ -51,13 +51,6 @@ class TenantReport extends Page implements HasForms
                 ->iconPosition(IconPosition::Before)
                 ->color('success')
                 ->action(fn () => $this->exportToExcel()),
-                
-            Action::make('print')
-                ->label('طباعة')
-                ->icon('heroicon-o-printer')
-                ->iconPosition(IconPosition::Before)
-                ->color('gray')
-                ->action(fn () => $this->printReport()),
         ];
     }
 
@@ -234,9 +227,12 @@ class TenantReport extends Page implements HasForms
             ->first();
 
         // طلبات الصيانة المرتبطة بالمستأجر
-        $maintenanceRequests = PropertyRepair::whereHas('unit', function ($query) use ($tenant) {
-                $query->where('current_tenant_id', $tenant->id);
-            })
+        // نحصل على الوحدات التي يستأجرها المستأجر حالياً
+        $tenantUnitIds = UnitContract::where('tenant_id', $tenant->id)
+            ->where('contract_status', 'active')
+            ->pluck('unit_id');
+            
+        $maintenanceRequests = PropertyRepair::whereIn('unit_id', $tenantUnitIds)
             ->whereBetween('created_at', [$dateFrom, $dateTo])
             ->with(['unit', 'property'])
             ->orderBy('created_at', 'desc')
@@ -284,10 +280,6 @@ class TenantReport extends Page implements HasForms
         $this->js('alert("سيتم تنفيذ تصدير Excel قريباً")');
     }
 
-    protected function printReport()
-    {
-        $this->js('window.print()');
-    }
 
     public static function canAccess(): bool
     {

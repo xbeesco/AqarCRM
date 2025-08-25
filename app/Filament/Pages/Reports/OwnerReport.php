@@ -5,8 +5,10 @@ namespace App\Filament\Pages\Reports;
 use Filament\Pages\Page;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Form;
-use Filament\Actions;
+use Filament\Schemas\Schema;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
+use Filament\Actions\Action;
 use App\Models\Owner;
 use App\Models\Property;
 use App\Models\CollectionPayment;
@@ -15,15 +17,17 @@ use App\Models\PropertyRepair;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Filament\Support\Enums\IconPosition;
+use App\Enums\UserType;
 
-class OwnerReport extends Page
+class OwnerReport extends Page implements HasForms
 {
+    use InteractsWithForms;
+    
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-chart-bar';
-    protected static ?string $navigationLabel = 'تقرير المالك';
-    protected static ?string $title = 'تقرير المالك';
-    protected string $view = 'filament.pages.reports.owner-report';
+    protected static ?string $navigationLabel = 'تقرير الملاك';
+    protected static ?string $title = 'تقرير الملاك';
     protected static string|\UnitEnum|null $navigationGroup = 'التقارير';
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 4;
 
     public ?int $owner_id = null;
     public ?string $date_from = null;
@@ -33,42 +37,36 @@ class OwnerReport extends Page
     protected function getHeaderActions(): array
     {
         return [
-            Actions\Action::make('export_pdf')
+            Action::make('export_pdf')
                 ->label('تصدير PDF')
                 ->icon('heroicon-o-document-arrow-down')
                 ->iconPosition(IconPosition::Before)
                 ->color('danger')
-                ->action(function () {
-                    return $this->exportToPdf();
-                }),
-            Actions\Action::make('export_excel')
+                ->action(fn () => $this->exportToPdf()),
+                
+            Action::make('export_excel')
                 ->label('تصدير Excel')
                 ->icon('heroicon-o-table-cells')
                 ->iconPosition(IconPosition::Before)
                 ->color('success')
-                ->action(function () {
-                    return $this->exportToExcel();
-                }),
-            Actions\Action::make('print')
-                ->label('طباعة')
-                ->icon('heroicon-o-printer')
-                ->iconPosition(IconPosition::Before)
-                ->color('gray')
-                ->action(function () {
-                    return $this->printReport();
-                }),
+                ->action(fn () => $this->exportToExcel()),
         ];
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
                 Select::make('owner_id')
                     ->label('المالك')
                     ->placeholder('اختر المالك')
                     ->options(function () {
-                        return Owner::pluck('name', 'id')->toArray();
+                        return Owner::withCount('properties')
+                            ->get()
+                            ->mapWithKeys(function ($owner) {
+                                return [$owner->id => $owner->name . ' (' . $owner->properties_count . ' عقار)'];
+                            })
+                            ->toArray();
                     })
                     ->searchable()
                     ->live()
@@ -91,6 +89,8 @@ class OwnerReport extends Page
                     ->options([
                         'summary' => 'مختصر',
                         'detailed' => 'تفصيلي',
+                        'financial' => 'مالي',
+                        'properties' => 'العقارات',
                     ])
                     ->default('summary')
                     ->live()
@@ -148,6 +148,16 @@ class OwnerReport extends Page
             })
             ->sum('total_amount');
 
+        // حساب المستحقات
+        $outstandingPayments = CollectionPayment::whereHas('property', function ($query) use ($owner) {
+                $query->where('owner_id', $owner->id);
+            })
+            ->whereBetween('due_date_start', [$dateFrom, $dateTo])
+            ->whereHas('paymentStatus', function ($query) {
+                $query->where('is_paid_status', false);
+            })
+            ->sum('total_amount');
+
         // حساب النسبة الإدارية (افتراض 10%)
         $managementPercentage = 10;
         $managementFee = $totalCollection * ($managementPercentage / 100);
@@ -160,59 +170,127 @@ class OwnerReport extends Page
             ->whereIn('status', ['completed'])
             ->sum('actual_cost');
 
-        // حساب صافي الدخل
+        // حساب صافي الدخل للمالك
         $netIncome = $totalCollection - $managementFee - $maintenanceCosts;
 
-        // حساب إحصائيات إضافية
+        // حساب المبالغ المحولة للمالك
+        $transferredAmount = SupplyPayment::where('owner_id', $owner->id)
+            ->whereBetween('payment_date', [$dateFrom, $dateTo])
+            ->where('payment_status', 'paid')
+            ->sum('amount');
+
+        // حساب الرصيد المتبقي
+        $balance = $netIncome - $transferredAmount;
+
+        // إحصائيات العقارات
         $propertiesCount = $owner->properties->count();
         $totalUnits = $owner->properties->sum('total_units');
         $occupiedUnits = $owner->properties->sum(function ($property) {
             return $property->units->where('current_tenant_id', '!=', null)->count();
         });
+        $vacantUnits = $totalUnits - $occupiedUnits;
         $occupancyRate = $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100, 2) : 0;
+
+        // تفاصيل العقارات
+        $propertiesDetails = $owner->properties->map(function ($property) use ($dateFrom, $dateTo) {
+            $propertyUnits = $property->units->count();
+            $propertyOccupied = $property->units->where('current_tenant_id', '!=', null)->count();
+            $propertyRevenue = CollectionPayment::where('property_id', $property->id)
+                ->whereBetween('paid_date', [$dateFrom, $dateTo])
+                ->whereHas('paymentStatus', function ($query) {
+                    $query->where('is_paid_status', true);
+                })
+                ->sum('total_amount');
+            
+            return [
+                'id' => $property->id,
+                'name' => $property->name,
+                'total_units' => $propertyUnits,
+                'occupied_units' => $propertyOccupied,
+                'vacant_units' => $propertyUnits - $propertyOccupied,
+                'occupancy_rate' => $propertyUnits > 0 ? round(($propertyOccupied / $propertyUnits) * 100, 2) : 0,
+                'revenue' => $propertyRevenue,
+            ];
+        });
+
+        // إحصائيات المدفوعات
+        $paymentStats = [
+            'total_collected' => $totalCollection,
+            'total_outstanding' => $outstandingPayments,
+            'collection_rate' => ($totalCollection + $outstandingPayments) > 0 
+                ? round(($totalCollection / ($totalCollection + $outstandingPayments)) * 100, 2) 
+                : 0,
+        ];
+
+        // إحصائيات الصيانة
+        $maintenanceRequests = PropertyRepair::whereHas('property', function ($query) use ($owner) {
+                $query->where('owner_id', $owner->id);
+            })
+            ->whereBetween('created_at', [$dateFrom, $dateTo])
+            ->count();
+
+        $completedMaintenance = PropertyRepair::whereHas('property', function ($query) use ($owner) {
+                $query->where('owner_id', $owner->id);
+            })
+            ->whereBetween('completion_date', [$dateFrom, $dateTo])
+            ->where('status', 'completed')
+            ->count();
 
         return [
             'owner' => $owner,
             'dateFrom' => $dateFrom,
             'dateTo' => $dateTo,
             'totalCollection' => $totalCollection,
+            'outstandingPayments' => $outstandingPayments,
             'managementFee' => $managementFee,
             'managementPercentage' => $managementPercentage,
             'maintenanceCosts' => $maintenanceCosts,
             'netIncome' => $netIncome,
+            'transferredAmount' => $transferredAmount,
+            'balance' => $balance,
             'propertiesCount' => $propertiesCount,
             'totalUnits' => $totalUnits,
             'occupiedUnits' => $occupiedUnits,
+            'vacantUnits' => $vacantUnits,
             'occupancyRate' => $occupancyRate,
+            'propertiesDetails' => $propertiesDetails,
+            'paymentStats' => $paymentStats,
+            'maintenanceRequests' => $maintenanceRequests,
+            'completedMaintenance' => $completedMaintenance,
         ];
     }
 
     protected function exportToPdf()
     {
-        // تنفيذ تصدير PDF
         $data = $this->getOwnerData();
-        // سيتم تنفيذ PDF export لاحقاً
         $this->js('alert("سيتم تنفيذ تصدير PDF قريباً")');
     }
 
     protected function exportToExcel()
     {
-        // تنفيذ تصدير Excel
         $data = $this->getOwnerData();
-        // سيتم تنفيذ Excel export لاحقاً
         $this->js('alert("سيتم تنفيذ تصدير Excel قريباً")');
-    }
-
-    protected function printReport()
-    {
-        // تنفيذ الطباعة
-        $this->js('window.print()');
     }
 
     public static function canAccess(): bool
     {
         $user = Auth::user();
-        return $user && ($user->hasRole(['admin', 'super_admin']) || $user->can('view_reports'));
+        if (!$user) {
+            return false;
+        }
+        
+        // Check if user type can access reports
+        $userType = UserType::tryFrom($user->type);
+        if (!$userType) {
+            return false;
+        }
+        
+        // Allow admin types to access reports
+        return in_array($userType, [
+            UserType::SUPER_ADMIN,
+            UserType::ADMIN,
+            UserType::EMPLOYEE,
+        ]);
     }
 
     public function mount(): void
@@ -224,4 +302,13 @@ class OwnerReport extends Page
             'report_type' => $this->report_type,
         ]);
     }
+
+    protected function getViewData(): array
+    {
+        return [
+            'reportData' => $this->getOwnerData(),
+        ];
+    }
+
+    protected string $view = 'filament.pages.reports.owner-report';
 }

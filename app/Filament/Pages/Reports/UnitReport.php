@@ -50,13 +50,6 @@ class UnitReport extends Page implements HasForms
                 ->iconPosition(IconPosition::Before)
                 ->color('success')
                 ->action(fn () => $this->exportToExcel()),
-                
-            Action::make('print')
-                ->label('طباعة')
-                ->icon('heroicon-o-printer')
-                ->iconPosition(IconPosition::Before)
-                ->color('gray')
-                ->action(fn () => $this->printReport()),
         ];
     }
 
@@ -152,7 +145,7 @@ class UnitReport extends Page implements HasForms
             return [];
         }
 
-        $unit = Unit::with(['property', 'currentTenant', 'unitCategory'])->find($this->unit_id);
+        $unit = Unit::with(['property', 'unitCategory', 'contracts'])->find($this->unit_id);
         if (!$unit) {
             return [];
         }
@@ -160,14 +153,15 @@ class UnitReport extends Page implements HasForms
         $dateFrom = $this->date_from ? Carbon::parse($this->date_from) : now()->startOfMonth();
         $dateTo = $this->date_to ? Carbon::parse($this->date_to) : now()->endOfMonth();
 
-        // حالة الوحدة
-        $isOccupied = $unit->current_tenant_id !== null;
-        $currentTenant = $unit->currentTenant;
-        
         // العقد الحالي
         $currentContract = UnitContract::where('unit_id', $unit->id)
             ->where('contract_status', 'active')
+            ->with('tenant')
             ->first();
+        
+        // حالة الوحدة والمستأجر الحالي
+        $isOccupied = $currentContract !== null;
+        $currentTenant = $currentContract ? $currentContract->tenant : null;
 
         // حساب الإيرادات
         $totalRevenue = CollectionPayment::where('unit_id', $unit->id)
@@ -189,7 +183,7 @@ class UnitReport extends Page implements HasForms
         $maintenanceCosts = PropertyRepair::where('unit_id', $unit->id)
             ->whereBetween('completion_date', [$dateFrom, $dateTo])
             ->where('status', 'completed')
-            ->sum('actual_cost');
+            ->sum('total_cost');
 
         // سجل الإيجارات
         $rentalHistory = UnitContract::where('unit_id', $unit->id)
@@ -255,10 +249,6 @@ class UnitReport extends Page implements HasForms
         $this->js('alert("سيتم تنفيذ تصدير Excel قريباً")');
     }
 
-    protected function printReport()
-    {
-        $this->js('window.print()');
-    }
 
     public static function canAccess(): bool
     {
