@@ -140,7 +140,7 @@ class SupplyPaymentResource extends Resource
                 ViewAction::make(),
                 EditAction::make(),
             ])
-            ->bulkActions([
+            ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
