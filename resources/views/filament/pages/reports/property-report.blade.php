@@ -1,5 +1,22 @@
 <x-filament-panels::page>
+    <style>
+        /* Fix for oversized SVG icons */
+        svg.heroicon, 
+        [class*="heroicon"] {
+            max-width: 1.5rem !important;
+            max-height: 1.5rem !important;
+        }
+        .h-12.w-12 {
+            max-width: 3rem !important;
+            max-height: 3rem !important;
+        }
+    </style>
     <div class="space-y-6">
+        {{-- عرض فورم الفلاتر --}}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            {{ $this->form }}
+        </div>
+        
         @if($this->property_id)
             @php
                 $data = $this->getPropertyData();
@@ -142,11 +159,8 @@
             @endif
         @else
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
-                <svg class="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-                <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">لم يتم اختيار عقار</h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">يرجى اختيار عقار من القائمة أعلاه لعرض التقرير.</p>
+                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">لم يتم اختيار عقار</h3>
+                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">يرجى اختيار عقار من القائمة أعلاه لعرض التقرير.</p>
             </div>
         @endif
     </div>

@@ -5,7 +5,9 @@ namespace App\Filament\Pages\Reports;
 use Filament\Pages\Page;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
 use Filament\Actions\Action;
 use App\Models\Property;
 use App\Models\Unit;
@@ -16,10 +18,12 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Filament\Support\Enums\IconPosition;
 use Illuminate\Support\Facades\DB;
+use App\Enums\UserType;
 
-class PropertyReport extends Page
+class PropertyReport extends Page implements HasForms
 {
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-building-office';
+    use InteractsWithForms;
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-building-office-2';
     protected static ?string $navigationLabel = 'تقرير العقارات';
     protected static ?string $title = 'تقرير العقارات';
     protected static string|\UnitEnum|null $navigationGroup = 'التقارير';
@@ -56,10 +60,16 @@ class PropertyReport extends Page
         ];
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form
-            ->schema([
+        return $schema
+            ->schema($this->getFormSchema())
+            ->columns(4);
+    }
+    
+    protected function getFormSchema(): array
+    {
+        return [
                 Select::make('property_id')
                     ->label('العقار')
                     ->placeholder('اختر العقار')
@@ -98,22 +108,21 @@ class PropertyReport extends Page
                     ->default('summary')
                     ->live()
                     ->afterStateUpdated(fn () => $this->updateWidgets()),
-            ])
-            ->columns(4);
+            ];
     }
 
     protected function getHeaderWidgets(): array
     {
         return [
-            \App\Filament\Widgets\Reports\PropertyStatsWidget::class,
+            \App\Filament\Widgets\Reports\OwnerStatsWidget::class,
         ];
     }
 
     protected function getFooterWidgets(): array
     {
         return [
-            \App\Filament\Widgets\Reports\UnitsTableWidget::class,
-            \App\Filament\Widgets\Reports\PropertyRevenueChartWidget::class,
+            \App\Filament\Widgets\Reports\PropertiesTableWidget::class,
+            \App\Filament\Widgets\Reports\IncomeChartWidget::class,
         ];
     }
 
@@ -157,7 +166,7 @@ class PropertyReport extends Page
 
         // حساب المستحقات
         $outstandingPayments = CollectionPayment::where('property_id', $property->id)
-            ->whereBetween('due_date', [$dateFrom, $dateTo])
+            ->whereBetween('due_date_start', [$dateFrom, $dateTo])
             ->whereHas('paymentStatus', function ($query) {
                 $query->where('is_paid_status', false);
             })
@@ -167,7 +176,7 @@ class PropertyReport extends Page
         $maintenanceCosts = PropertyRepair::where('property_id', $property->id)
             ->whereBetween('completion_date', [$dateFrom, $dateTo])
             ->where('status', 'completed')
-            ->sum('actual_cost');
+            ->sum('total_cost');
 
         // حساب عدد العقود النشطة
         $activeContracts = UnitContract::whereHas('unit', function ($query) use ($property) {
@@ -222,7 +231,22 @@ class PropertyReport extends Page
     public static function canAccess(): bool
     {
         $user = Auth::user();
-        return $user && ($user->hasRole(['admin', 'super_admin']) || $user->can('view_reports'));
+        if (!$user) {
+            return false;
+        }
+        
+        // Check if user type can access reports
+        $userType = UserType::tryFrom($user->type);
+        if (!$userType) {
+            return false;
+        }
+        
+        // Allow admin types to access reports
+        return in_array($userType, [
+            UserType::SUPER_ADMIN,
+            UserType::ADMIN,
+            UserType::EMPLOYEE,
+        ]);
     }
 
     public function mount(): void
@@ -242,8 +266,5 @@ class PropertyReport extends Page
         ];
     }
 
-    public function getView(): string
-    {
-        return 'filament.pages.reports.property-report';
-    }
+    protected string $view = 'filament.pages.reports.property-report';
 }
