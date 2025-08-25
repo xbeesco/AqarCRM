@@ -16,7 +16,6 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -100,14 +99,16 @@ class SupplyPaymentResource extends Resource
                     ->date('Y-m-d')
                     ->sortable(),
 
-                BadgeColumn::make('status')
+                TextColumn::make('status')
                     ->label('الحالة')
-                    ->colors([
-                        'warning' => 'pending',
-                        'success' => 'approved',
-                        'primary' => 'paid',
-                        'danger' => 'cancelled',
-                    ])
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'pending' => 'warning',
+                        'approved' => 'success',
+                        'paid' => 'primary',
+                        'cancelled' => 'danger',
+                        default => 'gray',
+                    })
                     ->formatStateUsing(fn ($state) => match($state) {
                         'pending' => 'في الانتظار',
                         'approved' => 'موافق عليه',
@@ -136,7 +137,7 @@ class SupplyPaymentResource extends Resource
                         'cancelled' => 'ملغي'
                     ]),
             ])
-            ->actions([
+            ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
             ])

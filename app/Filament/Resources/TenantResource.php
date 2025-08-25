@@ -110,7 +110,7 @@ class TenantResource extends Resource
             ->recordActions([
                 EditAction::make(),
             ])
-            ->bulkActions([])
+            ->toolbarActions([])
             ->defaultSort('created_at', 'desc');
     }
 
