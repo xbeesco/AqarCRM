@@ -84,10 +84,17 @@ class CollectionPayment extends Model
                 $payment->payment_number = self::generatePaymentNumber();
             }
             
-            // قيمة افتراضية لـ payment_status_id
+            // ضبط payment_status_id بناءً على collection_status
             if (empty($payment->payment_status_id)) {
-                $payment->payment_status_id = 2; // الرقم 2 = حالة "تستحق التحصيل"
+                $payment->payment_status_id = match($payment->collection_status) {
+                    self::STATUS_COLLECTED => 1,   // تم التحصيل
+                    self::STATUS_DUE => 2,          // تستحق التحصيل
+                    self::STATUS_POSTPONED => 3,    // المؤجلة
+                    self::STATUS_OVERDUE => 4,      // تجاوزت المدة
+                    default => 2,
+                };
             }
+            
             
             // قيمة افتراضية للغرامة
             if (is_null($payment->late_fee)) {
@@ -104,6 +111,16 @@ class CollectionPayment extends Model
         });
 
         static::updating(function ($payment) {
+            // ضبط payment_status_id بناءً على collection_status
+            $payment->payment_status_id = match($payment->collection_status) {
+                self::STATUS_COLLECTED => 1,   // تم التحصيل
+                self::STATUS_DUE => 2,          // تستحق التحصيل
+                self::STATUS_POSTPONED => 3,    // المؤجلة
+                self::STATUS_OVERDUE => 4,      // تجاوزت المدة
+                default => 2,
+            };
+            
+            
             // إعادة حساب المجموع الكلي
             $payment->total_amount = ($payment->amount ?? 0) + ($payment->late_fee ?? 0);
             

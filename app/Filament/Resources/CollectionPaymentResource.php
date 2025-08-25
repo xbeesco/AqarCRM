@@ -172,39 +172,9 @@ class CollectionPaymentResource extends Resource
                     ->relationship('tenant', 'name')
                     ->searchable(),
             ])
-            ->actions([
+            ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
-                Action::make('process_payment')
-                    ->label('Process Payment / تحصيل الدفعة')
-                    ->icon('heroicon-o-currency-dollar')
-                    ->color('success')
-                    ->visible(fn (CollectionPayment $record) => $record->paymentStatus->slug === 'worth_collecting')
-                    ->form([
-                        Select::make('payment_method_id')
-                            ->label('Payment Method / طريقة الدفع')
-                            ->options(\App\Models\PaymentMethod::active()->pluck('name_ar', 'id'))
-                            ->required(),
-                        DatePicker::make('paid_date')
-                            ->label('Paid Date / تاريخ السداد')
-                            ->default(now())
-                            ->required(),
-                        TextInput::make('payment_reference')
-                            ->label('Payment Reference / مرجع الدفعة'),
-                    ])
-                    ->action(function (CollectionPayment $record, array $data) {
-                        $record->processPayment(
-                            $data['payment_method_id'],
-                            $data['paid_date'],
-                            $data['payment_reference'] ?? null
-                        );
-                    }),
-                Action::make('generate_receipt')
-                    ->label('Print Receipt / طباعة الإيصال')
-                    ->icon('heroicon-o-printer')
-                    ->color('info')
-                    ->visible(fn (CollectionPayment $record) => $record->paymentStatus->is_paid_status)
-                    ->url(fn (CollectionPayment $record) => route('collection-payment.receipt', $record)),
                 DeleteAction::make(),
             ])
             ->bulkActions([
