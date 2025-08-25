@@ -25,8 +25,6 @@ class TenantReport extends Page
     protected static ?string $title = 'تقرير المستأجرين';
     protected static string|\UnitEnum|null $navigationGroup = 'التقارير';
     protected static ?int $navigationSort = 1;
-    
-    protected static string $view = 'filament.pages.reports.tenant-report';
 
     public ?int $tenant_id = null;
     public ?string $date_from = null;
@@ -301,5 +299,17 @@ class TenantReport extends Page
             'date_to' => $this->date_to ?? now()->endOfMonth()->format('Y-m-d'),
             'report_type' => $this->report_type,
         ]);
+    }
+
+    protected function getViewData(): array
+    {
+        return [
+            'reportData' => $this->getTenantData(),
+        ];
+    }
+
+    public function getView(): string
+    {
+        return 'filament.pages.reports.tenant-report';
     }
 }

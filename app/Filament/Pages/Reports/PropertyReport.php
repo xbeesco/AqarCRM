@@ -24,8 +24,6 @@ class PropertyReport extends Page
     protected static ?string $title = 'تقرير العقارات';
     protected static string|\UnitEnum|null $navigationGroup = 'التقارير';
     protected static ?int $navigationSort = 2;
-    
-    protected static string $view = 'filament.pages.reports.property-report';
 
     public ?int $property_id = null;
     public ?string $date_from = null;
@@ -235,5 +233,17 @@ class PropertyReport extends Page
             'date_to' => $this->date_to ?? now()->endOfMonth()->format('Y-m-d'),
             'report_type' => $this->report_type,
         ]);
+    }
+
+    protected function getViewData(): array
+    {
+        return [
+            'reportData' => $this->getPropertyData(),
+        ];
+    }
+
+    public function getView(): string
+    {
+        return 'filament.pages.reports.property-report';
     }
 }

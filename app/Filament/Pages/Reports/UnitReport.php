@@ -23,8 +23,6 @@ class UnitReport extends Page
     protected static ?string $title = 'تقرير الوحدات';
     protected static string|\UnitEnum|null $navigationGroup = 'التقارير';
     protected static ?int $navigationSort = 3;
-    
-    protected static string $view = 'filament.pages.reports.unit-report';
 
     public ?int $unit_id = null;
     public ?int $property_id = null;
@@ -274,5 +272,17 @@ class UnitReport extends Page
             'date_to' => $this->date_to ?? now()->endOfMonth()->format('Y-m-d'),
             'report_type' => $this->report_type,
         ]);
+    }
+
+    protected function getViewData(): array
+    {
+        return [
+            'reportData' => $this->getUnitData(),
+        ];
+    }
+
+    public function getView(): string
+    {
+        return 'filament.pages.reports.unit-report';
     }
 }
