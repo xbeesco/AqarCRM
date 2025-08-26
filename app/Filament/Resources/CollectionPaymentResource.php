@@ -29,6 +29,7 @@ class CollectionPaymentResource extends Resource
     protected static ?string $navigationLabel = 'دفعات المستأجرين';
     protected static ?string $modelLabel = 'دفعة مستأجر';
     protected static ?string $pluralModelLabel = 'دفعات المستأجرين';
+    protected static ?string $recordTitleAttribute = 'payment_number';
     // Navigation properties removed - managed centrally in AdminPanelProvider
 
     public static function form(Schema $schema): Schema
@@ -173,6 +174,9 @@ class CollectionPaymentResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (\Illuminate\Database\Eloquent\Builder $query) {
+                $query->with(['unitContract.tenant', 'unitContract.unit', 'unitContract.property']);
+            })
             ->columns([
                 TextColumn::make('payment_number')
                     ->label('رقم الدفعة')
@@ -197,6 +201,7 @@ class CollectionPaymentResource extends Resource
                 TextColumn::make('amount')
                     ->label('القيمة المالية')
                     ->money('SAR')
+                    ->searchable()
                     ->sortable(),
 
                 TextColumn::make('collection_status')
@@ -254,7 +259,16 @@ class CollectionPaymentResource extends Resource
                 
                 SelectFilter::make('unit_contract_id')
                     ->label('العقد')
-                    ->relationship('unitContract', 'id')
+                    ->relationship('unitContract', 'contract_number')
+                    ->getOptionLabelFromRecordUsing(function ($record) {
+                        return sprintf(
+                            '%s - %s - %s - %s',
+                            $record->contract_number ?? 'بدون رقم',
+                            $record->tenant?->name ?? 'غير محدد',
+                            $record->unit?->name ?? 'غير محدد',
+                            $record->property?->name ?? 'غير محدد'
+                        );
+                    })
                     ->searchable()
                     ->preload(),
                 
@@ -292,5 +306,159 @@ class CollectionPaymentResource extends Resource
     public static function getNavigationBadgeColor(): ?string
     {
         return 'danger';
+    }
+    
+    // البحث الذكي الشامل
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'payment_number',
+            'amount',
+            'collection_date',
+            'due_date_start',
+            'due_date_end',
+            'paid_date',
+            'delay_duration',
+            'delay_reason',
+            'late_payment_notes',
+            'payment_reference',
+            'receipt_number',
+            'month_year',
+            'unitContract.tenant.name',
+            'unitContract.tenant.phone',
+            'unitContract.tenant.email',
+            'unitContract.unit.name',
+            'unitContract.property.name',
+            'unitContract.property.address',
+        ];
+    }
+    
+    public static function getGlobalSearchEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()
+            ->with(['unitContract.tenant', 'unitContract.unit', 'unitContract.property']);
+    }
+    
+    public static function getGlobalSearchResults(string $search): \Illuminate\Support\Collection
+    {
+        $search = trim($search);
+        
+        // تطبيع البحث العربي - إزالة الهمزات والتاء المربوطة
+        $normalizedSearch = str_replace(['أ', 'إ', 'آ'], 'ا', $search);
+        $normalizedSearch = str_replace(['ة'], 'ه', $normalizedSearch);
+        $normalizedSearch = str_replace(['ى'], 'ي', $normalizedSearch);
+        
+        // إزالة المسافات الزائدة
+        $searchWithoutSpaces = str_replace(' ', '', $normalizedSearch);
+        
+        return static::getGlobalSearchEloquentQuery()
+            ->where(function (\Illuminate\Database\Eloquent\Builder $query) use ($search, $normalizedSearch, $searchWithoutSpaces) {
+                // البحث في رقم الدفعة والمراجع
+                $query->where('payment_number', 'LIKE', "%{$search}%")
+                    ->orWhere('payment_number', 'LIKE', "%{$searchWithoutSpaces}%")
+                    ->orWhere('payment_reference', 'LIKE', "%{$search}%")
+                    ->orWhere('receipt_number', 'LIKE', "%{$search}%")
+                    ->orWhere('month_year', 'LIKE', "%{$search}%");
+                
+                // البحث في حالة التحصيل - مهم جداً
+                $statusSearch = CollectionPayment::getStatusOptions();
+                foreach ($statusSearch as $key => $label) {
+                    if (stripos($label, $normalizedSearch) !== false || stripos($label, $search) !== false) {
+                        $query->orWhere('collection_status', $key);
+                    }
+                }
+                
+                // البحث في المبلغ (حتى لو رقم واحد)
+                if (is_numeric($search)) {
+                    $query->orWhere('amount', 'LIKE', "%{$search}%")
+                        ->orWhere('amount', $search);
+                }
+                
+                // البحث في الملاحظات
+                $query->orWhere('delay_reason', 'LIKE', "%{$normalizedSearch}%")
+                    ->orWhere('late_payment_notes', 'LIKE', "%{$normalizedSearch}%");
+                
+                // البحث في مدة التأجيل
+                if (is_numeric($search)) {
+                    $query->orWhere('delay_duration', $search)
+                        ->orWhere('delay_duration', 'LIKE', "%{$search}%");
+                }
+                
+                // البحث في كل التواريخ
+                $query->orWhere('collection_date', 'LIKE', "%{$search}%")
+                    ->orWhere('due_date_start', 'LIKE', "%{$search}%")
+                    ->orWhere('due_date_end', 'LIKE', "%{$search}%")
+                    ->orWhere('paid_date', 'LIKE', "%{$search}%")
+                    ->orWhere('created_at', 'LIKE', "%{$search}%");
+                
+                // البحث بالسنة فقط
+                if (preg_match('/^\d{4}$/', $search)) {
+                    $query->orWhereYear('collection_date', $search)
+                        ->orWhereYear('due_date_start', $search)
+                        ->orWhereYear('due_date_end', $search)
+                        ->orWhereYear('paid_date', $search)
+                        ->orWhereYear('created_at', $search);
+                }
+                
+                // البحث بالشهر والسنة
+                if (preg_match('/^\d{1,2}[-\/]\d{4}$/', $search)) {
+                    $parts = preg_split('/[-\/]/', $search);
+                    $month = $parts[0];
+                    $year = $parts[1];
+                    $query->orWhereMonth('collection_date', $month)->whereYear('collection_date', $year)
+                        ->orWhereMonth('due_date_start', $month)->whereYear('due_date_start', $year)
+                        ->orWhereMonth('due_date_end', $month)->whereYear('due_date_end', $year);
+                }
+                
+                // البحث في المستأجر - مع التطبيع
+                $query->orWhereHas('unitContract.tenant', function ($q) use ($search, $normalizedSearch, $searchWithoutSpaces) {
+                    $q->where(function ($subQuery) use ($search, $normalizedSearch, $searchWithoutSpaces) {
+                        $subQuery->where('name', 'LIKE', "%{$normalizedSearch}%")
+                            ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%")
+                            ->orWhere('phone', 'LIKE', "%{$search}%")
+                            ->orWhere('phone', 'LIKE', "%{$searchWithoutSpaces}%")
+                            ->orWhere('email', 'LIKE', "%{$search}%");
+                    });
+                });
+                
+                // البحث في الوحدة
+                $query->orWhereHas('unitContract.unit', function ($q) use ($search, $normalizedSearch, $searchWithoutSpaces) {
+                    $q->where('name', 'LIKE', "%{$normalizedSearch}%")
+                        ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%");
+                    
+                    // البحث في رقم الطابق إذا كان رقم
+                    if (is_numeric($search)) {
+                        $q->orWhere('floor_number', $search)
+                          ->orWhere('rooms_count', $search);
+                    }
+                });
+                
+                // البحث في العقار
+                $query->orWhereHas('unitContract.property', function ($q) use ($search, $normalizedSearch, $searchWithoutSpaces) {
+                    $q->where('name', 'LIKE', "%{$normalizedSearch}%")
+                        ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%")
+                        ->orWhere('address', 'LIKE', "%{$normalizedSearch}%");
+                });
+                
+            })
+            ->limit(50)
+            ->get()
+            ->map(function ($record) {
+                $tenant = $record->unitContract?->tenant?->name ?? 'غير محدد';
+                $unit = $record->unitContract?->unit?->name ?? 'غير محدد';
+                $property = $record->unitContract?->property?->name ?? 'غير محدد';
+                
+                return new \Filament\GlobalSearch\GlobalSearchResult(
+                    title: $record->payment_number,
+                    url: static::getUrl('edit', ['record' => $record]),
+                    details: [
+                        'المستأجر' => $tenant,
+                        'الوحدة' => $unit,
+                        'العقار' => $property,
+                        'المبلغ' => number_format($record->amount, 2) . ' SAR',
+                        'الحالة' => $record->status_label,
+                    ]
+                );
+            });
     }
 }
