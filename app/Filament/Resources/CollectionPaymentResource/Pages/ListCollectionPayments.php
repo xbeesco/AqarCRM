@@ -14,7 +14,7 @@ class ListCollectionPayments extends ListRecords
     {
         return [
             Actions\CreateAction::make()
-                ->label('New Collection Payment / دفعة تحصيل جديدة'),
+                ->label('دفعة تحصيل جديدة'),
         ];
     }
 }

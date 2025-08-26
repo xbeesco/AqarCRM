@@ -13,13 +13,18 @@ class EditCollectionPayment extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\ViewAction::make(),
-            Actions\DeleteAction::make(),
+            Actions\ViewAction::make()
+                ->label('تقرير'),
         ];
     }
 
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
+    }
+    
+    public function getMaxContentWidth(): ?string
+    {
+        return 'full'; // يجعل المحتوى يأخذ العرض الكامل
     }
 }
