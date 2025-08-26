@@ -4,11 +4,13 @@ namespace App\Filament\Widgets\Reports;
 
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Actions\Action;
 use Filament\Widgets\TableWidget as BaseWidget;
 use App\Models\Owner;
 use App\Models\Property;
 use App\Models\CollectionPayment;
 use App\Models\PropertyRepair;
+use App\Models\UnitContract;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Columns\TextColumn;
@@ -16,6 +18,8 @@ use Filament\Support\Colors\Color;
 
 class PropertiesTableWidget extends BaseWidget
 {
+    protected static ?string $heading = 'تفاصيل العقارات';
+    
     protected int | string | array $columnSpan = 'full';
     
     public function getHeading(): ?string
@@ -23,18 +27,18 @@ class PropertiesTableWidget extends BaseWidget
         return 'تفاصيل العقارات';
     }
 
-    public ?int $owner_id = null;
+    public ?int $property_id = null;
     public ?string $date_from = null;
     public ?string $date_to = null;
     public string $report_type = 'summary';
 
     protected $listeners = [
-        'owner-filters-updated' => 'updateFilters',
+        'property-filters-updated' => 'updateFilters',
     ];
 
     public function updateFilters($filters): void
     {
-        $this->owner_id = $filters['owner_id'] ?? null;
+        $this->property_id = $filters['property_id'] ?? null;
         $this->date_from = $filters['date_from'] ?? null;
         $this->date_to = $filters['date_to'] ?? null;
         $this->report_type = $filters['report_type'] ?? 'summary';
@@ -44,6 +48,8 @@ class PropertiesTableWidget extends BaseWidget
     {
         return $table
             ->query($this->getTableQuery())
+            ->searchable()
+            ->searchPlaceholder('ابحث في العقارات...')
             ->columns([
                 TextColumn::make('name')
                     ->label('اسم العقار')
@@ -64,7 +70,14 @@ class PropertiesTableWidget extends BaseWidget
                 TextColumn::make('occupied_units_count')
                     ->label('الوحدات المؤجرة')
                     ->getStateUsing(function (Property $record): int {
-                        return $record->units()->whereNotNull('current_tenant_id')->count();
+                        // حساب الوحدات المؤجرة من خلال العقود النشطة
+                        return $record->units()
+                            ->whereHas('contracts', function ($query) {
+                                $query->where('contract_status', 'active')
+                                    ->whereDate('start_date', '<=', now())
+                                    ->whereDate('end_date', '>=', now());
+                            })
+                            ->count();
                     })
                     ->alignCenter()
                     ->color('success'),
@@ -75,7 +88,14 @@ class PropertiesTableWidget extends BaseWidget
                         $totalUnits = $record->units()->count();
                         if ($totalUnits === 0) return '0%';
                         
-                        $occupiedUnits = $record->units()->whereNotNull('current_tenant_id')->count();
+                        // حساب الوحدات المؤجرة من خلال العقود النشطة
+                        $occupiedUnits = $record->units()
+                            ->whereHas('contracts', function ($query) {
+                                $query->where('contract_status', 'active')
+                                    ->whereDate('start_date', '<=', now())
+                                    ->whereDate('end_date', '>=', now());
+                            })
+                            ->count();
                         $rate = round(($occupiedUnits / $totalUnits) * 100, 1);
                         return $rate . '%';
                     })
@@ -134,35 +154,60 @@ class PropertiesTableWidget extends BaseWidget
                     }),
             ])
             ->filters([
-                // يمكن إضافة فلاتر إضافية هنا إذا لزم الأمر
+                // الفلاتر معطلة مؤقتاً لحل المشكلة
             ])
             ->recordActions([
-                // يمكن إضافة إجراءات هنا
+                Action::make('view_report')
+                    ->label('تقرير')
+                    ->icon('heroicon-o-document-text')
+                    ->color('primary')
+                    ->modalHeading(fn ($record) => 'تقرير العقار: ' . $record->name)
+                    ->modalContent(fn ($record) => view('filament.reports.property-details', [
+                        'property' => $record,
+                        'stats' => $this->getPropertyStatistics($record),
+                    ]))
+                    ->modalWidth('7xl')
+                    ->modalFooterActions([
+                        Action::make('print')
+                            ->label('طباعة')
+                            ->icon('heroicon-o-printer')
+                            ->color('success')
+                            ->action(fn () => null)
+                            ->extraAttributes([
+                                'onclick' => 'window.print(); return false;',
+                            ]),
+                    ]),
             ])
             ->toolbarActions([
                 // يمكن إضافة إجراءات جماعية هنا
             ])
             ->emptyStateHeading('لا توجد عقارات')
-            ->emptyStateDescription('يرجى اختيار مالك لعرض عقاراته')
+            ->emptyStateDescription('لا توجد عقارات مسجلة في النظام حالياً')
             ->striped()
             ->defaultSort('name');
     }
 
     protected function getTableQuery(): Builder
     {
-        if (!$this->owner_id) {
-            return Property::query()->where('id', 0); // Return empty query
+        $query = Property::query()->with(['location', 'units']);
+        
+        // إذا تم تحديد عقار معين، اعرض فقط هذا العقار
+        if ($this->property_id) {
+            $query->where('id', $this->property_id);
         }
-
-        return Property::query()
-            ->where('owner_id', $this->owner_id)
-            ->with(['location', 'units']);
+        
+        return $query;
     }
 
     private function calculatePropertyMonthlyRevenue(Property $property): float
     {
+        // حساب الدخل الشهري من الوحدات المؤجرة حالياً
         return $property->units()
-            ->whereNotNull('current_tenant_id')
+            ->whereHas('contracts', function ($query) {
+                $query->where('contract_status', 'active')
+                    ->whereDate('start_date', '<=', now())
+                    ->whereDate('end_date', '>=', now());
+            })
             ->sum('rent_price');
     }
 
@@ -195,11 +240,70 @@ class PropertiesTableWidget extends BaseWidget
         return PropertyRepair::where('property_id', $property->id)
             ->whereBetween('completion_date', [$dateFrom, $dateTo])
             ->whereIn('status', ['completed'])
-            ->sum('actual_cost');
+            ->sum('total_cost');
     }
 
     public function getTableRecordKey($record): string
     {
         return $record->getKey();
+    }
+    
+    private function getPropertyStatistics(Property $property): array
+    {
+        $startOfMonth = Carbon::now()->startOfMonth();
+        $endOfMonth = Carbon::now()->endOfMonth();
+        
+        // إحصائيات الوحدات
+        $totalUnits = $property->units()->count();
+        $occupiedUnits = $property->units()
+            ->whereHas('contracts', function ($query) {
+                $query->where('contract_status', 'active')
+                    ->whereDate('start_date', '<=', now())
+                    ->whereDate('end_date', '>=', now());
+            })
+            ->count();
+        
+        // الإيرادات
+        $monthlyRevenue = $this->calculatePropertyMonthlyRevenue($property);
+        $yearlyRevenue = CollectionPayment::where('property_id', $property->id)
+            ->whereYear('paid_date', now()->year)
+            ->whereHas('paymentStatus', function ($query) {
+                $query->where('is_paid_status', true);
+            })
+            ->sum('total_amount');
+            
+        // المستحقات
+        $pendingPayments = CollectionPayment::where('property_id', $property->id)
+            ->where('due_date_start', '<=', now())
+            ->whereHas('paymentStatus', function ($query) {
+                $query->where('is_paid_status', false);
+            })
+            ->sum('total_amount');
+            
+        // الصيانة
+        $maintenanceCosts = PropertyRepair::where('property_id', $property->id)
+            ->whereYear('completion_date', now()->year)
+            ->where('status', 'completed')
+            ->sum('total_cost');
+            
+        // العقود النشطة
+        $activeContracts = UnitContract::whereHas('unit', function ($query) use ($property) {
+                $query->where('property_id', $property->id);
+            })
+            ->where('contract_status', 'active')
+            ->count();
+            
+        return [
+            'total_units' => $totalUnits,
+            'occupied_units' => $occupiedUnits,
+            'vacant_units' => $totalUnits - $occupiedUnits,
+            'occupancy_rate' => $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100, 1) : 0,
+            'monthly_revenue' => $monthlyRevenue,
+            'yearly_revenue' => $yearlyRevenue,
+            'pending_payments' => $pendingPayments,
+            'maintenance_costs' => $maintenanceCosts,
+            'active_contracts' => $activeContracts,
+            'net_income' => $yearlyRevenue - $maintenanceCosts,
+        ];
     }
 }

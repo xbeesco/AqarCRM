@@ -22,14 +22,19 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\Action;
 use Filament\GlobalSearch\GlobalSearchResult;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use App\Models\CollectionPayment;
+use App\Models\PropertyRepair;
+use App\Models\UnitContract;
+use Carbon\Carbon;
+
 class PropertyResource extends Resource
 {
     protected static ?string $model = Property::class;
@@ -198,8 +203,31 @@ class PropertyResource extends Resource
                     ->relationship('propertyStatus', 'name_ar'),
             ], layout: \Filament\Tables\Enums\FiltersLayout::AboveContent)
             ->recordActions([
-                ViewAction::make(),
                 EditAction::make(),
+                Action::make('view_report')
+                    ->label('تقرير')
+                    ->icon('heroicon-o-document-text')
+                    ->color('primary')
+                    ->modalHeading(fn ($record) => 'تقرير العقار: ' . $record->name)
+                    ->modalContent(fn ($record) => view('filament.reports.property-details', [
+                        'property' => $record,
+                        'stats' => static::getPropertyStatistics($record),
+                    ]))
+                    ->modalWidth('7xl')
+                    ->modalFooterActions([
+                        Action::make('print')
+                            ->label('طباعة')
+                            ->icon('heroicon-o-printer')
+                            ->color('success')
+                            ->action(fn () => null)
+                            ->extraAttributes([
+                                'onclick' => 'window.print(); return false;',
+                            ]),
+                        Action::make('close')
+                            ->label('إغلاق')
+                            ->action(fn () => null)
+                            ->color('gray'),
+                    ]),
             ]);
     }
 
@@ -340,5 +368,71 @@ class PropertyResource extends Resource
                     actions: []
                 );
             });
+    }
+    
+    private static function getPropertyStatistics(Property $property): array
+    {
+        $startOfMonth = Carbon::now()->startOfMonth();
+        $endOfMonth = Carbon::now()->endOfMonth();
+        
+        // إحصائيات الوحدات
+        $totalUnits = $property->units()->count();
+        $occupiedUnits = $property->units()
+            ->whereHas('contracts', function ($query) {
+                $query->where('contract_status', 'active')
+                    ->whereDate('start_date', '<=', now())
+                    ->whereDate('end_date', '>=', now());
+            })
+            ->count();
+        
+        // الإيرادات
+        $monthlyRevenue = $property->units()
+            ->whereHas('contracts', function ($query) {
+                $query->where('contract_status', 'active')
+                    ->whereDate('start_date', '<=', now())
+                    ->whereDate('end_date', '>=', now());
+            })
+            ->sum('rent_price');
+            
+        $yearlyRevenue = CollectionPayment::where('property_id', $property->id)
+            ->whereYear('paid_date', now()->year)
+            ->whereHas('paymentStatus', function ($query) {
+                $query->where('is_paid_status', true);
+            })
+            ->sum('total_amount');
+            
+        // المستحقات
+        $pendingPayments = CollectionPayment::where('property_id', $property->id)
+            ->where('due_date_start', '<=', now())
+            ->whereHas('paymentStatus', function ($query) {
+                $query->where('is_paid_status', false);
+            })
+            ->sum('total_amount');
+            
+        // الصيانة
+        $maintenanceCosts = PropertyRepair::where('property_id', $property->id)
+            ->whereYear('completion_date', now()->year)
+            ->where('status', 'completed')
+            ->sum('total_cost');
+            
+        // العقود النشطة
+        $activeContracts = UnitContract::whereHas('unit', function ($query) use ($property) {
+                $query->where('property_id', $property->id);
+            })
+            ->where('contract_status', 'active')
+            ->count();
+            
+        return [
+            'total_units' => $totalUnits,
+            'occupied_units' => $occupiedUnits,
+            'vacant_units' => $totalUnits - $occupiedUnits,
+            'occupancy_rate' => $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100, 1) : 0,
+            'monthly_revenue' => $monthlyRevenue,
+            'yearly_revenue' => $yearlyRevenue,
+            'pending_payments' => $pendingPayments,
+            'maintenance_costs' => $maintenanceCosts,
+            'active_contracts' => $activeContracts,
+            'net_income' => $yearlyRevenue - $maintenanceCosts,
+        ];
     }
 }

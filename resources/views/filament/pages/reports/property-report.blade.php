@@ -190,11 +190,6 @@
                     </div>
                 @endif
             @endif
-        @else
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">لم يتم اختيار عقار</h3>
-                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">يرجى اختيار عقار من القائمة أعلاه لعرض التقرير.</p>
-            </div>
         @endif
     </div>
 </x-filament-panels::page>

@@ -67,14 +67,28 @@ class PropertyReport extends Page implements HasForms
                     ->label('العقار')
                     ->placeholder('اختر العقار')
                     ->options(function () {
-                        return Property::with('owner')
-                            ->get()
-                            ->mapWithKeys(function ($property) {
-                                return [$property->id => $property->name . ' - ' . $property->owner?->name];
-                            })
-                            ->toArray();
+                        $options = [];
+                        $properties = Property::with('owner')->get();
+                        
+                        foreach ($properties as $property) {
+                            $propertyName = (string) ($property->name ?: 'عقار #' . $property->id);
+                            $ownerName = (string) (optional($property->owner)->name ?: 'بدون مالك');
+                            $label = $propertyName . ' - ' . $ownerName;
+                            
+                            // التأكد من أن القيمة string وليست null
+                            if (!empty($label)) {
+                                $options[(string) $property->id] = $label;
+                            }
+                        }
+                        
+                        // إضافة خيار افتراضي إذا كانت القائمة فارغة
+                        if (empty($options)) {
+                            $options[''] = 'لا توجد عقارات متاحة';
+                        }
+                        
+                        return $options;
                     })
-                    ->searchable()
+                    // ->searchable() // معطل مؤقتاً للاختبار
                     ->live()
                     ->afterStateUpdated(fn () => $this->updateWidgets()),
 
@@ -107,7 +121,7 @@ class PropertyReport extends Page implements HasForms
     protected function getHeaderWidgets(): array
     {
         return [
-            \App\Filament\Widgets\Reports\OwnerStatsWidget::class,
+            \App\Filament\Widgets\Reports\PropertyStatsWidget::class,
         ];
     }
 
