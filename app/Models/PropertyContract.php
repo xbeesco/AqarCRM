@@ -23,6 +23,7 @@ class PropertyContract extends Model
         'auto_renew',
         'notice_period_days',
         'payment_frequency',
+        'payments_count',
         'terms_and_conditions',
         'notes',
         'created_by',
