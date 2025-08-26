@@ -14,8 +14,17 @@ class EditSupplyPayment extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            ViewAction::make(),
-            DeleteAction::make(),
+            //
         ];
+    }
+    
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+    
+    public function getMaxContentWidth(): ?string
+    {
+        return 'full'; // يجعل المحتوى يأخذ العرض الكامل
     }
 }

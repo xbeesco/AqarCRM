@@ -9,6 +9,15 @@ use Carbon\Carbon;
 
 class CollectionPayment extends Model
 {
+    // منع الحذف نهائياً
+    protected static function booted()
+    {
+        static::deleting(function ($payment) {
+            // منع الحذف دائماً
+            return false;
+        });
+    }
+    
     protected $fillable = [
         'payment_number',
         'unit_contract_id',
@@ -24,6 +33,7 @@ class CollectionPayment extends Model
         'due_date_start',
         'due_date_end',
         'paid_date',
+        'collection_date',  // تاريخ التحصيل
         'delay_duration',
         'delay_reason',
         'late_payment_notes',
@@ -39,6 +49,7 @@ class CollectionPayment extends Model
         'due_date_start' => 'date',
         'due_date_end' => 'date',
         'paid_date' => 'date',
+        'collection_date' => 'date',
         'delay_duration' => 'integer',
     ];
     
@@ -95,6 +106,17 @@ class CollectionPayment extends Model
                 };
             }
             
+            // ملء التواريخ الافتراضية حسب نوع الحالة
+            if ($payment->collection_status === self::STATUS_POSTPONED || 
+                $payment->collection_status === self::STATUS_OVERDUE) {
+                // للحالات المؤجلة أو المتأخرة، نضع تواريخ افتراضية إذا لم تكن موجودة
+                if (empty($payment->due_date_start)) {
+                    $payment->due_date_start = now()->startOfMonth();
+                }
+                if (empty($payment->due_date_end)) {
+                    $payment->due_date_end = now()->endOfMonth();
+                }
+            }
             
             // قيمة افتراضية للغرامة
             if (is_null($payment->late_fee)) {
@@ -105,8 +127,10 @@ class CollectionPayment extends Model
             $payment->total_amount = ($payment->amount ?? 0) + ($payment->late_fee ?? 0);
             
             // توليد الشهر والسنة للتقارير
-            if (empty($payment->month_year) && !empty($payment->due_date_start)) {
-                $payment->month_year = \Carbon\Carbon::parse($payment->due_date_start)->format('Y-m');
+            if (empty($payment->month_year)) {
+                // استخدم due_date_start إن وجد، وإلا استخدم التاريخ الحالي
+                $dateForMonth = $payment->due_date_start ?? now();
+                $payment->month_year = \Carbon\Carbon::parse($dateForMonth)->format('Y-m');
             }
         });
 

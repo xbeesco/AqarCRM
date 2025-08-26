@@ -116,7 +116,7 @@ class PropertyResource extends Resource
                             ->numeric()
                             ->nullable(),
                             
-                        TextInput::make('build_year')
+                        TextInput::make('built_year')
                             ->label('سنة البناء')
                             ->numeric()
                             ->minValue(1900)
@@ -154,18 +154,32 @@ class PropertyResource extends Resource
                 TextColumn::make('propertyStatus.name_ar')
                     ->label('الحالة')
                     ->badge()
-                    ->color(fn ($record) => $record->propertyStatus?->color ?? 'gray'),
+                    ->color(fn ($record) => $record->propertyStatus?->color ?? 'gray')
+                    ->searchable(),
                     
                 TextColumn::make('propertyType.name_ar')
-                    ->label('النوع'),
+                    ->label('النوع')
+                    ->searchable(),
                     
                 TextColumn::make('location.name')
-                    ->label('الموقع'),
+                    ->label('الموقع')
+                    ->searchable(),
                     
                 TextColumn::make('total_units')
                     ->label('عدد الوحدات')
                     ->default(0),
+                
+                TextColumn::make('address')
+                    ->label('العنوان')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                    
+                TextColumn::make('postal_code')
+                    ->label('الرمز البريدي')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->searchable()  // تفعيل البحث الشامل للجدول
             ->filters([
                 SelectFilter::make('owner')
                     ->label('المالك')
@@ -174,8 +188,17 @@ class PropertyResource extends Resource
                 SelectFilter::make('location')
                     ->label('الموقع')
                     ->relationship('location', 'name'),
+                    
+                SelectFilter::make('type')
+                    ->label('نوع العقار')
+                    ->relationship('propertyType', 'name_ar'),
+                    
+                SelectFilter::make('status')
+                    ->label('الحالة')
+                    ->relationship('propertyStatus', 'name_ar'),
             ], layout: \Filament\Tables\Enums\FiltersLayout::AboveContent)
             ->recordActions([
+                ViewAction::make(),
                 EditAction::make(),
             ]);
     }
@@ -206,7 +229,7 @@ class PropertyResource extends Resource
             'postal_code',
             'parking_spots',
             'elevators',
-            'build_year',
+            'build_year',  // تصحيح الاسم
             'floors_count',
             'notes',
             'owner.name',
@@ -240,15 +263,26 @@ class PropertyResource extends Resource
         
         return static::getGlobalSearchEloquentQuery()
             ->where(function (Builder $query) use ($search, $normalizedSearch) {
-                // Search in property fields
+                // إضافة التطبيع الكامل
+                $searchWithoutSpaces = str_replace(' ', '', $normalizedSearch);
+                $normalizedSearch2 = str_replace(['ى'], 'ي', $normalizedSearch);
+                
+                // Search in property fields - مع كل أشكال البحث
                 $query->where('name', 'LIKE', "%{$normalizedSearch}%")
+                    ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%")
                     ->orWhere('address', 'LIKE', "%{$normalizedSearch}%")
+                    ->orWhere('address', 'LIKE', "%{$searchWithoutSpaces}%")
                     ->orWhere('postal_code', 'LIKE', "%{$search}%")
-                    ->orWhere('notes', 'LIKE', "%{$normalizedSearch}%")
-                    ->orWhere('parking_spots', $search)
-                    ->orWhere('elevators', $search)
-                    ->orWhere('build_year', $search)
-                    ->orWhere('floors_count', $search);
+                    ->orWhere('notes', 'LIKE', "%{$normalizedSearch}%");
+                
+                // البحث في الأعمدة الرقمية - حتى لو رقم واحد
+                if (is_numeric($search)) {
+                    $query->orWhere('parking_spots', 'LIKE', "%{$search}%")
+                        ->orWhere('elevators', 'LIKE', "%{$search}%")
+                        ->orWhere('build_year', 'LIKE', "%{$search}%")
+                        ->orWhere('floors_count', 'LIKE', "%{$search}%")
+                        ->orWhere('id', $search);
+                }
                 
                 // Search in owner
                 $query->orWhereHas('owner', function ($q) use ($search, $normalizedSearch) {

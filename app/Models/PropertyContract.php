@@ -51,12 +51,8 @@ class PropertyContract extends Model
         static::creating(function ($contract) {
             if (empty($contract->contract_number)) {
                 $year = date('Y');
-                $lastContract = static::whereYear('created_at', $year)
-                    ->orderBy('id', 'desc')
-                    ->first();
-                
-                $number = $lastContract ? intval(substr($lastContract->contract_number, -4)) + 1 : 1;
-                $contract->contract_number = sprintf('PC-%s-%04d', $year, $number);
+                $count = static::whereYear('created_at', $year)->count() + 1;
+                $contract->contract_number = sprintf('PC-%s-%04d', $year, $count);
             }
             
             // Set owner_id from property if not set
@@ -113,5 +109,13 @@ class PropertyContract extends Model
     public function property()
     {
         return $this->belongsTo(Property::class);
+    }
+
+    /**
+     * Relationship: Contract belongs to owner.
+     */
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'owner_id');
     }
 }
