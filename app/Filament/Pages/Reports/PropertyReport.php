@@ -30,9 +30,7 @@ class PropertyReport extends Page implements HasForms
     protected static ?int $navigationSort = 2;
 
     public ?int $property_id = null;
-    public ?string $date_from = null;
-    public ?string $date_to = null;
-    public string $report_type = 'summary';
+    public string $report_type = 'current';
 
     protected function getHeaderActions(): array
     {
@@ -57,7 +55,7 @@ class PropertyReport extends Page implements HasForms
     {
         return $schema
             ->schema($this->getFormSchema())
-            ->columns(4);
+            ->columns(2);
     }
     
     protected function getFormSchema(): array
@@ -75,44 +73,30 @@ class PropertyReport extends Page implements HasForms
                             $ownerName = (string) (optional($property->owner)->name ?: 'بدون مالك');
                             $label = $propertyName . ' - ' . $ownerName;
                             
-                            // التأكد من أن القيمة string وليست null
                             if (!empty($label)) {
                                 $options[(string) $property->id] = $label;
                             }
                         }
                         
-                        // إضافة خيار افتراضي إذا كانت القائمة فارغة
                         if (empty($options)) {
                             $options[''] = 'لا توجد عقارات متاحة';
                         }
                         
                         return $options;
                     })
-                    // ->searchable() // معطل مؤقتاً للاختبار
-                    ->live()
-                    ->afterStateUpdated(fn () => $this->updateWidgets()),
-
-                DatePicker::make('date_from')
-                    ->label('من تاريخ')
-                    ->default(now()->startOfMonth())
-                    ->live()
-                    ->afterStateUpdated(fn () => $this->updateWidgets()),
-
-                DatePicker::make('date_to')
-                    ->label('إلى تاريخ')
-                    ->default(now()->endOfMonth())
+                    ->searchable()
                     ->live()
                     ->afterStateUpdated(fn () => $this->updateWidgets()),
 
                 Select::make('report_type')
                     ->label('نوع التقرير')
                     ->options([
-                        'summary' => 'مختصر',
+                        'current' => 'الوضع الحالي',
                         'detailed' => 'تفصيلي',
-                        'occupancy' => 'الإشغال',
-                        'financial' => 'مالي',
+                        'contracts' => 'العقود',
+                        'units' => 'الوحدات',
                     ])
-                    ->default('summary')
+                    ->default('current')
                     ->live()
                     ->afterStateUpdated(fn () => $this->updateWidgets()),
             ];
@@ -137,8 +121,6 @@ class PropertyReport extends Page implements HasForms
     {
         $this->dispatch('property-filters-updated', [
             'property_id' => $this->property_id,
-            'date_from' => $this->date_from,
-            'date_to' => $this->date_to,
             'report_type' => $this->report_type,
         ]);
     }
@@ -154,66 +136,65 @@ class PropertyReport extends Page implements HasForms
             return [];
         }
 
-        $dateFrom = $this->date_from ? Carbon::parse($this->date_from) : now()->startOfMonth();
-        $dateTo = $this->date_to ? Carbon::parse($this->date_to) : now()->endOfMonth();
-
-        // إحصائيات الوحدات
+        // إحصائيات الوحدات الحالية
         $totalUnits = $property->units->count();
         
-        // حساب الوحدات المشغولة من خلال العقود النشطة
+        // حساب الوحدات المشغولة من خلال العقود النشطة حالياً
         $occupiedUnits = UnitContract::whereIn('unit_id', $property->units->pluck('id'))
             ->where('contract_status', 'active')
+            ->whereDate('start_date', '<=', now())
+            ->whereDate('end_date', '>=', now())
             ->distinct('unit_id')
             ->count('unit_id');
             
         $vacantUnits = $totalUnits - $occupiedUnits;
         $occupancyRate = $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100, 2) : 0;
 
-        // حساب الإيرادات
+        // إجمالي الإيرادات (كل الوقت)
         $totalRevenue = CollectionPayment::where('property_id', $property->id)
-            ->whereBetween('paid_date', [$dateFrom, $dateTo])
             ->whereHas('paymentStatus', function ($query) {
                 $query->where('is_paid_status', true);
             })
             ->sum('total_amount');
 
-        // حساب المستحقات
+        // المستحقات الحالية غير المدفوعة
         $outstandingPayments = CollectionPayment::where('property_id', $property->id)
-            ->whereBetween('due_date_start', [$dateFrom, $dateTo])
+            ->where('due_date_start', '<=', now())
             ->whereHas('paymentStatus', function ($query) {
                 $query->where('is_paid_status', false);
             })
             ->sum('total_amount');
 
-        // حساب تكاليف الصيانة
+        // إجمالي تكاليف الصيانة (كل الوقت)
         $maintenanceCosts = PropertyRepair::where('property_id', $property->id)
-            ->whereBetween('completion_date', [$dateFrom, $dateTo])
             ->where('status', 'completed')
             ->sum('total_cost');
 
-        // حساب عدد العقود النشطة
+        // عدد العقود النشطة حالياً
         $activeContracts = UnitContract::whereHas('unit', function ($query) use ($property) {
                 $query->where('property_id', $property->id);
             })
             ->where('contract_status', 'active')
+            ->whereDate('start_date', '<=', now())
+            ->whereDate('end_date', '>=', now())
             ->count();
 
-        // حساب متوسط سعر الإيجار
+        // متوسط سعر الإيجار للوحدات
         $averageRent = $property->units->avg('rent_price') ?? 0;
 
-        // حساب إجمالي الإيجار الشهري المتوقع
+        // إجمالي الإيجار الشهري المتوقع (لو كل الوحدات مؤجرة)
         $monthlyRentPotential = $property->units->sum('rent_price');
         
-        // حساب الإيجار الشهري الفعلي من الوحدات المؤجرة
+        // الإيجار الشهري الفعلي الحالي
         $occupiedUnitIds = UnitContract::whereIn('unit_id', $property->units->pluck('id'))
             ->where('contract_status', 'active')
+            ->whereDate('start_date', '<=', now())
+            ->whereDate('end_date', '>=', now())
             ->pluck('unit_id');
         $actualMonthlyRent = $property->units->whereIn('id', $occupiedUnitIds)->sum('rent_price');
 
         return [
             'property' => $property,
-            'dateFrom' => $dateFrom,
-            'dateTo' => $dateTo,
             'totalUnits' => $totalUnits,
             'occupiedUnits' => $occupiedUnits,
             'vacantUnits' => $vacantUnits,
@@ -267,8 +248,6 @@ class PropertyReport extends Page implements HasForms
     {
         $this->form->fill([
             'property_id' => $this->property_id,
-            'date_from' => $this->date_from ?? now()->startOfMonth()->format('Y-m-d'),
-            'date_to' => $this->date_to ?? now()->endOfMonth()->format('Y-m-d'),
             'report_type' => $this->report_type,
         ]);
     }

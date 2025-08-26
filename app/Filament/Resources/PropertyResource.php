@@ -224,9 +224,9 @@ class PropertyResource extends Resource
                                 'onclick' => 'window.print(); return false;',
                             ]),
                         Action::make('close')
-                            ->label('إغلاق')
-                            ->action(fn () => null)
-                            ->color('gray'),
+                            ->label('إلغاء')
+                            ->color('gray')
+                            ->close(),
                     ]),
             ]);
     }

@@ -167,7 +167,8 @@ class PropertiesTableWidget extends BaseWidget
                         'stats' => $this->getPropertyStatistics($record),
                     ]))
                     ->modalWidth('7xl')
-                    ->modalFooterActions([
+                    ->modalCancelActionLabel('إلغاء')
+                    ->modalSubmitAction(
                         Action::make('print')
                             ->label('طباعة')
                             ->icon('heroicon-o-printer')
@@ -175,8 +176,8 @@ class PropertiesTableWidget extends BaseWidget
                             ->action(fn () => null)
                             ->extraAttributes([
                                 'onclick' => 'window.print(); return false;',
-                            ]),
-                    ]),
+                            ])
+                    ),
             ])
             ->toolbarActions([
                 // يمكن إضافة إجراءات جماعية هنا
