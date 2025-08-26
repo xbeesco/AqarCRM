@@ -116,7 +116,7 @@ class PropertyResource extends Resource
                             ->numeric()
                             ->nullable(),
                             
-                        TextInput::make('built_year')
+                        TextInput::make('build_year')
                             ->label('سنة البناء')
                             ->numeric()
                             ->minValue(1900)
@@ -206,7 +206,7 @@ class PropertyResource extends Resource
             'postal_code',
             'parking_spots',
             'elevators',
-            'built_year',
+            'build_year',
             'floors_count',
             'notes',
             'owner.name',
@@ -247,7 +247,7 @@ class PropertyResource extends Resource
                     ->orWhere('notes', 'LIKE', "%{$normalizedSearch}%")
                     ->orWhere('parking_spots', $search)
                     ->orWhere('elevators', $search)
-                    ->orWhere('built_year', $search)
+                    ->orWhere('build_year', $search)
                     ->orWhere('floors_count', $search);
                 
                 // Search in owner
