@@ -297,16 +297,6 @@ class CollectionPaymentResource extends Resource
             'edit' => Pages\EditCollectionPayment::route('/{record}/edit'),
         ];
     }
-
-    public static function getNavigationBadge(): ?string
-    {
-        return static::getModel()::overdue()->count();
-    }
-
-    public static function getNavigationBadgeColor(): ?string
-    {
-        return 'danger';
-    }
     
     // البحث الذكي الشامل
     public static function getGloballySearchableAttributes(): array
