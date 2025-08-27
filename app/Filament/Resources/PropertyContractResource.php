@@ -22,10 +22,9 @@ use Filament\Tables\Filters\Filter;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\Action;
 use Illuminate\Database\Eloquent\Builder;
-use Filament\Forms\Components\Placeholder;
 use Closure;
-use Illuminate\Support\HtmlString;
 class PropertyContractResource extends Resource
 {
     protected static ?string $model = PropertyContract::class;
@@ -216,6 +215,44 @@ class PropertyContractResource extends Resource
                     ]),
             ])
             ->recordActions([
+                Action::make('generatePayments')
+                    ->label('توليد الدفعات')
+                    ->icon('heroicon-o-calculator')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('توليد دفعات التوريد')
+                    ->modalDescription(fn ($record) => "سيتم توليد {$record->payments_count} دفعة للمالك")
+                    ->modalSubmitActionLabel('توليد')
+                    ->visible(fn ($record) => $record->canGeneratePayments())
+                    ->action(function ($record) {
+                        $service = app(\App\Services\PaymentGeneratorService::class);
+                        
+                        try {
+                            $count = $service->generateSupplyPaymentsForContract($record);
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->title('تم توليد الدفعات')
+                                ->body("تم توليد {$count} دفعة")
+                                ->success()
+                                ->send();
+                        } catch (\Exception $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('خطأ')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
+                    
+                Action::make('viewPayments')
+                    ->label('عرض الدفعات')
+                    ->icon('heroicon-o-eye')
+                    ->color('info')
+                    ->url(fn ($record) => route('filament.admin.resources.supply-payments.index', [
+                        'property_contract_id' => $record->id
+                    ]))
+                    ->visible(fn ($record) => $record->supplyPayments()->exists()),
+                    
                 EditAction::make()
                     ->visible(fn () => auth()->user()?->type === 'super_admin'),
             ])
