@@ -12,6 +12,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Schemas\Components\Section;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Actions\Action;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
@@ -112,7 +113,10 @@ class TenantResource extends Resource
             ->filtersLayout(FiltersLayout::AboveContent)
             ->filtersFormColumns(12)
             ->recordActions([
-                EditAction::make(),
+                ViewAction::make()
+                    ->label(''),
+                EditAction::make()
+                    ->label(''),
             ])
             ->toolbarActions([])
             ->defaultSort('created_at', 'desc');
