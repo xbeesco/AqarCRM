@@ -229,51 +229,12 @@ class UnitResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->filters([
-                SelectFilter::make('property_id')
-                    ->label('العقار')
-                    ->relationship('property', 'name')
-                    ->searchable()
-                    ->preload(),
-                
-                SelectFilter::make('unit_type_id')
-                    ->label('نوع الوحدة')
-                    ->relationship('unitType', 'name_ar')
-                    ->searchable()
-                    ->preload(),
-                
-                SelectFilter::make('unit_category_id')
-                    ->label('تصنيف الوحدة')
-                    ->relationship('unitCategory', 'name_ar')
-                    ->searchable()
-                    ->preload(),
-            ], layout: \Filament\Tables\Enums\FiltersLayout::AboveContent)
+            ->filters([])
             ->recordActions([
-                Action::make('report')
-                    ->label('تقرير')
-                    ->icon('heroicon-o-document-text')
-                    ->color('info')
-                    ->modalHeading(fn ($record) => 'تقرير الوحدة: ' . $record->name)
-                    ->modalContent(fn ($record) => view('filament.reports.unit-details', [
-                        'unit' => $record,
-                        'stats' => static::getUnitStatistics($record),
-                    ]))
-                    ->modalWidth('7xl')
-                    ->modalFooterActions([
-                        Action::make('print')
-                            ->label('طباعة')
-                            ->icon('heroicon-o-printer')
-                            ->color('success')
-                            ->action(fn () => null)
-                            ->extraAttributes([
-                                'onclick' => 'window.print(); return false;',
-                            ]),
-                        Action::make('close')
-                            ->label('إلغاء')
-                            ->color('gray')
-                            ->close(),
-                    ]),
-                EditAction::make(),
+                ViewAction::make()
+                    ->label(''),
+                EditAction::make()
+                    ->label(''),
             ])
             ->toolbarActions([]);
     }
