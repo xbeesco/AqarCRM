@@ -26,9 +26,13 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\Action;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use App\Models\CollectionPayment;
+use App\Models\PropertyRepair;
+use Carbon\Carbon;
 
 class UnitResource extends Resource
 {
@@ -228,17 +232,47 @@ class UnitResource extends Resource
             ->filters([
                 SelectFilter::make('property_id')
                     ->label('العقار')
-                    ->relationship('property', 'name'),
+                    ->relationship('property', 'name')
+                    ->searchable()
+                    ->preload(),
                 
                 SelectFilter::make('unit_type_id')
                     ->label('نوع الوحدة')
-                    ->relationship('unitType', 'name_ar'),
+                    ->relationship('unitType', 'name_ar')
+                    ->searchable()
+                    ->preload(),
                 
                 SelectFilter::make('unit_category_id')
                     ->label('تصنيف الوحدة')
-                    ->relationship('unitCategory', 'name_ar'),
-            ])
+                    ->relationship('unitCategory', 'name_ar')
+                    ->searchable()
+                    ->preload(),
+            ], layout: \Filament\Tables\Enums\FiltersLayout::AboveContent)
             ->recordActions([
+                Action::make('report')
+                    ->label('تقرير')
+                    ->icon('heroicon-o-document-text')
+                    ->color('info')
+                    ->modalHeading(fn ($record) => 'تقرير الوحدة: ' . $record->name)
+                    ->modalContent(fn ($record) => view('filament.reports.unit-details', [
+                        'unit' => $record,
+                        'stats' => static::getUnitStatistics($record),
+                    ]))
+                    ->modalWidth('7xl')
+                    ->modalFooterActions([
+                        Action::make('print')
+                            ->label('طباعة')
+                            ->icon('heroicon-o-printer')
+                            ->color('success')
+                            ->action(fn () => null)
+                            ->extraAttributes([
+                                'onclick' => 'window.print(); return false;',
+                            ]),
+                        Action::make('close')
+                            ->label('إلغاء')
+                            ->color('gray')
+                            ->close(),
+                    ]),
                 EditAction::make(),
             ])
             ->toolbarActions([]);
@@ -258,6 +292,68 @@ class UnitResource extends Resource
             'create' => Pages\CreateUnit::route('/create'),
             'view' => Pages\ViewUnit::route('/{record}'),
             'edit' => Pages\EditUnit::route('/{record}/edit'),
+        ];
+    }
+
+    private static function getUnitStatistics(Unit $unit): array
+    {
+        // العقد النشط الحالي
+        $activeContract = $unit->contracts()
+            ->where('contract_status', 'active')
+            ->whereDate('start_date', '<=', now())
+            ->whereDate('end_date', '>=', now())
+            ->with('tenant')
+            ->first();
+        
+        // إجمالي الإيرادات من الوحدة
+        $totalRevenue = CollectionPayment::where('unit_id', $unit->id)
+            ->whereHas('paymentStatus', function ($query) {
+                $query->where('is_paid_status', true);
+            })
+            ->sum('total_amount');
+        
+        // المستحقات غير المدفوعة
+        $pendingPayments = CollectionPayment::where('unit_id', $unit->id)
+            ->where('due_date_start', '<=', now())
+            ->whereHas('paymentStatus', function ($query) {
+                $query->where('is_paid_status', false);
+            })
+            ->sum('total_amount');
+        
+        // تكاليف الصيانة للوحدة
+        $maintenanceCosts = PropertyRepair::where('unit_id', $unit->id)
+            ->where('status', 'completed')
+            ->sum('total_cost');
+        
+        // عدد العقود السابقة
+        $previousContracts = $unit->contracts()
+            ->where('contract_status', 'completed')
+            ->count();
+        
+        // متوسط مدة الإيجار
+        $avgContractDuration = $unit->contracts()
+            ->whereIn('contract_status', ['active', 'completed'])
+            ->selectRaw('AVG(DATEDIFF(end_date, start_date)) as avg_days')
+            ->value('avg_days');
+        
+        $avgContractMonths = $avgContractDuration ? round($avgContractDuration / 30) : 0;
+        
+        return [
+            'property_name' => $unit->property->name,
+            'floor_number' => $unit->floor_number,
+            'rooms_count' => $unit->rooms_count,
+            'area_sqm' => $unit->area_sqm,
+            'rent_price' => $unit->rent_price,
+            'is_occupied' => $activeContract !== null,
+            'current_tenant' => $activeContract ? $activeContract->tenant->name : null,
+            'contract_start' => $activeContract ? $activeContract->start_date : null,
+            'contract_end' => $activeContract ? $activeContract->end_date : null,
+            'total_revenue' => $totalRevenue,
+            'pending_payments' => $pendingPayments,
+            'maintenance_costs' => $maintenanceCosts,
+            'net_income' => $totalRevenue - $maintenanceCosts,
+            'previous_contracts' => $previousContracts,
+            'avg_contract_months' => $avgContractMonths,
         ];
     }
 }

@@ -207,7 +207,7 @@ class PropertyResource extends Resource
                 Action::make('view_report')
                     ->label('تقرير')
                     ->icon('heroicon-o-document-text')
-                    ->color('primary')
+                    ->color('info')
                     ->modalHeading(fn ($record) => 'تقرير العقار: ' . $record->name)
                     ->modalContent(fn ($record) => view('filament.reports.property-details', [
                         'property' => $record,
