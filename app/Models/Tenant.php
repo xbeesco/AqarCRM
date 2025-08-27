@@ -53,8 +53,8 @@ class Tenant extends User
      */
     public function currentContract()
     {
-        return $this->hasOne(RentalContract::class, 'tenant_id')
-                    ->where('status', 'active')
+        return $this->hasOne(UnitContract::class, 'tenant_id')
+                    ->where('contract_status', 'active')
                     ->latest();
     }
 
@@ -63,7 +63,15 @@ class Tenant extends User
      */
     public function rentalContracts()
     {
-        return $this->hasMany(RentalContract::class, 'tenant_id');
+        return $this->hasMany(UnitContract::class, 'tenant_id');
+    }
+    
+    /**
+     * Alias for unit contracts (compatibility)
+     */
+    public function unitContracts()
+    {
+        return $this->hasMany(UnitContract::class, 'tenant_id');
     }
 
     /**
@@ -71,7 +79,15 @@ class Tenant extends User
      */
     public function paymentHistory()
     {
-        return $this->hasMany(Payment::class, 'tenant_id')->orderBy('payment_date', 'desc');
+        return $this->hasMany(CollectionPayment::class, 'tenant_id')->orderBy('due_date_start', 'desc');
+    }
+    
+    /**
+     * Alias for collection payments
+     */
+    public function payments()
+    {
+        return $this->hasMany(CollectionPayment::class, 'tenant_id');
     }
 
     /**
@@ -127,7 +143,7 @@ class Tenant extends User
      */
     public function getTotalAmountPaidAttribute()
     {
-        return $this->paymentHistory()->where('status', 'completed')->sum('amount');
+        return $this->paymentHistory()->where('collection_status', 'collected')->sum('total_amount');
     }
 
     /**
@@ -135,7 +151,9 @@ class Tenant extends User
      */
     public function getOutstandingBalanceAttribute()
     {
-        return $this->paymentHistory()->where('status', 'pending')->sum('amount');
+        return $this->paymentHistory()
+            ->whereIn('collection_status', ['due', 'overdue'])
+            ->sum('total_amount');
     }
 
     /**
@@ -144,8 +162,8 @@ class Tenant extends User
     public function isInGoodStanding()
     {
         $outstandingPayments = $this->paymentHistory()
-                                   ->where('status', 'overdue')
-                                   ->where('due_date', '<', now())
+                                   ->where('collection_status', 'overdue')
+                                   ->where('due_date_end', '<', now())
                                    ->count();
 
         return $outstandingPayments === 0;

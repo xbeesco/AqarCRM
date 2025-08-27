@@ -84,6 +84,16 @@ class Unit extends Model
     }
 
     /**
+     * Get the active contract for this unit
+     */
+    public function activeContract()
+    {
+        return $this->hasOne(UnitContract::class)
+                    ->where('contract_status', 'active')
+                    ->latest();
+    }
+
+    /**
      * النفقات المرتبطة بالوحدة
      */
     public function expenses(): MorphMany
