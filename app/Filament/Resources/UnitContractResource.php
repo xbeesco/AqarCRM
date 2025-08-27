@@ -23,6 +23,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Actions\DeleteAction;
 use Illuminate\Database\Eloquent\Builder;
+use Closure;
 
 class UnitContractResource extends Resource
 {
@@ -48,15 +49,24 @@ class UnitContractResource extends Resource
                             ->preload()
                             ->live()
                             ->afterStateUpdated(fn (callable $set) => $set('unit_id', null))
-                            ->columnSpan(4),
+                            ->columnSpan(3),
 
                         Select::make('unit_id')
                             ->label('الوحدة')
                             ->required()
-                            ->native(false)
-                            ->placeholder(fn (callable $get): string => 
-                                !$get('property_id') ? 'اختر العقار أولاً' : 'اختر الوحدة'
-                            )
+                            ->native( false )
+                            ->placeholder(function (callable $get): ?string {
+                                if (! $get('property_id')) {
+                                    return 'اختر عقار يحتوي علي وحدات اولا';
+                                }
+
+                                $unitsCount = Unit::where('property_id', $get('property_id'))->count();
+                                if ( is_numeric($unitsCount) && $unitsCount >  0) {
+                                    return 'اختر عقار' ;
+                                }
+
+                                return 'لا توجد وحدات لهذا العقار'; // bug in Filament
+                            })
                             ->options(function (callable $get) {
                                 $propertyId = $get('property_id');
                                 if (!$propertyId) {
@@ -78,16 +88,7 @@ class UnitContractResource extends Resource
                                 $unitsCount = Unit::where('property_id', $get('property_id'))->count();
                                 return $unitsCount === 0;
                             })
-                            ->helperText(function (callable $get): ?string {
-                                if (!$get('property_id')) {
-                                    return 'اختر العقار أولاً';
-                                }
-                                $unitsCount = Unit::where('property_id', $get('property_id'))->count();
-                                if ($unitsCount === 0) {
-                                    return '⚠️ لا توجد وحدات مضافة لهذا العقار';
-                                }
-                                return 'عدد الوحدات المتاحة: ' . $unitsCount;
-                            })
+                            ->helperText('' )
                             ->live()
                             ->afterStateUpdated(function (callable $set, $state) {
                                 if ($state && $state !== '0') {
@@ -97,7 +98,16 @@ class UnitContractResource extends Resource
                                     }
                                 }
                             })
-                            ->columnSpan(4),
+                            ->columnSpan(3),
+
+                        TextInput::make('monthly_rent')
+                            ->label(label: 'قيمة الإيجار بالشهر')
+                            ->numeric()
+                            ->required()
+                            ->minValue(0.01)
+                            ->step(0.01)
+                            ->postfix('ريال')
+                            ->columnSpan(3),
 
                         Select::make('tenant_id')
                             ->label('المستأجر')
@@ -105,21 +115,11 @@ class UnitContractResource extends Resource
                             ->searchable()
                             ->relationship('tenant', 'name')
                             ->options(User::where('type', 'tenant')->pluck('name', 'id'))
-                            ->columnSpan(4),
-
+                            ->columnSpan(3),
                         DatePicker::make('start_date')
-                            ->label('تاريخ بداية العقد')
+                            ->label('تاريخ بداية العمل بالعقد')
                             ->required()
                             ->default(now())
-                            ->columnSpan(3),
-
-                        TextInput::make('monthly_rent')
-                            ->label('قيمة الإيجار بالشهر')
-                            ->numeric()
-                            ->required()
-                            ->minValue(0.01)
-                            ->step(0.01)
-                            ->prefix('SAR')
                             ->columnSpan(3),
 
                         TextInput::make('duration_months')
@@ -128,6 +128,28 @@ class UnitContractResource extends Resource
                             ->required()
                             ->minValue(1)
                             ->suffix('شهر')
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(function ($state, $get, $set) {
+                                $frequency = $get('payment_frequency') ?? 'monthly';
+                                $count = \App\Services\PropertyContractService::calculatePaymentsCount($state ?? 0, $frequency);
+                                $set('payments_count', $count);
+                            })
+                            ->rules([
+                                fn ($get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                    $frequency = $get('payment_frequency') ?? 'monthly';
+                                    if (!\App\Services\PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
+                                        $periodName = match($frequency) {
+                                            'quarterly' => 'ربع سنة',
+                                            'semi_annually' => 'نصف سنة',
+                                            'annually' => 'سنة',
+                                            default => $frequency,
+                                        };
+                                        
+                                        $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
+                                    }
+                                },
+                            ])
+                            ->validationAttribute('مدة التعاقد')
                             ->columnSpan(3),
 
                         Select::make('payment_frequency')
@@ -141,10 +163,42 @@ class UnitContractResource extends Resource
                                 'annually' => 'سنة',
                             ])
                             ->default('monthly')
+                            ->live()
+                            ->afterStateUpdated(function ($state, $get, $set) {
+                                $duration = $get('duration_months') ?? 0;
+                                $count = \App\Services\PropertyContractService::calculatePaymentsCount($duration, $state ?? 'monthly');
+                                $set('payments_count', $count);
+                            })
+                            ->rules([
+                                fn ($get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                    $duration = $get('duration_months') ?? 0;
+                                    if (!\App\Services\PropertyContractService::isValidDuration($duration, $value ?? 'monthly')) {
+                                        $periodName = match($value) {
+                                            'quarterly' => 'ربع سنة',
+                                            'semi_annually' => 'نصف سنة',
+                                            'annually' => 'سنة',
+                                            default => $value,
+                                        };
+                                        $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
+                                    }
+                                },
+                            ])
+                            ->validationAttribute('تكرار التحصيل')
+                            ->columnSpan(3),
+                        TextInput::make('payments_count')
+                            ->label('عدد الدفعات')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->default(function ($get) {
+                                $duration = $get('duration_months') ?? 0;
+                                $frequency = $get('payment_frequency') ?? 'monthly';
+                                $result = \App\Services\PropertyContractService::calculatePaymentsCount($duration, $frequency);
+                                return $result;
+                            })
                             ->columnSpan(3),
 
                         FileUpload::make('contract_file')
-                            ->label('صورة العقد')
+                            ->label('ملف العقد')
                             ->required()
                             ->acceptedFileTypes(['application/pdf', 'image/*'])
                             ->disk('public')
@@ -154,7 +208,7 @@ class UnitContractResource extends Resource
                             ->columnSpan(6),
 
                         Textarea::make('notes')
-                            ->label('ملاحظات اخري')
+                            ->label('الملاحظات')
                             ->rows(3)
                             ->columnSpan(6),
                     ])
