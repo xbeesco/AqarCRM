@@ -114,6 +114,47 @@ public static function infolist(Schema $schema): Schema
 }
 ```
 
+### Custom Pages with Forms
+```php
+// ✅ Filament 4.x - Custom Page with Forms
+use Filament\Pages\Page;
+use Filament\Schemas\Schema;
+use Filament\Schemas\Components\Section;  // Layout components
+use Filament\Forms\Components\TextInput;  // Form field components
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
+
+class CustomPage extends Page implements HasForms
+{
+    use InteractsWithForms;
+    
+    public ?array $data = [];
+    
+    public function form(Schema $schema): Schema  // Schema, not Form!
+    {
+        return $schema
+            ->schema([
+                Section::make('Settings')
+                    ->schema([
+                        TextInput::make('name')->required(),
+                        
+                        // Reactive fields - use closure without type hint
+                        Toggle::make('is_active')
+                            ->visible(fn ($get) => $get('type') === 'premium'), // No Forms\Get type hint
+                            
+                        // ...
+                    ]),
+            ])
+            ->statePath('data');
+    }
+    
+    public function mount(): void
+    {
+        $this->form->fill();  // This calls makeSchema() internally
+    }
+}
+```
+
 ---
 
 ## 📁 3. File Structure Changes
@@ -430,7 +471,16 @@ use Filament\Schemas\Components\Section;
 ->recordActions([...])
 ```
 
-### Error 3: Type error
+### Error 3: Type error with Get callbacks
+```php
+// ❌ Error: Argument #1 ($get) must be of type Filament\Forms\Get, Filament\Schemas\Components\Utilities\Get given
+->visible(fn (Forms\Get $get) => $get('field') === 'value')
+
+// ✅ Fix: Remove type hint from closure
+->visible(fn ($get) => $get('field') === 'value')
+```
+
+### Error 4: Navigation icon type error
 ```php
 // ❌ Error: Type error with navigation icon
 protected static ?string $navigationIcon = 'heroicon-o-users';
