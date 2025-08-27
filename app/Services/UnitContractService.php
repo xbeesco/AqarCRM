@@ -12,30 +12,42 @@ use Carbon\Carbon;
 class UnitContractService
 {
     /**
-     * Create a new unit contract.
+     * Create a new unit contract with enhanced validation.
      */
     public function createContract(array $data): UnitContract
     {
         return DB::transaction(function () use ($data) {
-            // Validate unit availability
+            // Lock the unit to prevent concurrent access
+            $unit = Unit::where('id', $data['unit_id'])->lockForUpdate()->firstOrFail();
+            
+            // Calculate end date if not provided
+            $endDate = $data['end_date'] ?? Carbon::parse($data['start_date'])
+                ->addMonths($data['duration_months'])
+                ->subDay();
+            
+            // Validate unit availability with enhanced checking
             $this->validateUnitAvailability(
                 $data['unit_id'],
                 $data['start_date'],
-                Carbon::parse($data['start_date'])->addMonths($data['duration_months'])
+                $endDate
             );
 
             $data['created_by'] = Auth::id();
+            $data['end_date'] = $endDate;
             
             $contract = UnitContract::create($data);
             
-            // Log contract creation
+            // Log contract creation with security info
             activity()
                 ->performedOn($contract)
-                ->withProperties($data)
-                ->log('Unit contract created');
+                ->withProperties(array_merge($data, [
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent()
+                ]))
+                ->log('Unit contract created with overlap validation');
 
             return $contract;
-        });
+        }, 5); // 5 attempts for deadlock retry
     }
 
     /**
@@ -211,44 +223,116 @@ class UnitContractService
     /**
      * Check unit availability for contract period.
      */
-    public function checkUnitAvailability(int $unitId, string $startDate, string $endDate): bool
+    public function checkUnitAvailability(int $unitId, string $startDate, string $endDate, ?int $excludeContractId = null): bool
     {
+        // Quick check for invalid unit ID
+        if ($unitId <= 0) {
+            return false;
+        }
+        
         try {
-            $this->validateUnitAvailability($unitId, $startDate, $endDate);
+            $this->validateUnitAvailability($unitId, $startDate, $endDate, $excludeContractId);
             return true;
         } catch (\Exception $e) {
             return false;
         }
     }
+    
+    /**
+     * Get available units for a property within a date range.
+     */
+    public function getAvailableUnitsForPeriod(int $propertyId, ?string $startDate = null, ?string $endDate = null): \Illuminate\Support\Collection
+    {
+        $units = Unit::where('property_id', $propertyId)->get();
+        
+        return $units->map(function ($unit) use ($startDate, $endDate) {
+            $isAvailable = true;
+            
+            if ($startDate && $endDate) {
+                // Check if unit has any overlapping contracts
+                $hasOverlap = UnitContract::where('unit_id', $unit->id)
+                    ->whereIn('contract_status', ['active', 'renewed', 'draft'])
+                    ->where(function ($q) use ($startDate, $endDate) {
+                        $q->where(function ($q1) use ($startDate, $endDate) {
+                            // Check all overlap conditions
+                            $q1->where('start_date', '<=', $endDate)
+                               ->where('end_date', '>=', $startDate);
+                        });
+                    })
+                    ->exists();
+                
+                $isAvailable = !$hasOverlap;
+            }
+            
+            return [
+                'id' => $unit->id,
+                'name' => $unit->name,
+                'rent_price' => $unit->rent_price,
+                'is_available' => $isAvailable,
+                'display_name' => $unit->name . 
+                    ' - ' . number_format($unit->rent_price) . ' ريال' .
+                    (!$isAvailable ? ' (محجوزة في هذه الفترة)' : '')
+            ];
+        });
+    }
 
     /**
-     * Validate unit availability (throws exception if not available).
+     * Enhanced validation for unit availability with comprehensive checking.
      */
-    protected function validateUnitAvailability(int $unitId, string $startDate, string $endDate): void
+    protected function validateUnitAvailability(int $unitId, string $startDate, string $endDate, ?int $excludeContractId = null): void
     {
-        $unit = Unit::findOrFail($unitId);
+        // Validate unit ID is not 0
+        if ($unitId <= 0) {
+            throw new \Exception('معرف الوحدة غير صالح');
+        }
+        
+        $unit = Unit::lockForUpdate()->findOrFail($unitId);
 
         // Check if unit exists and is not under maintenance
-        $maintenanceStatusId = \App\Models\UnitStatus::where('slug', 'maintenance')->first()?->id;
-        if ($unit->status_id === $maintenanceStatusId) {
-            throw new \Exception('Unit is currently under maintenance');
+        if (isset($unit->status) && $unit->status === 'maintenance') {
+            throw new \Exception('الوحدة تحت الصيانة حالياً');
         }
 
-        // Check for overlapping contracts
-        $overlappingContracts = UnitContract::where('unit_id', $unitId)
-            ->where('contract_status', 'active')
-            ->where(function ($query) use ($startDate, $endDate) {
-                $query->whereBetween('start_date', [$startDate, $endDate])
-                      ->orWhereBetween('end_date', [$startDate, $endDate])
-                      ->orWhere(function ($q) use ($startDate, $endDate) {
-                          $q->where('start_date', '<=', $startDate)
-                            ->where('end_date', '>=', $endDate);
-                      });
-            })
-            ->exists();
-
-        if ($overlappingContracts) {
-            throw new \Exception('Unit is not available for the specified period');
+        // Build query for overlapping contracts
+        $query = UnitContract::lockForUpdate()
+            ->where('unit_id', $unitId)
+            ->whereIn('contract_status', ['active', 'renewed', 'draft'])
+            ->where(function ($q) use ($startDate, $endDate) {
+                // Comprehensive overlap detection
+                $q->where(function ($q1) use ($startDate, $endDate) {
+                    // Case 1: New period starts within existing period
+                    $q1->where('start_date', '<=', $startDate)
+                       ->where('end_date', '>=', $startDate);
+                })->orWhere(function ($q2) use ($startDate, $endDate) {
+                    // Case 2: New period ends within existing period
+                    $q2->where('start_date', '<=', $endDate)
+                       ->where('end_date', '>=', $endDate);
+                })->orWhere(function ($q3) use ($startDate, $endDate) {
+                    // Case 3: New period completely contains existing period
+                    $q3->where('start_date', '>=', $startDate)
+                       ->where('end_date', '<=', $endDate);
+                })->orWhere(function ($q4) use ($startDate, $endDate) {
+                    // Case 4: Existing period completely contains new period
+                    $q4->where('start_date', '<=', $startDate)
+                       ->where('end_date', '>=', $endDate);
+                });
+            });
+        
+        // Exclude current contract when updating
+        if ($excludeContractId) {
+            $query->where('id', '!=', $excludeContractId);
+        }
+        
+        $overlappingContract = $query->first();
+        
+        if ($overlappingContract) {
+            $message = sprintf(
+                'الوحدة محجوزة في الفترة المطلوبة. يوجد عقد رقم %s من %s إلى %s',
+                $overlappingContract->contract_number,
+                $overlappingContract->start_date->format('Y-m-d'),
+                $overlappingContract->end_date->format('Y-m-d')
+            );
+            throw new \Exception($message);
         }
     }
 

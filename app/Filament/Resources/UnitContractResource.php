@@ -7,6 +7,7 @@ use App\Models\UnitContract;
 use App\Models\User;
 use App\Models\Property;
 use App\Models\Unit;
+use App\Services\UnitContractService;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -24,6 +25,7 @@ use Filament\Actions\ViewAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\Action;
 use Illuminate\Database\Eloquent\Builder;
+use Carbon\Carbon;
 use Closure;
 
 class UnitContractResource extends Resource
@@ -42,6 +44,7 @@ class UnitContractResource extends Resource
             ->schema([
                 Section::make('بيانات العقد')
                     ->schema([
+
                         Select::make('property_id')
                             ->label('العقار')
                             ->required()
@@ -55,44 +58,23 @@ class UnitContractResource extends Resource
                         Select::make('unit_id')
                             ->label('الوحدة')
                             ->required()
-                            ->native( false )
-                            ->placeholder(function (callable $get): ?string {
-                                if (! $get('property_id')) {
-                                    return 'اختر عقار يحتوي علي وحدات اولا';
-                                }
-
-                                $unitsCount = Unit::where('property_id', $get('property_id'))->count();
-                                if ( is_numeric($unitsCount) && $unitsCount >  0) {
-                                    return 'اختر عقار' ;
-                                }
-
-                                return 'لا توجد وحدات لهذا العقار'; // bug in Filament
-                            })
+                            ->native(false)
+                            ->placeholder('اختر وحدة')
                             ->options(function (callable $get) {
                                 $propertyId = $get('property_id');
+                                
                                 if (!$propertyId) {
                                     return [];
                                 }
-                                $units = Unit::where('property_id', $propertyId)
+                                
+                                // Simply get all units for the property
+                                return Unit::where('property_id', $propertyId)
                                     ->pluck('name', 'id');
-                                
-                                if ($units->isEmpty()) {
-                                    return ['0' => 'لا توجد وحدات متاحة لهذا العقار'];
-                                }
-                                
-                                return $units;
                             })
-                            ->disabled(function (callable $get): bool {
-                                if (!$get('property_id')) {
-                                    return true;
-                                }
-                                $unitsCount = Unit::where('property_id', $get('property_id'))->count();
-                                return $unitsCount === 0;
-                            })
-                            ->helperText('' )
+                            ->disabled(fn (callable $get): bool => !$get('property_id'))
                             ->live()
                             ->afterStateUpdated(function (callable $set, $state) {
-                                if ($state && $state !== '0') {
+                                if ($state) {
                                     $unit = Unit::find($state);
                                     if ($unit) {
                                         $set('monthly_rent', $unit->rent_price ?? 0);
@@ -121,6 +103,27 @@ class UnitContractResource extends Resource
                             ->label('تاريخ بداية العمل بالعقد')
                             ->required()
                             ->default(now())
+                            ->live(onBlur: true)
+                            ->rules([
+                                'required',
+                                'date',
+                                fn ($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
+                                    $unitId = $get('unit_id');
+                                    if (!$unitId || !$value) {
+                                        return;
+                                    }
+                                    
+                                    $validationService = app(\App\Services\ContractValidationService::class);
+                                    $excludeId = $record ? $record->id : null;
+                                    
+                                    // التحقق من تاريخ البداية فقط
+                                    $error = $validationService->validateStartDate($unitId, $value, $excludeId);
+                                    if ($error) {
+                                        $fail($error);
+                                    }
+                                },
+                            ])
+                            ->validationAttribute('تاريخ البداية')
                             ->columnSpan(3),
 
                         TextInput::make('duration_months')
@@ -136,7 +139,7 @@ class UnitContractResource extends Resource
                                 $set('payments_count', $count);
                             })
                             ->rules([
-                                fn ($get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                fn ($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
                                     $frequency = $get('payment_frequency') ?? 'monthly';
                                     if (!\App\Services\PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
                                         $periodName = match($frequency) {
@@ -147,6 +150,21 @@ class UnitContractResource extends Resource
                                         };
                                         
                                         $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
+                                    }
+                                    
+                                    // التحقق من المدة فقط
+                                    $unitId = $get('unit_id');
+                                    $startDate = $get('start_date');
+                                    
+                                    if ($unitId && $startDate && $value) {
+                                        $validationService = app(\App\Services\ContractValidationService::class);
+                                        $excludeId = $record ? $record->id : null;
+                                        
+                                        // التحقق من المدة وتأثيرها على النهاية
+                                        $error = $validationService->validateDuration($unitId, $startDate, $value, $excludeId);
+                                        if ($error) {
+                                            $fail($error);
+                                        }
                                     }
                                 },
                             ])
@@ -197,9 +215,8 @@ class UnitContractResource extends Resource
                                 return $result;
                             })
                             ->columnSpan(3),
-
-
-                        FileUpload::make('contract_file')
+                        
+                            FileUpload::make('contract_file')
                             ->label('ملف العقد')
                             ->required()
                             ->acceptedFileTypes(['application/pdf', 'image/*'])
@@ -269,7 +286,31 @@ class UnitContractResource extends Resource
                     ->money('SAR')
                     ->alignEnd(),
 
-// تم إزالة عمود حالة العقد من الجدول لأن التوليد يتم تلقائياً دائماً
+                TextColumn::make('contract_status')
+                    ->label('حالة العقد')
+                    ->formatStateUsing(fn ($record) => $record ? $record->getStatusLabel() : '')
+                    ->color(fn ($record) => $record ? $record->getStatusColor() : 'secondary')
+                    ->badge()
+                    ->icon(fn ($state): ?string => match ($state) {
+                        'draft' => 'heroicon-o-pencil',
+                        'active' => 'heroicon-o-check-circle',
+                        'expired' => 'heroicon-o-clock',
+                        'terminated' => 'heroicon-o-x-circle',
+                        'renewed' => 'heroicon-o-arrow-path',
+                        default => null,
+                    }),
+                    
+                TextColumn::make('remaining_days')
+                    ->label('الأيام المتبقية')
+                    ->getStateUsing(fn ($record) => $record ? $record->getRemainingDays() : 0)
+                    ->formatStateUsing(fn ($state) => $state > 0 ? $state . ' يوم' : 'منتهي')
+                    ->color(fn ($state): string => match (true) {
+                        $state <= 0 => 'danger',
+                        $state <= 30 => 'warning',
+                        default => 'success',
+                    })
+                    ->badge()
+                    ->visible(fn ($record) => $record && $record->isActive()),
 
                 TextColumn::make('created_at')
                     ->label('تاريخ الإنشاء')
@@ -296,20 +337,27 @@ class UnitContractResource extends Resource
                         'annually' => 'سنوي',
                     ]),
 
-// تم إزالة فلتر حالة العقد لأن التوليد يتم تلقائياً دائماً
+                SelectFilter::make('contract_status')
+                    ->label('حالة العقد')
+                    ->options([
+                        'draft' => 'مسودة',
+                        'active' => 'نشط',
+                        'expired' => 'منتهي',
+                        'terminated' => 'ملغي',
+                        'renewed' => 'مُجدد',
+                    ])
+                    ->default('active'),
             ])
             //->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
             ->recordActions([
-// تم إزالة زر التوليد اليدوي لأن التوليد يتم تلقائياً دائماً عند إنشاء العقد
-                    
                 Action::make('viewPayments')
                     ->label('عرض الدفعات')
                     ->icon('heroicon-o-eye')
                     ->color('info')
-                    ->url(fn ($record) => route('filament.admin.resources.collection-payments.index', [
+                    ->url(fn ($record) => $record ? route('filament.admin.resources.collection-payments.index', [
                         'unit_contract_id' => $record->id
-                    ]))
-                    ->visible(fn ($record) => $record->payments()->exists()),
+                    ]) : '#')
+                    ->visible(fn ($record) => $record && $record->payments()->exists()),
                     
                 EditAction::make()
                     ->visible(fn () => auth()->user()?->type === 'super_admin'),

@@ -145,5 +145,146 @@ class UnitContract extends Model
         return $this->hasMany(CollectionPayment::class, 'unit_contract_id');
     }
     
+    /**
+     * Scope: Active contracts.
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('contract_status', 'active')
+                    ->where('start_date', '<=', now())
+                    ->where('end_date', '>=', now());
+    }
+    
+    /**
+     * Scope: Draft contracts.
+     */
+    public function scopeDraft($query)
+    {
+        return $query->where('contract_status', 'draft');
+    }
+    
+    /**
+     * Scope: Expired contracts.
+     */
+    public function scopeExpired($query)
+    {
+        return $query->where(function($q) {
+            $q->where('contract_status', 'expired')
+              ->orWhere(function($q2) {
+                  $q2->where('contract_status', 'active')
+                     ->where('end_date', '<', now());
+              });
+        });
+    }
+    
+    /**
+     * Scope: Terminated contracts.
+     */
+    public function scopeTerminated($query)
+    {
+        return $query->where('contract_status', 'terminated');
+    }
+    
+    /**
+     * Scope: Renewed contracts.
+     */
+    public function scopeRenewed($query)
+    {
+        return $query->where('contract_status', 'renewed');
+    }
+    
+    /**
+     * Scope: Contracts expiring soon (within N days).
+     */
+    public function scopeExpiringSoon($query, $days = 30)
+    {
+        return $query->where('contract_status', 'active')
+                    ->whereBetween('end_date', [now(), now()->addDays($days)]);
+    }
+    
+    /**
+     * Check if contract is currently active.
+     */
+    public function isActive(): bool
+    {
+        return $this->contract_status === 'active' 
+            && $this->start_date <= now() 
+            && $this->end_date >= now();
+    }
+    
+    /**
+     * Check if contract has expired.
+     */
+    public function hasExpired(): bool
+    {
+        return $this->contract_status === 'expired' 
+            || ($this->contract_status === 'active' && $this->end_date < now());
+    }
+    
+    /**
+     * Check if contract is draft.
+     */
+    public function isDraft(): bool
+    {
+        return $this->contract_status === 'draft';
+    }
+    
+    /**
+     * Check if contract was terminated.
+     */
+    public function isTerminated(): bool
+    {
+        return $this->contract_status === 'terminated';
+    }
+    
+    /**
+     * Check if contract was renewed.
+     */
+    public function isRenewed(): bool
+    {
+        return $this->contract_status === 'renewed';
+    }
+    
+    /**
+     * Get remaining days.
+     */
+    public function getRemainingDays(): int
+    {
+        if (!$this->isActive()) {
+            return 0;
+        }
+        return max(0, now()->diffInDays($this->end_date, false));
+    }
+    
+    /**
+     * Get status badge color for UI.
+     */
+    public function getStatusColor(): string
+    {
+        return match($this->contract_status) {
+            'draft' => 'gray',
+            'active' => $this->end_date < now()->addDays(30) ? 'warning' : 'success',
+            'expired' => 'danger',
+            'terminated' => 'danger',
+            'renewed' => 'info',
+            default => 'secondary'
+        };
+    }
+    
+    /**
+     * Get status label in Arabic.
+     */
+    public function getStatusLabel(): string
+    {
+        return match($this->contract_status) {
+            'draft' => 'مسودة',
+            'active' => 'نشط',
+            'expired' => 'منتهي',
+            'terminated' => 'ملغي',
+            'renewed' => 'مُجدد',
+            default => $this->contract_status
+        };
+    }
+    
 // تم إزالة canGenerateCollectionPayments لأن التوليد يتم تلقائياً دائماً
 }
