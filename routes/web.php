@@ -3,10 +3,14 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
+use App\Http\Controllers\PropertyPrintController;
 
 Route::get('/', function () {
     return view('welcome');
 });
+
+// Property Print Route
+Route::get('/property/{property}/print', [PropertyPrintController::class, 'print'])->name('property.print');
 
 // ===== TESTING ROUTES - REMOVE IN PRODUCTION =====
 

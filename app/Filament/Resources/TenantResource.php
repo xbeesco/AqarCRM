@@ -113,28 +113,6 @@ class TenantResource extends Resource
             ->filtersFormColumns(12)
             ->recordActions([
                 EditAction::make(),
-                Action::make('view_report')
-                    ->label('تقرير')
-                    ->icon('heroicon-o-document-text')
-                    ->color('info')
-                    ->modalHeading(fn ($record) => 'تقرير المستأجر: ' . $record->name)
-                    ->modalContent(fn ($record) => view('filament.reports.tenant-comprehensive-report', [
-                        'tenant' => $record,
-                        'stats' => static::getTenantStatistics($record),
-                        'recentPayments' => static::getRecentPayments($record),
-                    ]))
-                    ->modalWidth('7xl')
-                    ->modalCancelActionLabel('إلغاء')
-                    ->modalSubmitAction(
-                        Action::make('print')
-                            ->label('طباعة')
-                            ->icon('heroicon-o-printer')
-                            ->color('success')
-                            ->action(fn () => null)
-                            ->extraAttributes([
-                                'onclick' => 'window.print(); return false;',
-                            ])
-                    ),
             ])
             ->toolbarActions([])
             ->defaultSort('created_at', 'desc');

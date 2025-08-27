@@ -185,49 +185,12 @@ class PropertyResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->searchable()  // تفعيل البحث الشامل للجدول
-            ->filters([
-                SelectFilter::make('owner')
-                    ->label('المالك')
-                    ->relationship('owner', 'name'),
-                    
-                SelectFilter::make('location')
-                    ->label('الموقع')
-                    ->relationship('location', 'name'),
-                    
-                SelectFilter::make('type')
-                    ->label('نوع العقار')
-                    ->relationship('propertyType', 'name_ar'),
-                    
-                SelectFilter::make('status')
-                    ->label('الحالة')
-                    ->relationship('propertyStatus', 'name_ar'),
-            ], layout: \Filament\Tables\Enums\FiltersLayout::AboveContent)
+            ->filters([])
             ->recordActions([
-                EditAction::make(),
-                Action::make('view_report')
-                    ->label('تقرير')
-                    ->icon('heroicon-o-document-text')
-                    ->color('info')
-                    ->modalHeading(fn ($record) => 'تقرير العقار: ' . $record->name)
-                    ->modalContent(fn ($record) => view('filament.reports.property-details', [
-                        'property' => $record,
-                        'stats' => static::getPropertyStatistics($record),
-                    ]))
-                    ->modalWidth('7xl')
-                    ->modalFooterActions([
-                        Action::make('print')
-                            ->label('طباعة')
-                            ->icon('heroicon-o-printer')
-                            ->color('success')
-                            ->action(fn () => null)
-                            ->extraAttributes([
-                                'onclick' => 'window.print(); return false;',
-                            ]),
-                        Action::make('close')
-                            ->label('إلغاء')
-                            ->color('gray')
-                            ->close(),
-                    ]),
+                ViewAction::make()
+                    ->label(''),
+                EditAction::make()
+                    ->label(''),
             ]);
     }
 
@@ -244,6 +207,7 @@ class PropertyResource extends Resource
             'index' => Pages\ListProperties::route('/'),
             'create' => Pages\CreateProperty::route('/create'),
             'edit' => Pages\EditProperty::route('/{record}/edit'),
+            'view' => Pages\ViewProperty::route('/{record}'),
         ];
     }
 

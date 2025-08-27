@@ -10,7 +10,6 @@ use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationBuilder;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
-use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -39,10 +38,9 @@ class AdminPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
-                Dashboard::class,
+                \App\Filament\Pages\Dashboard::class,
                 \App\Filament\Pages\ModulesManager::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 //AccountWidget::class,
                 //FilamentInfoWidget::class,
@@ -87,25 +85,6 @@ class AdminPanelProvider extends PanelProvider
                                     \App\Filament\Resources\OwnerResource::getNavigationItems()),
                                 ...array_map(fn($item) => $item->icon('heroicon-o-briefcase'), 
                                     \App\Filament\Resources\EmployeeResource::getNavigationItems()),
-                            ]),
-                        NavigationGroup::make('التقارير')
-                            ->items([
-                                NavigationItem::make('تقرير العقارات')
-                                    ->icon('heroicon-o-building-office')
-                                    ->url(fn (): string => \App\Filament\Pages\Reports\PropertyReport::getUrl())
-                                    ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.reports.property-report')),
-                                NavigationItem::make('تقرير الوحدات')
-                                    ->icon('heroicon-o-home-modern')
-                                    ->url(fn (): string => \App\Filament\Pages\Reports\UnitReport::getUrl())
-                                    ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.reports.unit-report')),
-                                NavigationItem::make('تقرير المستأجرين')
-                                    ->icon('heroicon-o-user-group')
-                                    ->url(fn (): string => \App\Filament\Pages\Reports\TenantReport::getUrl())
-                                    ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.reports.tenant-report')),
-                                NavigationItem::make('تقرير الملاك')
-                                    ->icon('heroicon-o-document-chart-bar')
-                                    ->url(fn (): string => \App\Filament\Pages\Reports\OwnerReport::getUrl())
-                                    ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.reports.owner-report')),
                             ]),
                         NavigationGroup::make('التأسيس')
                             ->items([
