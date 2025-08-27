@@ -175,11 +175,13 @@ class TenantPaymentsTableWidget extends BaseWidget
                 Action::make('view_report')
                     ->label('تقرير')
                     ->icon('heroicon-o-document-text')
-                    ->color('primary')
-                    ->modalHeading(fn ($record) => 'تقرير الدفعة: ' . $record->payment_number)
-                    ->modalContent(fn ($record) => view('filament.reports.payment-details', [
-                        'payment' => $record,
-                        'stats' => $this->getPaymentStatistics($record),
+                    ->color('info')
+                    ->visible(fn ($record) => $record->tenant_id)
+                    ->modalHeading(fn ($record) => 'تقرير المستأجر: ' . ($record->tenant->name ?? 'غير محدد'))
+                    ->modalContent(fn ($record) => view('filament.reports.tenant-comprehensive-report', [
+                        'tenant' => $record->tenant,
+                        'stats' => \App\Filament\Resources\TenantResource::getTenantStatistics($record->tenant),
+                        'recentPayments' => \App\Filament\Resources\TenantResource::getRecentPayments($record->tenant),
                     ]))
                     ->modalWidth('7xl')
                     ->modalCancelActionLabel('إلغاء')

@@ -118,9 +118,10 @@ class TenantResource extends Resource
                     ->icon('heroicon-o-document-text')
                     ->color('info')
                     ->modalHeading(fn ($record) => 'تقرير المستأجر: ' . $record->name)
-                    ->modalContent(fn ($record) => view('filament.reports.tenant-details', [
+                    ->modalContent(fn ($record) => view('filament.reports.tenant-comprehensive-report', [
                         'tenant' => $record,
                         'stats' => static::getTenantStatistics($record),
+                        'recentPayments' => static::getRecentPayments($record),
                     ]))
                     ->modalWidth('7xl')
                     ->modalCancelActionLabel('إلغاء')
@@ -228,6 +229,15 @@ class TenantResource extends Resource
 
     public static function getTenantStatistics($tenant): array
     {
+        // التأكد من أننا نعمل مع Tenant وليس User
+        if (!($tenant instanceof \App\Models\Tenant)) {
+            // إذا كان User، نحوله إلى Tenant
+            $tenant = \App\Models\Tenant::find($tenant->id);
+            if (!$tenant) {
+                return [];
+            }
+        }
+        
         // تحميل العلاقات
         $tenant->load(['rentalContracts', 'paymentHistory']);
         
@@ -370,6 +380,23 @@ class TenantResource extends Resource
             'is_good_standing' => $overdueCount === 0 && $outstandingPayments === 0,
             'risk_level' => $overdueCount > 3 ? 'high' : ($overdueCount > 1 ? 'medium' : 'low'),
         ];
+    }
+
+    public static function getRecentPayments($tenant, $limit = 5): \Illuminate\Database\Eloquent\Collection
+    {
+        // التأكد من أننا نعمل مع Tenant وليس User
+        if (!($tenant instanceof \App\Models\Tenant)) {
+            $tenant = \App\Models\Tenant::find($tenant->id);
+            if (!$tenant) {
+                return collect();
+            }
+        }
+        
+        return CollectionPayment::where('tenant_id', $tenant->id)
+            ->with(['paymentStatus', 'paymentMethod', 'unit', 'property', 'unitContract'])
+            ->orderBy('due_date_start', 'desc')
+            ->limit($limit)
+            ->get();
     }
 
 }
