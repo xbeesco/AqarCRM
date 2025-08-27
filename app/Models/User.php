@@ -234,6 +234,14 @@ class User extends Authenticatable implements FilamentUser
     }
     
     /**
+     * Get properties for owners (relationship)
+     */
+    public function properties()
+    {
+        return $this->hasMany(Property::class, 'owner_id');
+    }
+    
+    /**
      * Filament access control
      */
     public function canAccessPanel(Panel $panel): bool

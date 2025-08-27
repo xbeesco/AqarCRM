@@ -87,7 +87,7 @@ class EmployeeResource extends Resource
                             ])
                             ->default(UserType::EMPLOYEE->value)
                             ->required()
-                            ->visible(fn () => auth()->user->isSuperAdmin() || auth()->user->isAdmin())
+                            ->visible(fn () => auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
                             ->columnSpan(12),
                             
                         TextInput::make('email')
@@ -117,22 +117,52 @@ class EmployeeResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label('الاسم'),
+                    ->label('الاسم')
+                    ->searchable()
+                    ->sortable(),
 
                 TextColumn::make('email')
-                    ->label('البريد الإلكتروني'),
+                    ->label('البريد الإلكتروني')
+                    ->searchable()
+                    ->sortable(),
 
-                TextColumn::make(name: 'phone')
-                    ->label('الهاتف الأول'),
+                TextColumn::make('phone')
+                    ->label('الهاتف الأول')
+                    ->searchable(),
 
-                TextColumn::make(name: 'secondary_phone')
-                    ->label('الهاتف الثاني'),
+                TextColumn::make('secondary_phone')
+                    ->label('الهاتف الثاني')
+                    ->searchable(),
+                    
+                TextColumn::make('type')
+                    ->label('النوع')
+                    ->searchable()
+                    ->sortable()
+                    ->formatStateUsing(fn ($state) => match($state) {
+                        'employee' => 'موظف',
+                        'admin' => 'مدير',
+                        'super_admin' => 'مدير عام',
+                        default => $state
+                    })
+                    ->badge()
+                    ->color(fn ($state) => match($state) {
+                        'super_admin' => 'danger',
+                        'admin' => 'warning',
+                        'employee' => 'success',
+                        default => 'secondary'
+                    }),
+
+                TextColumn::make('created_at')
+                    ->label('تاريخ الإنشاء')
+                    ->dateTime('Y-m-d H:i')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
             ])
-            ->paginated(false)
             ->recordActions([
                 EditAction::make(),
+                ViewAction::make(),
             ])
             ->defaultSort('created_at', 'desc');
     }
@@ -152,5 +182,84 @@ class EmployeeResource extends Resource
             'edit' => Pages\EditEmployee::route('/{record}/edit'),
             'view' => Pages\ViewEmployee::route('/{record}'),
         ];
+    }
+    
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'email', 'phone', 'secondary_phone'];
+    }
+    
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery();
+    }
+    
+    public static function getGlobalSearchResults(string $search): Collection
+    {
+        // تنظيف البحث وإزالة الهمزات
+        $normalizedSearch = str_replace(
+            ['أ', 'إ', 'آ', 'ء', 'ؤ', 'ئ'],
+            ['ا', 'ا', 'ا', '', 'و', 'ي'],
+            $search
+        );
+        
+        // إزالة المسافات الزائدة
+        $searchWithoutSpaces = str_replace(' ', '', $normalizedSearch);
+        $searchWithSpaces = str_replace(' ', '%', $normalizedSearch);
+        
+        $query = static::getModel()::query();
+        
+        return $query->where(function (Builder $query) use ($normalizedSearch, $searchWithoutSpaces, $searchWithSpaces, $search) {
+            // البحث العادي
+            $query->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('email', 'LIKE', "%{$search}%")
+                  ->orWhere('phone', 'LIKE', "%{$search}%")
+                  ->orWhere('secondary_phone', 'LIKE', "%{$search}%")
+                  // البحث بدون همزات
+                  ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(name, 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا'), 'ء', ''), 'ؤ', 'و'), 'ئ', 'ي') LIKE ?", ["%{$normalizedSearch}%"])
+                  // البحث بدون مسافات
+                  ->orWhereRaw("REPLACE(name, ' ', '') LIKE ?", ["%{$searchWithoutSpaces}%"])
+                  // البحث مع تجاهل المسافات في الكلمة المبحوث عنها
+                  ->orWhere('name', 'LIKE', "%{$searchWithSpaces}%")
+                  // البحث في النوع
+                  ->orWhere(function($q) use ($search) {
+                      $searchLower = mb_strtolower($search, 'UTF-8');
+                      if (str_contains('موظف', $searchLower)) {
+                          $q->where('type', 'employee');
+                      } elseif (str_contains('مدير عام', $searchLower)) {
+                          $q->where('type', 'super_admin');
+                      } elseif (str_contains('مدير', $searchLower)) {
+                          $q->where('type', 'admin');
+                      }
+                  })
+                  // البحث بالتواريخ - تاريخ الإنشاء
+                  ->orWhereRaw("DATE_FORMAT(created_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
+                  ->orWhereRaw("DATE_FORMAT(created_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
+                  ->orWhereRaw("DATE_FORMAT(created_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
+                  ->orWhereRaw("DATE_FORMAT(created_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"]);
+        })
+        ->limit(50)
+        ->get()
+        ->map(function ($record) {
+            $typeLabel = match($record->type) {
+                'employee' => 'موظف',
+                'admin' => 'مدير',
+                'super_admin' => 'مدير عام',
+                default => $record->type
+            };
+            
+            return new \Filament\GlobalSearch\GlobalSearchResult(
+                title: $record->name,
+                url: static::getUrl('edit', ['record' => $record]),
+                details: [
+                    'النوع' => $typeLabel,
+                    'البريد الإلكتروني' => $record->email ?? 'غير محدد',
+                    'الهاتف' => $record->phone ?? 'غير محدد',
+                    'الهاتف الثاني' => $record->secondary_phone ?? 'غير محدد',
+                    'تاريخ الإنشاء' => $record->created_at?->format('Y-m-d') ?? 'غير محدد',
+                ],
+                actions: []
+            );
+        });
     }
 }
