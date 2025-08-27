@@ -16,6 +16,17 @@ class CreateUnitContract extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        // حساب عدد الدفعات الصحيح قبل الحفظ
+        $data['payments_count'] = \App\Services\PropertyContractService::calculatePaymentsCount(
+            $data['duration_months'] ?? 0,
+            $data['payment_frequency'] ?? 'monthly'
+        );
+        
+        // التأكد من أن القيمة رقمية
+        if (!is_numeric($data['payments_count'])) {
+            $data['payments_count'] = 0;
+        }
+        
         return $data;
     }
 }

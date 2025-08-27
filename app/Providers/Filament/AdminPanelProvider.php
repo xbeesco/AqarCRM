@@ -105,14 +105,19 @@ class AdminPanelProvider extends PanelProvider
 
                             ])
                             ->collapsed(),
-                        // NavigationGroup::make('النظام')
-                        //     ->items([
-                        //         NavigationItem::make('Modules Manager')
-                        //             ->icon('heroicon-o-squares-plus')
-                        //             ->url(fn (): string => \App\Filament\Pages\ModulesManager::getUrl())
-                        //             ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.modules-manager')),
-                        //     ])
-                        //     ->collapsed(),
+                        NavigationGroup::make('النظام')
+                            ->items([
+                                // NavigationItem::make('Modules Manager')
+                                //     ->icon('heroicon-o-squares-plus')
+                                //     ->url(fn (): string => \App\Filament\Pages\ModulesManager::getUrl())
+                                //     ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.modules-manager')),
+                                NavigationItem::make('Generator')
+                                    ->icon('heroicon-o-cog-6-tooth')
+                                    ->url(fn (): string => \App\Filament\Pages\Generator::getUrl())
+                                    ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.generator'))
+                                    ->visible(fn (): bool => auth()->user()?->type === 'super_admin'),
+                            ])
+                            ->collapsed(),
                     ]);
             })
             ->middleware([

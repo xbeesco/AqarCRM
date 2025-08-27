@@ -139,16 +139,6 @@ class SupplyPaymentResource extends Resource
                 $query->with(['propertyContract.property', 'propertyContract.owner', 'owner']);
             })
             ->columns([
-                TextColumn::make('payment_number')
-                    ->label('رقم الدفعة')
-                    ->searchable()
-                    ->sortable(),
-
-                TextColumn::make('propertyContract.contract_number')
-                    ->label('رقم العقد')
-                    ->searchable()
-                    ->sortable(),
-
                 TextColumn::make('propertyContract.property.name')
                     ->label('العقار')
                     ->searchable()
@@ -158,6 +148,12 @@ class SupplyPaymentResource extends Resource
                     ->label('المالك')
                     ->searchable()
                     ->sortable(),
+
+                TextColumn::make('due_date')
+                    ->label('تاريخ الاستحقاق')
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->toggleable(),
 
                 TextColumn::make('gross_amount')
                     ->label('المبلغ الإجمالي')
@@ -185,33 +181,12 @@ class SupplyPaymentResource extends Resource
                         default => $state,
                     }),
 
-                TextColumn::make('due_date')
-                    ->label('تاريخ الاستحقاق')
-                    ->date('d/m/Y')
-                    ->sortable()
-                    ->toggleable(),
-
                 TextColumn::make('paid_date')
                     ->label('تاريخ التوريد')
                     ->date('d/m/Y')
                     ->sortable()
                     ->toggleable(),
 
-                TextColumn::make('approval_status')
-                    ->label('حالة الموافقة')
-                    ->badge()
-                    ->color(fn (?string $state): string => match ($state) {
-                        'approved' => 'success',
-                        'rejected' => 'danger',
-                        'pending' => 'warning',
-                        default => 'gray',
-                    })
-                    ->formatStateUsing(fn ($state) => match($state) {
-                        'approved' => 'موافق',
-                        'rejected' => 'غير موافق',
-                        default => '-',
-                    })
-                    ->toggleable(),
 
                 TextColumn::make('created_at')
                     ->label('تاريخ الإنشاء')

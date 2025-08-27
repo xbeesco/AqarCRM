@@ -22,14 +22,16 @@ use Filament\Tables\Filters\Filter;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\Action;
 use Illuminate\Database\Eloquent\Builder;
+use Closure;
 class PropertyContractResource extends Resource
 {
     protected static ?string $model = PropertyContract::class;
 
     protected static ?string $navigationLabel = 'تعاقدات الملاك';
 
-    protected static ?string $modelLabel = 'تعاقد';
+    protected static ?string $modelLabel = 'تعاقد المالك';
 
     protected static ?string $pluralModelLabel = 'تعاقدات الملاك';
 
@@ -46,13 +48,7 @@ class PropertyContractResource extends Resource
                             ->relationship('property', 'name')
                             ->options(Property::with('owner')->get()->pluck('name', 'id'))
                             ->getOptionLabelFromRecordUsing(fn ($record) => $record->name . ' - ' . $record->owner?->name)
-                            ->columnSpan(4),
-
-                        DatePicker::make('start_date')
-                            ->label('تاريخ بداية العمل بالعقد')
-                            ->required()
-                            ->default(now())
-                            ->columnSpan(4),
+                            ->columnSpan(6),
 
                         TextInput::make('commission_rate')
                             ->label('النسبة المئوية')
@@ -61,7 +57,14 @@ class PropertyContractResource extends Resource
                             ->minValue(0)
                             ->maxValue(100)
                             ->suffix('%')
-                            ->columnSpan(4),
+                            ->columnSpan(6),
+
+                        DatePicker::make('start_date')
+                            ->label('تاريخ بداية العمل بالعقد')
+                            ->required()
+                            ->default(now())
+                            ->columnSpan(3),
+
 
                         TextInput::make('duration_months')
                             ->label('مدة التعاقد بالشهر')
@@ -75,7 +78,23 @@ class PropertyContractResource extends Resource
                                 $count = \App\Services\PropertyContractService::calculatePaymentsCount($state ?? 0, $frequency);
                                 $set('payments_count', $count);
                             })
-                            ->columnSpan(4),
+                            ->rules([
+                                fn ($get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                    $frequency = $get('payment_frequency') ?? 'monthly';
+                                    if (!\App\Services\PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
+                                        $periodName = match($frequency) {
+                                            'quarterly' => 'ربع سنة',
+                                            'semi_annually' => 'نصف سنة',
+                                            'annually' => 'سنة',
+                                            default => $frequency,
+                                        };
+                                        
+                                        $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
+                                    }
+                                },
+                            ])
+                            ->validationAttribute('مدة التعاقد')
+                            ->columnSpan(3),
 
                         Select::make('payment_frequency')
                             ->label('التوريد كل')
@@ -93,7 +112,7 @@ class PropertyContractResource extends Resource
                                 $count = \App\Services\PropertyContractService::calculatePaymentsCount($duration, $state ?? 'monthly');
                                 $set('payments_count', $count);
                             })
-                            ->columnSpan(4),
+                            ->columnSpan(3),
 
                         TextInput::make('payments_count')
                             ->label('عدد الدفعات')
@@ -102,9 +121,10 @@ class PropertyContractResource extends Resource
                             ->default(function ($get) {
                                 $duration = $get('duration_months') ?? 0;
                                 $frequency = $get('payment_frequency') ?? 'monthly';
-                                return \App\Services\PropertyContractService::calculatePaymentsCount($duration, $frequency);
+                                $result = \App\Services\PropertyContractService::calculatePaymentsCount($duration, $frequency);
+                                return $result;
                             })
-                            ->columnSpan(4),
+                            ->columnSpan(3),
 
                         FileUpload::make('contract_file')
                             ->label('ملف العقد')
@@ -132,23 +152,19 @@ class PropertyContractResource extends Resource
             ->columns([
                 TextColumn::make('property.name')
                     ->label('العقار')
-                    ->searchable()
-                    ->description(fn (PropertyContract $record): string => $record->owner?->name ?? ''),
+                    ->searchable(),
 
                 TextColumn::make('start_date')
                     ->label('تاريخ العقد')
-                    ->date('d/m/Y')
-                    ->sortable(),
+                    ->date('d/m/Y'),
 
                 TextColumn::make('duration_months')
                     ->label('مدة التعاقد')
-                    ->sortable()
                     ->suffix(' شهر')
                     ->alignCenter(),
 
                 TextColumn::make('commission_rate')
                     ->label('النسبة')
-                    ->sortable()
                     ->suffix('%')
                     ->alignCenter(),
 
@@ -175,13 +191,11 @@ class PropertyContractResource extends Resource
                 TextColumn::make('payments_count')
                     ->label('عدد الدفعات')
                     ->alignCenter()
-                    ->sortable()
                     ->suffix(' دفعة'),
 
                 TextColumn::make('created_at')
                     ->label('تاريخ الإنشاء')
                     ->dateTime('d/m/Y H:i')
-                    ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
@@ -201,6 +215,44 @@ class PropertyContractResource extends Resource
                     ]),
             ])
             ->recordActions([
+                Action::make('generatePayments')
+                    ->label('توليد الدفعات')
+                    ->icon('heroicon-o-calculator')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('توليد دفعات التوريد')
+                    ->modalDescription(fn ($record) => "سيتم توليد {$record->payments_count} دفعة للمالك")
+                    ->modalSubmitActionLabel('توليد')
+                    ->visible(fn ($record) => $record->canGeneratePayments())
+                    ->action(function ($record) {
+                        $service = app(\App\Services\PaymentGeneratorService::class);
+                        
+                        try {
+                            $count = $service->generateSupplyPaymentsForContract($record);
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->title('تم توليد الدفعات')
+                                ->body("تم توليد {$count} دفعة")
+                                ->success()
+                                ->send();
+                        } catch (\Exception $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('خطأ')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
+                    
+                Action::make('viewPayments')
+                    ->label('عرض الدفعات')
+                    ->icon('heroicon-o-eye')
+                    ->color('info')
+                    ->url(fn ($record) => route('filament.admin.resources.supply-payments.index', [
+                        'property_contract_id' => $record->id
+                    ]))
+                    ->visible(fn ($record) => $record->supplyPayments()->exists()),
+                    
                 EditAction::make()
                     ->visible(fn () => auth()->user()?->type === 'super_admin'),
             ])
@@ -241,7 +293,7 @@ class PropertyContractResource extends Resource
         $user = auth()->user();
         return $user && $user->type === 'super_admin';
     }
-    
+
     /**
      * Only admins can create contracts
      */

@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Gate;
 use App\Models\UnitContract;
 use App\Models\PropertyContract;
 use App\Observers\UnitContractObserver;
+use App\Observers\PropertyContractObserver;
 use App\Policies\PropertyContractPolicy;
 use App\Policies\UnitContractPolicy;
 
@@ -31,5 +32,6 @@ class AppServiceProvider extends ServiceProvider
         
         // Register Observers
         UnitContract::observe(UnitContractObserver::class);
+        PropertyContract::observe(PropertyContractObserver::class);
     }
 }

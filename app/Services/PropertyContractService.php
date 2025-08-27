@@ -231,15 +231,34 @@ class PropertyContractService
     /**
      * حساب عدد الدفعات بناءً على مدة العقد وتكرار التوريد
      */
-    public static function calculatePaymentsCount(int $durationMonths, string $paymentFrequency): int
+    public static function calculatePaymentsCount(int $durationMonths, string $paymentFrequency): int|string
     {
-        return match($paymentFrequency) {
-            'monthly' => $durationMonths,                    // شهري = عدد الشهور
-            'quarterly' => intval($durationMonths / 3),      // ربع سنوي = كل 3 شهور
-            'semi_annually' => intval($durationMonths / 6),  // نصف سنوي = كل 6 شهور
-            'annually' => intval($durationMonths / 12),      // سنوي = كل 12 شهر
-            default => 0,
-        };
+        $monthsPerPayment = self::getMonthsPerPayment($paymentFrequency);
+        
+        if ($monthsPerPayment === 0) {
+            return 0;
+        }
+        
+        // التحقق من أن القسمة تعطي رقم صحيح
+        if ($durationMonths % $monthsPerPayment !== 0) {
+            return 'قسمة لا تصح';
+        }
+        
+        return $durationMonths / $monthsPerPayment;
+    }
+    
+    /**
+     * التحقق من صحة مدة العقد مع تكرار التوريد
+     */
+    public static function isValidDuration(int $durationMonths, string $paymentFrequency): bool
+    {
+        $monthsPerPayment = self::getMonthsPerPayment($paymentFrequency);
+        
+        if ($monthsPerPayment === 0) {
+            return false;
+        }
+        
+        return $durationMonths % $monthsPerPayment === 0;
     }
 
     /**

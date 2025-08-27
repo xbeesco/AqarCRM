@@ -7,6 +7,7 @@ use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
 
 class ListCollectionPayments extends ListRecords
 {
@@ -18,6 +19,17 @@ class ListCollectionPayments extends ListRecords
             Actions\CreateAction::make()
                 ->label('دفعة تحصيل جديدة'),
         ];
+    }
+    
+    public function mount(): void
+    {
+        parent::mount();
+        
+        // Apply unit_contract_id filter from URL if present
+        $unitContractId = request('unit_contract_id');
+        if ($unitContractId) {
+            $this->tableFilters['unit_contract_id']['value'] = $unitContractId;
+        }
     }
     
     protected function applySearchToTableQuery(Builder $query): Builder

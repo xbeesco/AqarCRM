@@ -3,64 +3,200 @@
 namespace App\Observers;
 
 use App\Models\UnitContract;
-use App\Services\PaymentGeneratorService;
+use App\Services\UnitContractService;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class UnitContractObserver
 {
-    protected $paymentService;
+    protected UnitContractService $contractService;
     
-    public function __construct(PaymentGeneratorService $paymentService)
+    public function __construct(UnitContractService $contractService)
     {
-        $this->paymentService = $paymentService;
+        $this->contractService = $contractService;
     }
     
     /**
-     * Handle the UnitContract "created" event.
+     * Handle the UnitContract "creating" event.
      */
-    public function created(UnitContract $contract)
+    public function creating(UnitContract $contract): void
     {
-        // توليد رقم العقد إذا لم يكن موجود
-        if (empty($contract->contract_number)) {
-            $contract->contract_number = $this->generateContractNumber($contract);
-            $contract->saveQuietly();
+        // Ensure end_date is calculated
+        if (empty($contract->end_date) && $contract->start_date && $contract->duration_months) {
+            $contract->end_date = Carbon::parse($contract->start_date)
+                ->addMonths($contract->duration_months)
+                ->subDay();
         }
         
-        // توليد الدفعات تلقائياً عند إنشاء العقد
-        if ($contract->contract_status === 'active') {
-            $this->paymentService->generateTenantPayments($contract);
+        // Validate no overlap for new contracts
+        if (in_array($contract->contract_status, ['active', 'renewed', 'draft'])) {
+            $this->validateNoOverlap($contract);
+        }
+        
+        // Log suspicious activity
+        if ($contract->start_date > $contract->end_date) {
+            Log::warning('Suspicious contract date range detected', [
+                'unit_id' => $contract->unit_id,
+                'start_date' => $contract->start_date,
+                'end_date' => $contract->end_date,
+                'user_id' => auth()->id(),
+                'ip' => request()->ip()
+            ]);
+            throw new \Exception('تاريخ البداية يجب أن يكون قبل تاريخ النهاية');
         }
     }
     
     /**
-     * Handle the UnitContract "updated" event.
+     * Handle the UnitContract "updating" event.
      */
-    public function updated(UnitContract $contract)
+    public function updating(UnitContract $contract): void
     {
-        // إذا تم تفعيل العقد، نولد الدفعات
-        if ($contract->isDirty('contract_status') && $contract->contract_status === 'active') {
-            // التحقق من عدم وجود دفعات سابقة
-            if ($contract->payments()->count() === 0) {
-                $this->paymentService->generateTenantPayments($contract);
+        // Recalculate end_date if dates or duration changed
+        if ($contract->isDirty(['start_date', 'duration_months'])) {
+            $contract->end_date = Carbon::parse($contract->start_date)
+                ->addMonths($contract->duration_months)
+                ->subDay();
+        }
+        
+        // Validate no overlap when updating critical fields
+        if ($contract->isDirty(['unit_id', 'start_date', 'end_date', 'contract_status'])) {
+            if (in_array($contract->contract_status, ['active', 'renewed', 'draft'])) {
+                $this->validateNoOverlap($contract);
+            }
+        }
+        
+        // Log status changes
+        if ($contract->isDirty('contract_status')) {
+            Log::info('Contract status changed', [
+                'contract_id' => $contract->id,
+                'old_status' => $contract->getOriginal('contract_status'),
+                'new_status' => $contract->contract_status,
+                'user_id' => auth()->id()
+            ]);
+        }
+    }
+    
+    /**
+     * Handle the UnitContract "saving" event.
+     */
+    public function saving(UnitContract $contract): void
+    {
+        // Final validation before any save operation
+        if ($contract->start_date && $contract->end_date) {
+            $startDate = Carbon::parse($contract->start_date);
+            $endDate = Carbon::parse($contract->end_date);
+            
+            // Ensure dates are logical
+            if ($startDate->greaterThan($endDate)) {
+                throw new \Exception('تاريخ البداية لا يمكن أن يكون بعد تاريخ النهاية');
+            }
+            
+            // Ensure duration matches dates
+            $calculatedMonths = $startDate->diffInMonths($endDate->addDay());
+            if (abs($contract->duration_months - $calculatedMonths) > 1) {
+                Log::warning('Duration mismatch detected, auto-correcting', [
+                    'contract_id' => $contract->id,
+                    'stored_duration' => $contract->duration_months,
+                    'calculated_duration' => $calculatedMonths
+                ]);
+                $contract->duration_months = $calculatedMonths;
             }
         }
     }
     
     /**
-     * توليد رقم العقد
+     * Validate that there's no overlap with other contracts.
      */
-    private function generateContractNumber(UnitContract $contract)
+    protected function validateNoOverlap(UnitContract $contract): void
     {
-        $year = Carbon::now()->year;
-        $month = Carbon::now()->format('m');
+        $query = UnitContract::where('unit_id', $contract->unit_id)
+            ->whereIn('contract_status', ['active', 'renewed', 'draft'])
+            ->where(function ($q) use ($contract) {
+                $q->where(function ($q1) use ($contract) {
+                    // Start date falls within existing period
+                    $q1->where('start_date', '<=', $contract->start_date)
+                       ->where('end_date', '>=', $contract->start_date);
+                })->orWhere(function ($q2) use ($contract) {
+                    // End date falls within existing period
+                    $q2->where('start_date', '<=', $contract->end_date)
+                       ->where('end_date', '>=', $contract->end_date);
+                })->orWhere(function ($q3) use ($contract) {
+                    // New period contains existing period
+                    $q3->where('start_date', '>=', $contract->start_date)
+                       ->where('end_date', '<=', $contract->end_date);
+                })->orWhere(function ($q4) use ($contract) {
+                    // Existing period contains new period
+                    $q4->where('start_date', '<=', $contract->start_date)
+                       ->where('end_date', '>=', $contract->end_date);
+                });
+            });
         
-        $lastContract = UnitContract::whereYear('created_at', $year)
-            ->whereMonth('created_at', $month)
-            ->orderBy('id', 'desc')
-            ->first();
+        // Exclude self when updating
+        if ($contract->exists) {
+            $query->where('id', '!=', $contract->id);
+        }
         
-        $sequence = $lastContract ? intval(substr($lastContract->contract_number, -4)) + 1 : 1;
+        $overlappingContract = $query->first();
         
-        return sprintf('UC-%s%s-%04d', $year, $month, $sequence);
+        if ($overlappingContract) {
+            // Log the overlap attempt
+            Log::error('Contract overlap attempt blocked', [
+                'unit_id' => $contract->unit_id,
+                'new_contract' => [
+                    'id' => $contract->id,
+                    'start' => $contract->start_date,
+                    'end' => $contract->end_date,
+                    'status' => $contract->contract_status
+                ],
+                'existing_contract' => [
+                    'id' => $overlappingContract->id,
+                    'number' => $overlappingContract->contract_number,
+                    'start' => $overlappingContract->start_date,
+                    'end' => $overlappingContract->end_date,
+                    'status' => $overlappingContract->contract_status
+                ],
+                'user_id' => auth()->id(),
+                'ip' => request()->ip()
+            ]);
+            
+            throw new \Exception(sprintf(
+                'لا يمكن حفظ العقد: الوحدة محجوزة بالعقد رقم %s من %s إلى %s',
+                $overlappingContract->contract_number,
+                $overlappingContract->start_date->format('Y-m-d'),
+                $overlappingContract->end_date->format('Y-m-d')
+            ));
+        }
+    }
+    
+    /**
+     * Handle the UnitContract "created" event.
+     */
+    public function created(UnitContract $contract): void
+    {
+        // Log successful creation
+        Log::info('Contract created successfully', [
+            'contract_id' => $contract->id,
+            'contract_number' => $contract->contract_number,
+            'unit_id' => $contract->unit_id,
+            'tenant_id' => $contract->tenant_id,
+            'period' => $contract->start_date . ' to ' . $contract->end_date
+        ]);
+    }
+    
+    /**
+     * Handle the UnitContract "updated" event.
+     */
+    public function updated(UnitContract $contract): void
+    {
+        // Log successful update
+        $changes = $contract->getChanges();
+        unset($changes['updated_at']); // Remove noise
+        
+        if (!empty($changes)) {
+            Log::info('Contract updated successfully', [
+                'contract_id' => $contract->id,
+                'changes' => $changes
+            ]);
+        }
     }
 }
