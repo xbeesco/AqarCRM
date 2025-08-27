@@ -92,7 +92,7 @@ class UnitContract extends Model
             }
             
             if (is_null($contract->contract_status)) {
-                $contract->contract_status = 'draft';
+                $contract->contract_status = 'active';
             }
         });
         
@@ -144,4 +144,6 @@ class UnitContract extends Model
     {
         return $this->hasMany(CollectionPayment::class, 'unit_contract_id');
     }
+    
+// تم إزالة canGenerateCollectionPayments لأن التوليد يتم تلقائياً دائماً
 }

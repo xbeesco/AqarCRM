@@ -22,6 +22,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\Action;
 use Illuminate\Database\Eloquent\Builder;
 use Closure;
 
@@ -197,6 +198,7 @@ class UnitContractResource extends Resource
                             })
                             ->columnSpan(3),
 
+
                         FileUpload::make('contract_file')
                             ->label('ملف العقد')
                             ->required()
@@ -267,6 +269,8 @@ class UnitContractResource extends Resource
                     ->money('SAR')
                     ->alignEnd(),
 
+// تم إزالة عمود حالة العقد من الجدول لأن التوليد يتم تلقائياً دائماً
+
                 TextColumn::make('created_at')
                     ->label('تاريخ الإنشاء')
                     ->dateTime('d/m/Y H:i')
@@ -291,9 +295,22 @@ class UnitContractResource extends Resource
                         'semi_annually' => 'نصف سنوي',
                         'annually' => 'سنوي',
                     ]),
+
+// تم إزالة فلتر حالة العقد لأن التوليد يتم تلقائياً دائماً
             ])
             //->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
             ->recordActions([
+// تم إزالة زر التوليد اليدوي لأن التوليد يتم تلقائياً دائماً عند إنشاء العقد
+                    
+                Action::make('viewPayments')
+                    ->label('عرض الدفعات')
+                    ->icon('heroicon-o-eye')
+                    ->color('info')
+                    ->url(fn ($record) => route('filament.admin.resources.collection-payments.index', [
+                        'unit_contract_id' => $record->id
+                    ]))
+                    ->visible(fn ($record) => $record->payments()->exists()),
+                    
                 EditAction::make()
                     ->visible(fn () => auth()->user()?->type === 'super_admin'),
             ])

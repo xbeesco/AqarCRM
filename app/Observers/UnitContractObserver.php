@@ -26,10 +26,8 @@ class UnitContractObserver
             $contract->saveQuietly();
         }
         
-        // توليد الدفعات تلقائياً عند إنشاء العقد
-        if ($contract->contract_status === 'active') {
-            $this->paymentService->generateTenantPayments($contract);
-        }
+        // توليد الدفعات تلقائياً عند إنشاء أي عقد جديد
+        $this->paymentService->generateTenantPayments($contract);
     }
     
     /**
