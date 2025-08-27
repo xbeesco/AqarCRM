@@ -223,27 +223,22 @@ class UnitContractResource extends Resource
             ->columns([
                 TextColumn::make('property.name')
                     ->label('العقار')
-                    ->searchable()
-                    ->sortable(),
+                    ->searchable(),
 
                 TextColumn::make('unit.name')
                     ->label('الوحدة')
-                    ->searchable()
-                    ->sortable(),
+                    ->searchable(),
 
                 TextColumn::make('tenant.name')
                     ->label('المستأجر')
-                    ->searchable()
-                    ->sortable(),
+                    ->searchable(),
 
                 TextColumn::make('start_date')
                     ->label('تاريخ العقد')
-                    ->date('d/m/Y')
-                    ->sortable(),
+                    ->date('d/m/Y'),
 
                 TextColumn::make('duration_months')
                     ->label('مدة التعاقد')
-                    ->sortable()
                     ->suffix(' شهر')
                     ->alignCenter(),
 
@@ -258,18 +253,23 @@ class UnitContractResource extends Resource
                             default => $state,
                         };
                     })
+                    ->color(fn (string $state): string => match ($state) {
+                        'monthly' => 'primary',
+                        'quarterly' => 'success',
+                        'semi_annually' => 'info',
+                        'annually' => 'danger',
+                        default => 'gray',
+                    })
                     ->badge(),
 
                 TextColumn::make('monthly_rent')
                     ->label('الإيجار الشهري')
                     ->money('SAR')
-                    ->sortable()
                     ->alignEnd(),
 
                 TextColumn::make('created_at')
                     ->label('تاريخ الإنشاء')
                     ->dateTime('d/m/Y H:i')
-                    ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([

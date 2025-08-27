@@ -153,23 +153,19 @@ class PropertyContractResource extends Resource
             ->columns([
                 TextColumn::make('property.name')
                     ->label('العقار')
-                    ->searchable()
-                    ->description(fn (PropertyContract $record): string => $record->owner?->name ?? ''),
+                    ->searchable(),
 
                 TextColumn::make('start_date')
                     ->label('تاريخ العقد')
-                    ->date('d/m/Y')
-                    ->sortable(),
+                    ->date('d/m/Y'),
 
                 TextColumn::make('duration_months')
                     ->label('مدة التعاقد')
-                    ->sortable()
                     ->suffix(' شهر')
                     ->alignCenter(),
 
                 TextColumn::make('commission_rate')
                     ->label('النسبة')
-                    ->sortable()
                     ->suffix('%')
                     ->alignCenter(),
 
@@ -196,13 +192,11 @@ class PropertyContractResource extends Resource
                 TextColumn::make('payments_count')
                     ->label('عدد الدفعات')
                     ->alignCenter()
-                    ->sortable()
                     ->suffix(' دفعة'),
 
                 TextColumn::make('created_at')
                     ->label('تاريخ الإنشاء')
                     ->dateTime('d/m/Y H:i')
-                    ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
@@ -262,7 +256,7 @@ class PropertyContractResource extends Resource
         $user = auth()->user();
         return $user && $user->type === 'super_admin';
     }
-    
+
     /**
      * Only admins can create contracts
      */
