@@ -49,6 +49,14 @@ class Owner extends User
     }
 
     /**
+     * Get the supply payments for this owner.
+     */
+    public function supplyPayments()
+    {
+        return $this->hasMany(SupplyPayment::class, 'owner_id');
+    }
+
+    /**
      * Get rental contracts for this owner's properties.
      */
     public function rentalContracts()

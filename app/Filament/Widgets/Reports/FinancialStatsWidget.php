@@ -35,13 +35,13 @@ class FinancialStatsWidget extends BaseWidget
             ->sum('total_amount');
             
         // التوريدات الشهرية
-        $monthlySupplies = SupplyPayment::whereBetween('payment_date', [$startOfMonth, $endOfMonth])
-            ->where('payment_status', 'paid')
+        $monthlySupplies = SupplyPayment::whereBetween('paid_date', [$startOfMonth, $endOfMonth])
+            ->where('supply_status', 'collected')
             ->sum('net_amount');
             
         // التوريدات المعلقة
-        $pendingSupplies = SupplyPayment::where('payment_date', '<=', now())
-            ->where('payment_status', 'pending')
+        $pendingSupplies = SupplyPayment::where('due_date', '<=', now())
+            ->where('supply_status', 'pending')
             ->sum('net_amount');
         
         // المتأخرات (أكثر من 30 يوم)

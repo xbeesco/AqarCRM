@@ -171,10 +171,6 @@
                     </div>
                 </div>
             </div>
-        @else
-            <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-8 text-center">
-                <p class="text-gray-500 dark:text-gray-400">يرجى اختيار المالك والفترة الزمنية لعرض التقرير</p>
-            </div>
         @endif
     </div>
 </x-filament-panels::page>

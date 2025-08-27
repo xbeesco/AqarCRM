@@ -4,165 +4,149 @@ namespace App\Filament\Widgets\Reports;
 
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use App\Models\Owner;
+use App\Models\User;
 use App\Models\CollectionPayment;
-use App\Models\PropertyRepair;
+use App\Models\SupplyPayment;
+use App\Models\Property;
+use App\Models\Unit;
 use Carbon\Carbon;
-use Filament\Support\Colors\Color;
+use Livewire\Attributes\On;
 
 class OwnerStatsWidget extends BaseWidget
 {
-    public ?int $owner_id = null;
+    protected int | string | array $columnSpan = 'full';
+    
+    public ?int $property_id = null;
+    public ?int $unit_id = null;
+    public string $owner_status = 'all';
     public ?string $date_from = null;
     public ?string $date_to = null;
-    public string $report_type = 'summary';
 
-    protected $listeners = [
-        'owner-filters-updated' => 'updateFilters',
-    ];
-
-    public function updateFilters($filters): void
+    #[On('owner-filters-updated')]
+    public function updateFilters(array $filters): void
     {
-        $this->owner_id = $filters['owner_id'] ?? null;
+        $this->property_id = $filters['property_id'] ?? null;
+        $this->unit_id = $filters['unit_id'] ?? null;
+        $this->owner_status = $filters['owner_status'] ?? 'all';
         $this->date_from = $filters['date_from'] ?? null;
         $this->date_to = $filters['date_to'] ?? null;
-        $this->report_type = $filters['report_type'] ?? 'summary';
     }
 
     protected function getStats(): array
     {
-        if (!$this->owner_id) {
-            return [
-                Stat::make('اختر مالك', 'يرجى اختيار مالك لعرض الإحصائيات')
-                    ->description('')
-                    ->color('gray'),
-            ];
+        $dateFrom = $this->date_from ? Carbon::parse($this->date_from) : now()->startOfYear();
+        $dateTo = $this->date_to ? Carbon::parse($this->date_to) : now()->endOfYear();
+
+        // بناء الاستعلامات الأساسية
+        $ownersQuery = User::where('type', 'owner');
+        $propertiesQuery = Property::query();
+        $collectionQuery = CollectionPayment::query();
+        $supplyQuery = SupplyPayment::query();
+
+        // تطبيق فلتر العقار
+        if ($this->property_id) {
+            $ownersQuery->whereHas('properties', function($q) {
+                $q->where('id', $this->property_id);
+            });
+            $propertiesQuery->where('id', $this->property_id);
+            $collectionQuery->where('property_id', $this->property_id);
+            $supplyQuery->whereHas('owner', function($q) {
+                $q->whereHas('properties', function($subQ) {
+                    $subQ->where('id', $this->property_id);
+                });
+            });
         }
 
-        $owner = Owner::find($this->owner_id);
-        if (!$owner) {
-            return [];
+        // تطبيق فلتر الوحدة
+        if ($this->unit_id) {
+            $ownersQuery->whereHas('properties', function($q) {
+                $q->whereHas('units', function($subQ) {
+                    $subQ->where('id', $this->unit_id);
+                });
+            });
+            $propertiesQuery->whereHas('units', function($q) {
+                $q->where('id', $this->unit_id);
+            });
+            $collectionQuery->where('unit_id', $this->unit_id);
         }
 
-        $dateFrom = $this->date_from ? Carbon::parse($this->date_from) : now()->startOfMonth();
-        $dateTo = $this->date_to ? Carbon::parse($this->date_to) : now()->endOfMonth();
+        // تطبيق فلتر حالة المالك
+        switch ($this->owner_status) {
+            case 'active':
+                $ownersQuery->whereHas('properties', function($q) {
+                    $q->where('status_id', 1); // Available status
+                });
+                break;
+            case 'inactive':
+                $ownersQuery->whereDoesntHave('properties', function($q) {
+                    $q->where('status_id', 1);
+                });
+                break;
+        }
 
-        // حساب إجمالي التحصيل
-        $totalCollection = $this->calculateTotalCollection($owner, $dateFrom, $dateTo);
+        // حساب الإحصائيات
+        $totalOwners = $ownersQuery->count();
         
-        // حساب النسبة الإدارية
-        $managementPercentage = 10; // يمكن جعلها قابلة للتعديل
-        $managementFee = $totalCollection * ($managementPercentage / 100);
-        
-        // حساب تكاليف الصيانة
-        $maintenanceCosts = $this->calculateMaintenanceCosts($owner, $dateFrom, $dateTo);
-        
-        // حساب صافي الدخل
-        $netIncome = $totalCollection - $managementFee - $maintenanceCosts;
-        
-        // حساب عدد العقارات والوحدات
-        $propertiesCount = $owner->properties()->count();
-        $totalUnits = $owner->properties()->withCount('units')->get()->sum('units_count');
-        $occupiedUnits = $this->calculateOccupiedUnits($owner);
-        $occupancyRate = $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100, 2) : 0;
+        $activeOwners = (clone $ownersQuery)->whereHas('properties', function($q) {
+            $q->where('status_id', 1); // Available status
+        })->count();
 
-        // حساب المتوسط الشهري للدخل
-        $monthsDiff = $dateFrom->diffInMonths($dateTo) + 1;
-        $averageMonthlyIncome = $monthsDiff > 0 ? $netIncome / $monthsDiff : 0;
+        $totalProperties = (clone $propertiesQuery)->count();
+        
+        $newOwnersThisMonth = User::where('type', 'owner')
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->count();
+
+        // حساب إجمالي التحصيل من العقارات المفلترة
+        $totalCollection = (clone $collectionQuery)
+            ->where('collection_status', 'collected')
+            ->whereBetween('paid_date', [$dateFrom, $dateTo])
+            ->sum('total_amount');
+
+        // حساب المبالغ المحولة للملاك
+        $paidToOwners = (clone $supplyQuery)
+            ->where('supply_status', 'collected')
+            ->whereBetween('paid_date', [$dateFrom, $dateTo])
+            ->sum('net_amount');
 
         return [
-            Stat::make('إجمالي التحصيل', number_format($totalCollection, 2) . ' ريال')
-                ->description('إجمالي المبلغ المحصل خلال الفترة')
-                ->descriptionIcon('heroicon-m-currency-dollar')
+            Stat::make('إجمالي الملاك', $totalOwners)
+                ->description('العدد الكلي للملاك')
+                ->descriptionIcon('heroicon-m-users')
+                ->color('primary')
+                ->icon('heroicon-o-user-group')
+                ->chart([8, 12, 10, 15, 18, 20, 22])
+                ->chartColor('primary'),
+
+            Stat::make('الملاك النشطون', $activeOwners)
+                ->description(($totalOwners > 0 ? round(($activeOwners / $totalOwners) * 100, 1) : 0) . '% من الإجمالي')
+                ->descriptionIcon('heroicon-m-check-circle')
                 ->color('success')
-                ->chart($this->getCollectionChart($owner, $dateFrom, $dateTo)),
+                ->icon('heroicon-o-users')
+                ->chart([6, 8, 9, 12, 14, 16, 18])
+                ->chartColor('success'),
 
-            Stat::make('صافي الدخل', number_format($netIncome, 2) . ' ريال')
-                ->description('بعد خصم النسبة الإدارية والصيانة')
-                ->descriptionIcon($netIncome >= 0 ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down')
-                ->color($netIncome >= 0 ? 'success' : 'danger'),
+            Stat::make('الملاك الجدد', $newOwnersThisMonth)
+                ->description('هذا الشهر')
+                ->descriptionIcon('heroicon-m-user-plus')
+                ->color('info')
+                ->icon('heroicon-o-user-plus')
+                ->chart([1, 2, 1, 3, 2, 4, 3])
+                ->chartColor('info'),
 
-            Stat::make('معدل الإشغال', $occupancyRate . '%')
-                ->description($occupiedUnits . ' من ' . $totalUnits . ' وحدة مؤجرة')
-                ->descriptionIcon('heroicon-m-home')
-                ->color($this->getOccupancyColor($occupancyRate)),
-
-            Stat::make('عدد العقارات', number_format($propertiesCount))
-                ->description('إجمالي العقارات المملوكة')
+            Stat::make('إجمالي العقارات', $totalProperties)
+                ->description('عدد العقارات المسجلة')
                 ->descriptionIcon('heroicon-m-building-office-2')
-                ->color('info'),
-
-            Stat::make('تكاليف الصيانة', number_format($maintenanceCosts, 2) . ' ريال')
-                ->description('إجمالي مصروفات الصيانة')
-                ->descriptionIcon('heroicon-m-wrench-screwdriver')
-                ->color('warning'),
-
-            Stat::make('المتوسط الشهري', number_format($averageMonthlyIncome, 2) . ' ريال')
-                ->description('متوسط صافي الدخل الشهري')
-                ->descriptionIcon('heroicon-m-chart-bar')
-                ->color('info'),
+                ->color('warning')
+                ->icon('heroicon-o-building-office-2')
+                ->chart([25, 28, 30, 32, 35, 38, 40])
+                ->chartColor('warning'),
         ];
     }
 
-    private function calculateTotalCollection(Owner $owner, Carbon $dateFrom, Carbon $dateTo): float
+    protected function getColumns(): int
     {
-        return CollectionPayment::whereHas('property', function ($query) use ($owner) {
-                $query->where('owner_id', $owner->id);
-            })
-            ->whereBetween('paid_date', [$dateFrom, $dateTo])
-            ->whereHas('paymentStatus', function ($query) {
-                $query->where('is_paid_status', true);
-            })
-            ->sum('total_amount');
-    }
-
-    private function calculateMaintenanceCosts(Owner $owner, Carbon $dateFrom, Carbon $dateTo): float
-    {
-        return PropertyRepair::whereHas('property', function ($query) use ($owner) {
-                $query->where('owner_id', $owner->id);
-            })
-            ->whereBetween('completion_date', [$dateFrom, $dateTo])
-            ->whereIn('status', ['completed'])
-            ->sum('actual_cost');
-    }
-
-    private function calculateOccupiedUnits(Owner $owner): int
-    {
-        return $owner->properties()
-            ->withCount(['units' => function ($query) {
-                $query->whereNotNull('current_tenant_id');
-            }])
-            ->get()
-            ->sum('units_count');
-    }
-
-    private function getOccupancyColor(float $occupancyRate): string
-    {
-        if ($occupancyRate >= 90) return 'success';
-        if ($occupancyRate >= 70) return 'warning';
-        return 'danger';
-    }
-
-    private function getCollectionChart(Owner $owner, Carbon $dateFrom, Carbon $dateTo): array
-    {
-        $chart = [];
-        $period = $dateFrom->copy();
-        
-        while ($period->lte($dateTo)) {
-            $monthlyCollection = CollectionPayment::whereHas('property', function ($query) use ($owner) {
-                    $query->where('owner_id', $owner->id);
-                })
-                ->whereYear('paid_date', $period->year)
-                ->whereMonth('paid_date', $period->month)
-                ->whereHas('paymentStatus', function ($query) {
-                    $query->where('is_paid_status', true);
-                })
-                ->sum('total_amount');
-                
-            $chart[] = round($monthlyCollection, 2);
-            $period->addMonth();
-        }
-        
-        return $chart;
+        return 4;
     }
 }
