@@ -5,6 +5,7 @@ namespace App\Filament\Resources\PropertyStatuses;
 use App\Filament\Resources\PropertyStatuses\Pages\ManagePropertyStatuses;
 use App\Models\PropertyStatus;
 use Filament\Actions\EditAction;
+use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -40,19 +41,25 @@ class PropertyStatusResource extends Resource
     {
         return $table
             ->columns([
+                TextColumn::make('id')
+                    ->label('م')
+                    ->sortable(),
                 TextColumn::make('name_ar')
-                    ->label('الاسم بالعربية'),
-                TextColumn::make('name_en')
-                    ->label('الاسم بالإنجليزية'),
-                TextColumn::make('color')
-                    ->label('اللون')
-                    ->badge()
-                    ->color(fn (string $state): string => $state),
+                    ->label('الاسم')
+                    ->searchable()
+                    ->sortable(),
             ])
             ->searchable(false)
             ->filters([])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->iconButton()
+                    ->icon('heroicon-m-pencil-square')
+                    ->tooltip('تعديل'),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->icon('heroicon-m-trash')
+                    ->tooltip('حذف'),
             ])
             ->toolbarActions([])
             ->paginated(false);
