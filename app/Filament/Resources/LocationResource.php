@@ -38,6 +38,7 @@ Select::make('level')
                             ->options(Location::getLevelOptions())
                             ->required()
                             ->reactive()
+                            ->disabled(fn (?Location $record) => $record !== null && $record->exists)
                             ->afterStateUpdated(fn ($state, callable $set) => $set('parent_id', null)),
                             
                         Select::make('parent_id')
@@ -50,6 +51,7 @@ Select::make('level')
                                 return Location::getParentOptions($level);
                             })
                             ->visible(fn (callable $get, $record) => ($get('level') ?: $record?->level) > 1)
+                            ->required(fn (callable $get, $record) => ($get('level') ?: $record?->level) > 1)
                             ->searchable()
                             ->preload()
                             ->reactive(),
@@ -66,7 +68,7 @@ Select::make('level')
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label('الموقع')
+                    ->label('الاسم بالعربية')
                     ->formatStateUsing(function (string $state, Location $record): string {
                         // Create hierarchical indentation with enhanced visual tree structure
                         $treeStructure = '';
@@ -113,6 +115,10 @@ Select::make('level')
                     })
                     ->html()
                     ->wrap(),
+                    
+                TextColumn::make('parent.name')
+                    ->label('الموقع الأب')
+                    ->placeholder('—'),
             ])
             //     SelectFilter::make('level')
             //         ->label('المستوى')

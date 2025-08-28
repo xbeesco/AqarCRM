@@ -29,14 +29,29 @@ class Location extends Model
         parent::boot();
         
         static::saving(function ($location) {
-            // تحديث المستوى بناءً على الموقع الأب
-            if ($location->parent_id) {
-                $parent = self::find($location->parent_id);
-                if ($parent) {
-                    $location->level = $parent->level + 1;
+            // منع تغيير المستوى بعد الإنشاء
+            if ($location->exists && $location->isDirty('level')) {
+                $location->level = $location->getOriginal('level');
+            }
+            
+            // تحديد المستوى بناءً على الموقع الأب فقط عند الإنشاء
+            if (!$location->exists) {
+                if ($location->parent_id) {
+                    $parent = self::find($location->parent_id);
+                    if ($parent) {
+                        $location->level = $parent->level + 1;
+                    }
+                } else {
+                    $location->level = 1;
                 }
-            } else {
-                $location->level = 1;
+            }
+            
+            // التحقق من صحة الموقع الأب عند التعديل
+            if ($location->exists && $location->isDirty('parent_id') && $location->parent_id) {
+                $parent = self::find($location->parent_id);
+                if (!$parent || $parent->level != ($location->level - 1)) {
+                    throw new \Exception('الموقع الأب المحدد غير صالح لهذا المستوى');
+                }
             }
         });
         
