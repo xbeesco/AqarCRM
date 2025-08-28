@@ -79,11 +79,6 @@ class OwnerResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('id')
-                    ->label('م')
-                    ->searchable()
-                    ->sortable(),
-                    
                 TextColumn::make('name')
                     ->label('الاسم')
                     ->searchable()
@@ -107,18 +102,15 @@ class OwnerResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                TextColumn::make('deleted_at')
-                    ->label('تاريخ الحذف')
-                    ->dateTime('Y-m-d H:i')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([])
             ->recordActions([
                 ViewAction::make()
-                    ->label(''),
+                    ->label('تقرير')
+                    ->icon('heroicon-o-document-text'),
                 EditAction::make()
-                    ->label(''),
+                    ->label('تعديل')
+                    ->icon('heroicon-o-pencil-square'),
             ])
             ->toolbarActions([])
             ->defaultSort('created_at', 'desc');

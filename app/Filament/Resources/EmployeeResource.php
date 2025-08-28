@@ -12,7 +12,6 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Schemas\Components\Section;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\BulkActionGroup;
@@ -141,7 +140,7 @@ class EmployeeResource extends Resource
                     ->formatStateUsing(fn ($state) => match($state) {
                         'employee' => 'موظف',
                         'admin' => 'مدير',
-                        'super_admin' => 'مدير عام',
+                        'super_admin' => 'مدير النظام',
                         default => $state
                     })
                     ->badge()
@@ -161,8 +160,9 @@ class EmployeeResource extends Resource
             ->filters([
             ])
             ->recordActions([
-                EditAction::make(),
-                ViewAction::make(),
+                EditAction::make()
+                    ->label('تعديل')
+                    ->icon('heroicon-o-pencil-square'),
             ])
             ->defaultSort('created_at', 'desc');
     }
@@ -180,7 +180,6 @@ class EmployeeResource extends Resource
             'index' => Pages\ListEmployees::route('/'),
             'create' => Pages\CreateEmployee::route('/create'),
             'edit' => Pages\EditEmployee::route('/{record}/edit'),
-            'view' => Pages\ViewEmployee::route('/{record}'),
         ];
     }
     
@@ -226,7 +225,7 @@ class EmployeeResource extends Resource
                       $searchLower = mb_strtolower($search, 'UTF-8');
                       if (str_contains('موظف', $searchLower)) {
                           $q->where('type', 'employee');
-                      } elseif (str_contains('مدير عام', $searchLower)) {
+                      } elseif (str_contains('مدير النظام', $searchLower)) {
                           $q->where('type', 'super_admin');
                       } elseif (str_contains('مدير', $searchLower)) {
                           $q->where('type', 'admin');
@@ -244,7 +243,7 @@ class EmployeeResource extends Resource
             $typeLabel = match($record->type) {
                 'employee' => 'موظف',
                 'admin' => 'مدير',
-                'super_admin' => 'مدير عام',
+                'super_admin' => 'مدير النظام',
                 default => $record->type
             };
             
