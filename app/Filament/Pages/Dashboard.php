@@ -9,17 +9,29 @@ class Dashboard extends BaseDashboard
 {
     protected static ?string $title = 'لوحة التحكم';
     
-    protected static ?string $navigationLabel = 'لوحة التحكم';
+    protected static ?string $navigationLabel = 'الرئيسية';
     
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-home';
     
-    /**
-     * تحديد الـ widgets المطلوب عرضها في Dashboard
-     */
-    public function getWidgets(): array
+    protected static ?int $navigationSort = -2;
+    
+    protected function getHeaderWidgets(): array
     {
         return [
-            // لا توجد widgets حالياً
+            \App\Filament\Widgets\StatsOverviewWidget::class,
+        ];
+    }
+    
+    public function getWidgets(): array
+    {
+        return [];
+    }
+    
+    public function getColumns(): int | array
+    {
+        return [
+            'md' => 2,
+            'xl' => 3,
         ];
     }
 }

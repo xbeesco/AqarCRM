@@ -43,8 +43,7 @@ class AdminPanelProvider extends PanelProvider
                 \App\Filament\Pages\ModulesManager::class,
             ])
             ->widgets([
-                //AccountWidget::class,
-                //FilamentInfoWidget::class,
+                \App\Filament\Widgets\StatsOverviewWidget::class,
             ])
             ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
                 return $builder

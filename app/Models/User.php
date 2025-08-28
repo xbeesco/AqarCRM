@@ -242,6 +242,22 @@ class User extends Authenticatable implements FilamentUser
     }
     
     /**
+     * Get collection payments for tenant
+     */
+    public function collectionPayments()
+    {
+        return $this->hasMany(CollectionPayment::class, 'tenant_id');
+    }
+    
+    /**
+     * Get unit contracts for tenant
+     */
+    public function unitContracts()
+    {
+        return $this->hasMany(UnitContract::class, 'tenant_id');
+    }
+    
+    /**
      * Filament access control
      */
     public function canAccessPanel(Panel $panel): bool
