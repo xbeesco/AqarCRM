@@ -8,6 +8,8 @@ use Filament\Resources\Pages\ListRecords;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use App\Exports\CollectionPaymentsExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ListCollectionPayments extends ListRecords
 {
@@ -18,6 +20,15 @@ class ListCollectionPayments extends ListRecords
         return [
             Actions\CreateAction::make()
                 ->label('دفعة تحصيل جديدة'),
+            Actions\Action::make('export')
+                ->label('تصدير')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->action(function () {
+                    $filename = 'دفعات-التحصيل-' . date('Y-m-d') . '.xlsx';
+                    
+                    return Excel::download(new CollectionPaymentsExport, $filename);
+                }),
         ];
     }
     
@@ -37,39 +48,46 @@ class ListCollectionPayments extends ListRecords
         if (filled($search = $this->getTableSearch())) {
             $search = trim($search);
             
-            // تطبيع البحث العربي
-            $normalizedSearch = str_replace(['أ', 'إ', 'آ'], 'ا', $search);
-            $normalizedSearch = str_replace(['ة'], 'ه', $normalizedSearch);
-            $normalizedSearch = str_replace(['ى'], 'ي', $normalizedSearch);
-            $searchWithoutSpaces = str_replace(' ', '', $normalizedSearch);
-            
-            $query->where(function (Builder $query) use ($search, $normalizedSearch, $searchWithoutSpaces) {
-                // البحث في رقم الدفعة والمبلغ
-                $query->where('payment_number', 'LIKE', "%{$search}%")
-                    ->orWhere('payment_number', 'LIKE', "%{$searchWithoutSpaces}%");
+            $query->where(function (Builder $query) use ($search) {
+                // البحث في الحقول الأساسية
+                $query->where('id', 'LIKE', "%{$search}%")
+                    ->orWhere('payment_number', 'LIKE', "%{$search}%")
+                    ->orWhere('amount', 'LIKE', "%{$search}%")
+                    ->orWhere('delay_reason', 'LIKE', "%{$search}%")
+                    ->orWhere('late_payment_notes', 'LIKE', "%{$search}%");
                 
-                // البحث في المبلغ
-                if (is_numeric($search)) {
-                    $query->orWhere('amount', 'LIKE', "%{$search}%");
+                // البحث في الحالة
+                $statusMap = [
+                    'محصل' => 'collected',
+                    'مستحق' => 'due', 
+                    'مؤجل' => 'postponed',
+                    'متأخر' => 'overdue',
+                ];
+                
+                foreach ($statusMap as $arabic => $english) {
+                    if (str_contains(mb_strtolower($arabic), mb_strtolower($search))) {
+                        $query->orWhere('collection_status', $english);
+                    }
                 }
                 
+                // البحث في رقم العقد
+                $query->orWhereHas('unitContract', function ($q) use ($search) {
+                    $q->where('contract_number', 'LIKE', "%{$search}%");
+                });
+                
                 // البحث في المستأجر
-                $query->orWhereHas('unitContract.tenant', function ($q) use ($normalizedSearch, $searchWithoutSpaces, $search) {
-                    $q->where('name', 'LIKE', "%{$normalizedSearch}%")
-                        ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%")
-                        ->orWhere('phone', 'LIKE', "%{$search}%");
+                $query->orWhereHas('unitContract.tenant', function ($q) use ($search) {
+                    $q->where('name', 'LIKE', "%{$search}%");
                 });
                 
                 // البحث في الوحدة
-                $query->orWhereHas('unitContract.unit', function ($q) use ($normalizedSearch, $searchWithoutSpaces) {
-                    $q->where('name', 'LIKE', "%{$normalizedSearch}%")
-                        ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%");
+                $query->orWhereHas('unitContract.unit', function ($q) use ($search) {
+                    $q->where('name', 'LIKE', "%{$search}%");
                 });
                 
                 // البحث في العقار
-                $query->orWhereHas('unitContract.property', function ($q) use ($normalizedSearch, $searchWithoutSpaces) {
-                    $q->where('name', 'LIKE', "%{$normalizedSearch}%")
-                        ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%");
+                $query->orWhereHas('unitContract.property', function ($q) use ($search) {
+                    $q->where('name', 'LIKE', "%{$search}%");
                 });
             });
         }

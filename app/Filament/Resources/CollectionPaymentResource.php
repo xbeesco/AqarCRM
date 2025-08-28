@@ -26,9 +26,9 @@ use BackedEnum;
 class CollectionPaymentResource extends Resource
 {
     protected static ?string $model = CollectionPayment::class;
-    protected static ?string $navigationLabel = 'دفعات المستأجرين';
-    protected static ?string $modelLabel = 'دفعة مستأجر';
-    protected static ?string $pluralModelLabel = 'دفعات المستأجرين';
+    protected static ?string $navigationLabel = 'دفعات تحصيل';
+    protected static ?string $modelLabel = 'دفعة تحصيل';
+    protected static ?string $pluralModelLabel = 'دفعات تحصيل';
     protected static ?string $recordTitleAttribute = 'payment_number';
     // Navigation properties removed - managed centrally in AdminPanelProvider
 
@@ -178,35 +178,38 @@ class CollectionPaymentResource extends Resource
                 $query->with(['unitContract.tenant', 'unitContract.unit', 'unitContract.property']);
             })
             ->columns([
+                TextColumn::make('id')
+                    ->label('م')
+                    ->searchable()
+                    ->sortable()
+                    ->width('60px'),
+
                 TextColumn::make('payment_number')
-                    ->label('رقم الدفعة')
-                    ->searchable()
-                    ->sortable(),
+                    ->label('البيان')
+                    ->getStateUsing(function ($record) {
+                        $property = $record->unitContract?->property?->name ?? '';
+                        $unit = $record->unitContract?->unit?->name ?? '';
+                        $tenant = $record->unitContract?->tenant?->name ?? '';
+                        return "تحصيل {$property} - {$unit} - {$tenant}";
+                    })
+                    ->wrap()
+                    ->searchable(),
 
-                TextColumn::make('unitContract.tenant.name')
-                    ->label('المستأجر')
-                    ->searchable()
-                    ->sortable(),
-
-                TextColumn::make('unitContract.unit.name')
-                    ->label('الوحدة')
-                    ->searchable()
-                    ->sortable(),
-
-                TextColumn::make('unitContract.property.name')
-                    ->label('العقار')
-                    ->searchable()
-                    ->sortable(),
+                TextColumn::make('unitContract.contract_number')
+                    ->label('العقد')
+                    ->sortable()
+                    ->searchable(),
 
                 TextColumn::make('amount')
-                    ->label('القيمة المالية')
+                    ->label('القيمة')
                     ->money('SAR')
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('collection_status')
-                    ->label('حالة التحصيل')
+                    ->label('الحالة')
                     ->badge()
+                    ->searchable()
                     ->formatStateUsing(fn ($state) => CollectionPayment::getStatusOptions()[$state] ?? $state)
                     ->color(fn (string $state): string => match ($state) {
                         CollectionPayment::STATUS_COLLECTED => 'success',
@@ -217,40 +220,16 @@ class CollectionPaymentResource extends Resource
                     }),
 
                 TextColumn::make('due_date_start')
-                    ->label('بداية التاريخ')
+                    ->label('التاريخ')
                     ->date('d/m/Y')
-                    ->sortable()
-                    ->toggleable(),
-
-                TextColumn::make('due_date_end')
-                    ->label('إلى التاريخ')
-                    ->date('d/m/Y')
-                    ->sortable()
-                    ->toggleable(),
-                
-                TextColumn::make('collection_date')
-                    ->label('تاريخ التحصيل')
-                    ->date('d/m/Y')
-                    ->sortable()
-                    ->toggleable()
-                    ->visible(fn () => true),
+                    ->searchable()
+                    ->sortable(),
                 
                 TextColumn::make('delay_reason')
-                    ->label('سبب التأجيل')
+                    ->label('ملاحظات')
                     ->limit(30)
-                    ->tooltip(fn ($record) => $record->delay_reason)
-                    ->toggleable(),
-                
-                TextColumn::make('delay_duration')
-                    ->label('مدة التأجيل')
-                    ->formatStateUsing(fn ($state) => $state ? $state . ' يوم' : '-')
-                    ->toggleable(),
-                
-                TextColumn::make('late_payment_notes')
-                    ->label('ملاحظات التأخير')
-                    ->limit(30)
-                    ->tooltip(fn ($record) => $record->late_payment_notes)
-                    ->toggleable(),
+                    ->tooltip(fn ($record) => $record->delay_reason ?? $record->late_payment_notes)
+                    ->placeholder('-'),
             ])
             ->filters([
                 SelectFilter::make('collection_status')
@@ -278,14 +257,25 @@ class CollectionPaymentResource extends Resource
                     ->searchable(),
             ])
             ->recordActions([
-                ViewAction::make()
-                    ->label('تقرير'),
-                EditAction::make(),
+                EditAction::make()
+                    ->label(''),
             ])
             ->toolbarActions([
                 // Bulk actions here
             ])
-            ->defaultSort('created_at', 'desc');
+            ->defaultSort('created_at', 'desc')
+            ->searchable([
+                'id',
+                'payment_number',
+                'amount',
+                'collection_status',
+                'delay_reason',
+                'late_payment_notes',
+                'unitContract.contract_number',
+                'unitContract.tenant.name',
+                'unitContract.unit.name',
+                'unitContract.property.name',
+            ]);
     }
 
     public static function getPages(): array

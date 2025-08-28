@@ -32,11 +32,11 @@ class UnitContractResource extends Resource
 {
     protected static ?string $model = UnitContract::class;
 
-    protected static ?string $navigationLabel = 'تعاقدات المستأجرين';
+    protected static ?string $navigationLabel = 'عقود الوحدات';
 
-    protected static ?string $modelLabel = 'تعاقد مستأجر';
+    protected static ?string $modelLabel = 'عقد وحدة';
 
-    protected static ?string $pluralModelLabel = 'تعاقدات المستأجرين';
+    protected static ?string $pluralModelLabel = 'عقود الوحدات';
 
     public static function form(Schema $schema): Schema
     {
@@ -240,82 +240,51 @@ class UnitContractResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('property.name')
-                    ->label('العقار')
-                    ->searchable(),
+                TextColumn::make('id')
+                    ->label('م')
+                    ->searchable()
+                    ->sortable()
+                    ->width('60px'),
+
+                TextColumn::make('contract_number')
+                    ->label('اسم العقد')
+                    ->searchable()
+                    ->sortable(),
+
+                TextColumn::make('tenant.name')
+                    ->label('اسم المستأجر')
+                    ->searchable()
+                    ->sortable(),
 
                 TextColumn::make('unit.name')
                     ->label('الوحدة')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable(),
 
-                TextColumn::make('tenant.name')
-                    ->label('المستأجر')
-                    ->searchable(),
-
-                TextColumn::make('start_date')
-                    ->label('تاريخ العقد')
-                    ->date('d/m/Y'),
+                TextColumn::make('property.name')
+                    ->label('العقار')
+                    ->searchable()
+                    ->sortable(),
 
                 TextColumn::make('duration_months')
-                    ->label('مدة التعاقد')
+                    ->label('المدة/شهر')
                     ->suffix(' شهر')
+                    ->searchable()
+                    ->sortable()
                     ->alignCenter(),
 
-                TextColumn::make('payment_frequency')
-                    ->label('سداد الدفعات')
-                    ->formatStateUsing(function ($state) {
-                        return match($state) {
-                            'monthly' => 'شهري',
-                            'quarterly' => 'ربع سنوي',
-                            'semi_annually' => 'نصف سنوي',
-                            'annually' => 'سنوي',
-                            default => $state,
-                        };
-                    })
-                    ->color(fn (string $state): string => match ($state) {
-                        'monthly' => 'primary',
-                        'quarterly' => 'success',
-                        'semi_annually' => 'info',
-                        'annually' => 'danger',
-                        default => 'gray',
-                    })
-                    ->badge(),
+                TextColumn::make('end_date')
+                    ->label('نهاية العقد')
+                    ->date('d/m/Y')
+                    ->searchable()
+                    ->sortable(),
 
                 TextColumn::make('monthly_rent')
-                    ->label('الإيجار الشهري')
+                    ->label('قيمة الدفعة للإيجار')
                     ->money('SAR')
+                    ->searchable()
+                    ->sortable()
                     ->alignEnd(),
-
-                TextColumn::make('contract_status')
-                    ->label('حالة العقد')
-                    ->formatStateUsing(fn ($record) => $record ? $record->getStatusLabel() : '')
-                    ->color(fn ($record) => $record ? $record->getStatusColor() : 'secondary')
-                    ->badge()
-                    ->icon(fn ($state): ?string => match ($state) {
-                        'draft' => 'heroicon-o-pencil',
-                        'active' => 'heroicon-o-check-circle',
-                        'expired' => 'heroicon-o-clock',
-                        'terminated' => 'heroicon-o-x-circle',
-                        'renewed' => 'heroicon-o-arrow-path',
-                        default => null,
-                    }),
-                    
-                TextColumn::make('remaining_days')
-                    ->label('الأيام المتبقية')
-                    ->getStateUsing(fn ($record) => $record ? $record->getRemainingDays() : 0)
-                    ->formatStateUsing(fn ($state) => $state > 0 ? $state . ' يوم' : 'منتهي')
-                    ->color(fn ($state): string => match (true) {
-                        $state <= 0 => 'danger',
-                        $state <= 30 => 'warning',
-                        default => 'success',
-                    })
-                    ->badge()
-                    ->visible(fn ($record) => $record && $record->isActive()),
-
-                TextColumn::make('created_at')
-                    ->label('تاريخ الإنشاء')
-                    ->dateTime('d/m/Y H:i')
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('property_id')
