@@ -5,6 +5,7 @@ namespace App\Filament\Resources\PropertyTypes;
 use App\Filament\Resources\PropertyTypes\Pages\ManagePropertyTypes;
 use App\Models\PropertyType;
 use Filament\Actions\EditAction;
+use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -38,19 +39,25 @@ class PropertyTypeResource extends Resource
     {
         return $table
             ->columns([
+                TextColumn::make('id')
+                    ->label('م')
+                    ->sortable(),
                 TextColumn::make('name_ar')
-                    ->label('الاسم بالعربية'),
-                TextColumn::make('name_en')
-                    ->label('الاسم بالإنجليزية'),
-                TextColumn::make('sort_order')
-                    ->label('الترتيب')
-                    ->numeric()
+                    ->label('الاسم')
+                    ->searchable()
                     ->sortable(),
             ])
             ->searchable(false)
             ->filters([])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->iconButton()
+                    ->icon('heroicon-m-pencil-square')
+                    ->tooltip('تعديل'),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->icon('heroicon-m-trash')
+                    ->tooltip('حذف'),
             ])
             ->toolbarActions([])
             ->toggleColumnsTriggerAction(null)
