@@ -39,25 +39,20 @@ class PropertyTypeResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('id')
-                    ->label('م')
-                    ->sortable(),
                 TextColumn::make('name_ar')
-                    ->label('الاسم')
-                    ->searchable()
-                    ->sortable(),
+                    ->label('الاسم بالعربية')
+                    ->searchable(),
+                TextColumn::make('name_en')
+                    ->label('الاسم بالإنجليزية')
+                    ->searchable(),
             ])
             ->searchable(false)
             ->filters([])
             ->recordActions([
                 EditAction::make()
-                    ->iconButton()
+                    ->label('تعديل')
                     ->icon('heroicon-m-pencil-square')
                     ->tooltip('تعديل'),
-                DeleteAction::make()
-                    ->iconButton()
-                    ->icon('heroicon-m-trash')
-                    ->tooltip('حذف'),
             ])
             ->toolbarActions([])
             ->toggleColumnsTriggerAction(null)
