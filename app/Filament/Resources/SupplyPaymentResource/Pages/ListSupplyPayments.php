@@ -5,7 +5,10 @@ namespace App\Filament\Resources\SupplyPaymentResource\Pages;
 use App\Filament\Resources\SupplyPaymentResource;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Actions\CreateAction;
+use Filament\Actions\Action;
 use Illuminate\Database\Eloquent\Builder;
+use App\Exports\SupplyPaymentsExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ListSupplyPayments extends ListRecords
 {
@@ -16,6 +19,15 @@ class ListSupplyPayments extends ListRecords
         return [
             CreateAction::make()
                 ->label('دفعة توريد جديدة'),
+            Action::make('export')
+                ->label('تصدير')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->action(function () {
+                    $filename = 'دفعات-التوريد-' . date('Y-m-d') . '.xlsx';
+                    
+                    return Excel::download(new SupplyPaymentsExport, $filename);
+                }),
         ];
     }
     

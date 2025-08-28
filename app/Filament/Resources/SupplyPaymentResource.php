@@ -30,11 +30,11 @@ class SupplyPaymentResource extends Resource
 {
     protected static ?string $model = SupplyPayment::class;
 
-    protected static ?string $navigationLabel = 'دفعات الملاك';
+    protected static ?string $navigationLabel = 'دفعات توريد';
 
-    protected static ?string $modelLabel = 'دفعة مالك';
+    protected static ?string $modelLabel = 'دفعة توريد';
 
-    protected static ?string $pluralModelLabel = 'دفعات الملاك';
+    protected static ?string $pluralModelLabel = 'دفعات توريد';
     
     protected static ?string $recordTitleAttribute = 'payment_number';
 
@@ -136,37 +136,76 @@ class SupplyPaymentResource extends Resource
     {
         return $table
             ->modifyQueryUsing(function (\Illuminate\Database\Eloquent\Builder $query) {
-                $query->with(['propertyContract.property', 'propertyContract.owner', 'owner']);
+                $query->with(['propertyContract.property.owner', 'owner']);
             })
             ->columns([
-                TextColumn::make('propertyContract.property.name')
-                    ->label('العقار')
+                TextColumn::make('id')
+                    ->label('م')
                     ->searchable()
-                    ->sortable(),
-
-                TextColumn::make('owner.name')
-                    ->label('المالك')
-                    ->searchable()
-                    ->sortable(),
-
-                TextColumn::make('due_date')
-                    ->label('تاريخ الاستحقاق')
-                    ->date('d/m/Y')
                     ->sortable()
-                    ->toggleable(),
+                    ->width('60px'),
 
-                TextColumn::make('gross_amount')
-                    ->label('المبلغ الإجمالي')
-                    ->money('SAR')
-                    ->sortable(),
+                TextColumn::make('notes')
+                    ->label('البيان')
+                    ->searchable(query: function ($query, $search) {
+                        return $query->orWhereHas('propertyContract.property', function ($q) use ($search) {
+                            $q->where('name', 'like', "%{$search}%");
+                        })->orWhereHas('propertyContract', function ($q) use ($search) {
+                            $q->where('contract_number', 'like', "%{$search}%");
+                        })->orWhere('month_year', 'like', "%{$search}%")
+                          ->orWhere('notes', 'like', "%{$search}%");
+                    })
+                    ->getStateUsing(function ($record) {
+                        $property = $record->propertyContract?->property?->name ?? 'عقار';
+                        $contractNum = $record->propertyContract?->contract_number ?? '';
+                        $month = $record->month_year ?? '';
+                        return "توريد {$property} - {$contractNum} - {$month}";
+                    })
+                    ->wrap(),
+
+                TextColumn::make('propertyContract.contract_number')
+                    ->label('العقد')
+                    ->searchable(query: function ($query, $search) {
+                        return $query->orWhereHas('propertyContract', function ($q) use ($search) {
+                            $q->where('contract_number', 'like', "%{$search}%");
+                        })->orWhereHas('propertyContract.property.owner', function ($q) use ($search) {
+                            $q->where('name', 'like', "%{$search}%");
+                        });
+                    })
+                    ->getStateUsing(function ($record) {
+                        $contractType = 'عقد إدارة أملاك';
+                        $ownerName = $record->propertyContract?->property?->owner?->name ?? '';
+                        return $contractType . ($ownerName ? " - {$ownerName}" : '');
+                    }),
 
                 TextColumn::make('net_amount')
-                    ->label('المبلغ الصافي')
+                    ->label('القيمة')
                     ->money('SAR')
+                    ->searchable()
                     ->sortable(),
 
                 TextColumn::make('supply_status')
-                    ->label('حالة التوريد')
+                    ->label('الحالة')
+                    ->searchable(query: function ($query, $search) {
+                        // البحث في الحالة بالعربي والإنجليزي
+                        $statusMap = [
+                            'قيد الانتظار' => 'pending',
+                            'تستحق التوريد' => 'worth_collecting',
+                            'تم التوريد' => 'collected',
+                            'pending' => 'pending',
+                            'worth_collecting' => 'worth_collecting',
+                            'collected' => 'collected',
+                        ];
+                        
+                        $searchLower = mb_strtolower($search);
+                        foreach ($statusMap as $key => $value) {
+                            if (str_contains(mb_strtolower($key), $searchLower)) {
+                                return $query->orWhere('supply_status', $value);
+                            }
+                        }
+                        
+                        return $query->orWhere('supply_status', 'like', "%{$search}%");
+                    })
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'pending' => 'warning',
@@ -181,18 +220,18 @@ class SupplyPaymentResource extends Resource
                         default => $state,
                     }),
 
-                TextColumn::make('paid_date')
-                    ->label('تاريخ التوريد')
+                TextColumn::make('due_date')
+                    ->label('تاريخ الاستحقاق')
                     ->date('d/m/Y')
-                    ->sortable()
-                    ->toggleable(),
+                    ->searchable()
+                    ->sortable(),
 
-
-                TextColumn::make('created_at')
-                    ->label('تاريخ الإنشاء')
-                    ->dateTime('d/m/Y H:i')
+                TextColumn::make('paid_date')
+                    ->label('توريد')
+                    ->date('d/m/Y')
+                    ->searchable()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->placeholder('-'),
             ])
             ->filters([
                 SelectFilter::make('supply_status')
@@ -230,16 +269,26 @@ class SupplyPaymentResource extends Resource
                     ->searchable(),
             ])
             ->recordActions([
-                ViewAction::make()
-                    ->label('تقرير'),
-                EditAction::make(),
+                EditAction::make()
+                    ->label(''),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('created_at', 'desc');
+            ->defaultSort('created_at', 'desc')
+            ->searchable([
+                'id',
+                'payment_number',
+                'notes',
+                'month_year',
+                'net_amount',
+                'supply_status',
+                'propertyContract.contract_number',
+                'propertyContract.property.name',
+                'propertyContract.property.owner.name',
+            ]);
     }
 
     public static function getRelations(): array
