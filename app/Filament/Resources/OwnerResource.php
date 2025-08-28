@@ -12,6 +12,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Schemas\Components\Section;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Actions\Action;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Hash;
@@ -78,17 +79,26 @@ class OwnerResource extends Resource
     {
         return $table
             ->columns([
+                TextColumn::make('id')
+                    ->label('م')
+                    ->searchable()
+                    ->sortable(),
+                    
                 TextColumn::make('name')
                     ->label('الاسم')
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('phone')
-                    ->label('رقم الهاتف الأول')
+                    ->label('التليفون 1')
                     ->searchable(),
 
                 TextColumn::make('secondary_phone')
-                    ->label('رقم الهاتف الثاني')
+                    ->label('التليفون 2')
+                    ->searchable(),
+                    
+                TextColumn::make('email')
+                    ->label('الإيميل')
                     ->searchable(),
 
                 TextColumn::make('created_at')
@@ -105,33 +115,10 @@ class OwnerResource extends Resource
             ])
             ->filters([])
             ->recordActions([
-                EditAction::make(),
-                Action::make('view_report')
-                    ->label('تقرير')
-                    ->icon('heroicon-o-document-text')
-                    ->color('info')
-                    ->modalHeading(fn ($record) => 'تقرير المالك: ' . $record->name)
-                    ->modalContent(fn ($record) => view('filament.reports.owner-comprehensive-report', [
-                        'owner' => $record,
-                        'stats' => static::getOwnerStatistics($record),
-                        'recentPayments' => static::getRecentPayments($record),
-                        'dateRange' => [
-                            'from' => now()->subYear()->format('Y-m-d'),
-                            'to' => now()->format('Y-m-d')
-                        ]
-                    ]))
-                    ->modalWidth('7xl')
-                    ->modalCancelActionLabel('إلغاء')
-                    ->modalSubmitAction(
-                        Action::make('print')
-                            ->label('طباعة')
-                            ->icon('heroicon-o-printer')
-                            ->color('success')
-                            ->action(fn () => null)
-                            ->extraAttributes([
-                                'onclick' => 'window.print(); return false;',
-                            ])
-                    ),
+                ViewAction::make()
+                    ->label(''),
+                EditAction::make()
+                    ->label(''),
             ])
             ->toolbarActions([])
             ->defaultSort('created_at', 'desc');
@@ -315,8 +302,10 @@ class OwnerResource extends Resource
         $dateTo = now();
         
         // إجمالي التحصيل من عقارات المالك
-        $totalCollection = CollectionPayment::whereHas('property', function($q) use ($owner) {
-            $q->where('owner_id', $owner->id);
+        $totalCollection = CollectionPayment::where('property_id', function($query) use ($owner) {
+            $query->select('id')
+                ->from('properties')
+                ->where('owner_id', $owner->id);
         })
         ->where('collection_status', 'collected')
         ->whereBetween('paid_date', [$dateFrom, $dateTo])
