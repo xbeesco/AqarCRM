@@ -24,7 +24,9 @@ class Dashboard extends BaseDashboard
     
     public function getWidgets(): array
     {
-        return [];
+        return [
+            \App\Filament\Widgets\PostponedPaymentsWidget::class,
+        ];
     }
     
     public function getColumns(): int | array

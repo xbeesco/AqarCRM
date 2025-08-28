@@ -38,12 +38,14 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
+            ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->pages([
                 \App\Filament\Pages\Dashboard::class,
                 \App\Filament\Pages\ModulesManager::class,
             ])
             ->widgets([
                 \App\Filament\Widgets\StatsOverviewWidget::class,
+                \App\Filament\Widgets\PostponedPaymentsWidget::class,
             ])
             ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
                 return $builder

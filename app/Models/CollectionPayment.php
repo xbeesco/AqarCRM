@@ -214,6 +214,37 @@ class CollectionPayment extends Model
     {
         return $query->where('month_year', $monthYear);
     }
+    
+    // Scopes للدفعات المؤجلة
+    public function scopePostponed($query)
+    {
+        return $query->where('collection_status', self::STATUS_POSTPONED);
+    }
+    
+    public function scopePostponedWithDetails($query)
+    {
+        return $query->postponed()
+                     ->with(['tenant:id,name,phone', 'unit:id,name', 'property:id,name'])
+                     ->select(['id', 'payment_number', 'tenant_id', 'unit_id', 'property_id', 
+                              'amount', 'total_amount', 'delay_reason', 'delay_duration',
+                              'due_date_start', 'due_date_end', 'late_payment_notes',
+                              'collection_status', 'created_at']);
+    }
+    
+    public function scopeCriticalPostponed($query)
+    {
+        return $query->postponed()
+                     ->where(function($q) {
+                         $q->where('delay_duration', '>', 30)
+                           ->orWhere('due_date_end', '<', Carbon::now()->subDays(30));
+                     });
+    }
+    
+    public function scopeRecentPostponed($query, $days = 7)
+    {
+        return $query->postponed()
+                     ->where('created_at', '>=', Carbon::now()->subDays($days));
+    }
 
     // Methods
     public static function generatePaymentNumber(): string
@@ -291,12 +322,12 @@ class CollectionPayment extends Model
             'property_id' => $this->property_id,
             'debit_amount' => $this->total_amount,
             'credit_amount' => 0.00,
-            'description' => "Payment collection for unit {$this->unit->unit_number} - {$this->month_year}",
+            'description' => "Payment collection for unit {$this->unit->name} - {$this->month_year}",
             'transaction_date' => $this->paid_date,
             'reference_number' => $this->payment_number,
             'meta_data' => [
                 'tenant_name' => $this->tenant->name,
-                'unit_number' => $this->unit->unit_number,
+                'unit_name' => $this->unit->name,
                 'property_name' => $this->property->name,
             ]
         ]);
