@@ -6,6 +6,8 @@ use App\Filament\Resources\PropertyResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
+use App\Exports\PropertiesExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ListProperties extends ListRecords
 {
@@ -14,7 +16,17 @@ class ListProperties extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->label('إضافة عقار'),
+            Actions\Action::make('export')
+                ->label('تصدير')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('success')
+                ->action(function () {
+                    $filename = 'العقارات-' . date('Y-m-d') . '.xlsx';
+                    
+                    return Excel::download(new PropertiesExport, $filename);
+                }),
         ];
     }
     

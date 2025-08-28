@@ -23,6 +23,11 @@ class ViewProperty extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('back')
+                ->label('العقارات')
+                ->icon('heroicon-o-arrow-right')
+                ->color('gray')
+                ->url(PropertyResource::getUrl('index')),
             Action::make('print')
                 ->label('طباعة التقرير')
                 ->icon('heroicon-o-printer')

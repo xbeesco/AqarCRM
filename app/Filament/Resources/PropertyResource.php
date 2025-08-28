@@ -147,44 +147,81 @@ class PropertyResource extends Resource
     {
         return $table
             ->columns([
+                TextColumn::make('id')
+                    ->label('م')
+                    ->searchable()
+                    ->sortable()
+                    ->width('60px'),
+
                 TextColumn::make('name')
                     ->label('اسم العقار')
                     ->searchable()
                     ->sortable(),
                     
                 TextColumn::make('owner.name')
-                    ->label('المالك')
-                    ->searchable(),
-                    
-                TextColumn::make('propertyStatus.name_ar')
-                    ->label('الحالة')
-                    ->badge()
-                    ->color(fn ($record) => $record->propertyStatus?->color ?? 'gray')
-                    ->searchable(),
-                    
-                TextColumn::make('propertyType.name_ar')
-                    ->label('النوع')
-                    ->searchable(),
-                    
-                TextColumn::make('location.name')
-                    ->label('الموقع')
-                    ->searchable(),
+                    ->label('اسم المالك')
+                    ->searchable()
+                    ->sortable(),
                     
                 TextColumn::make('total_units')
-                    ->label('عدد الوحدات')
-                    ->default(0),
-                
-                TextColumn::make('address')
-                    ->label('العنوان')
+                    ->label('الوحدات')
+                    ->default(0)
+                    ->alignCenter()
+                    ->sortable(),
+
+                TextColumn::make('location.name')
+                    ->label('المنطقة')
                     ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                    
-                TextColumn::make('postal_code')
-                    ->label('الرمز البريدي')
+                    ->sortable()
+                    ->getStateUsing(function ($record) {
+                        // Get the district level location
+                        $location = $record->location;
+                        while ($location && $location->parent_id && $location->level != 1) {
+                            $location = $location->parent;
+                        }
+                        return $location?->name ?? '-';
+                    }),
+
+                TextColumn::make('location.name')
+                    ->label('المدينة')
                     ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->sortable()
+                    ->getStateUsing(function ($record) {
+                        // Get the city level location
+                        $location = $record->location;
+                        while ($location && $location->parent_id && $location->level != 2) {
+                            $location = $location->parent;
+                        }
+                        return $location?->name ?? '-';
+                    }),
+
+                TextColumn::make('location.parent.name')
+                    ->label('المركز')
+                    ->searchable()
+                    ->sortable()
+                    ->getStateUsing(function ($record) {
+                        // Get the center level location (level 3)
+                        $location = $record->location;
+                        if ($location && $location->level == 4) {
+                            return $location->parent?->name ?? '-';
+                        }
+                        return $location?->name ?? '-';
+                    }),
+
+                TextColumn::make('location.name')
+                    ->label('الحي')
+                    ->searchable()
+                    ->sortable()
+                    ->getStateUsing(function ($record) {
+                        // Get the neighborhood level location (level 4)
+                        $location = $record->location;
+                        if ($location && $location->level == 4) {
+                            return $location->name;
+                        }
+                        return '-';
+                    }),
             ])
-            ->searchable()  // تفعيل البحث الشامل للجدول
+            ->searchable()
             ->filters([])
             ->recordActions([
                 ViewAction::make()
