@@ -84,17 +84,26 @@ class TenantResource extends Resource
     {
         return $table
             ->columns([
+                TextColumn::make('id')
+                    ->label('م')
+                    ->searchable()
+                    ->sortable(),
+                    
                 TextColumn::make('name')
                     ->label('الاسم')
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('phone')
-                    ->label('رقم الهاتف الأول')
+                    ->label('التليفون 1')
                     ->searchable(),
 
                 TextColumn::make('secondary_phone')
-                    ->label('رقم الهاتف الثاني')
+                    ->label('التليفون 2')
+                    ->searchable(),
+                    
+                TextColumn::make('email')
+                    ->label('الإيميل')
                     ->searchable(),
 
                 TextColumn::make('created_at')
