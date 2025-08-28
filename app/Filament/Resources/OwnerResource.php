@@ -264,11 +264,11 @@ class OwnerResource extends Resource
     public static function getGlobalSearchResultActions(\Illuminate\Database\Eloquent\Model $record): array
     {
         return [
-            Action::make('view_report')
-                ->label('عرض التقرير')
-                ->url(\App\Filament\Pages\Reports\OwnerReport::getUrl() . '?owner_id=' . $record->id)
-                ->icon('heroicon-o-document-text')
-                ->color('info')
+            // Action::make('view_report')
+            //     ->label('عرض التقرير')
+            //     ->url(\App\Filament\Pages\Reports\OwnerReport::getUrl() . '?owner_id=' . $record->id)
+            //     ->icon('heroicon-o-document-text')
+            //     ->color('info')
         ];
     }
 

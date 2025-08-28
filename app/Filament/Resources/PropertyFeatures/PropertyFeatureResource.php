@@ -5,6 +5,7 @@ namespace App\Filament\Resources\PropertyFeatures;
 use App\Filament\Resources\PropertyFeatures\Pages\ManagePropertyFeatures;
 use App\Models\PropertyFeature;
 use Filament\Actions\EditAction;
+use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -40,24 +41,25 @@ class PropertyFeatureResource extends Resource
     {
         return $table
             ->columns([
+                TextColumn::make('id')
+                    ->label('م')
+                    ->sortable(),
                 TextColumn::make('name_ar')
-                    ->label('الاسم بالعربية'),
-                TextColumn::make('name_en')
-                    ->label('الاسم بالإنجليزية'),
-                TextColumn::make('category')
-                    ->label('الفئة')
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'basics' => 'أساسيات',
-                        'amenities' => 'مرافق',
-                        'security' => 'أمان',
-                        'extras' => 'إضافات',
-                        default => $state
-                    }),
+                    ->label('الاسم')
+                    ->searchable()
+                    ->sortable(),
             ])
             ->searchable(false)
             ->filters([])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->iconButton()
+                    ->icon('heroicon-m-pencil-square')
+                    ->tooltip('تعديل'),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->icon('heroicon-m-trash')
+                    ->tooltip('حذف'),
             ])
             ->toolbarActions([])
             ->toggleColumnsTriggerAction(null)
