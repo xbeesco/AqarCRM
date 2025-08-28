@@ -18,6 +18,11 @@ class ViewUnit extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('back')
+                ->label('الوحدات')
+                ->icon('heroicon-o-arrow-right')
+                ->color('gray')
+                ->url(UnitResource::getUrl('index')),
             Action::make('print')
                 ->label('طباعة التقرير')
                 ->icon('heroicon-o-printer')

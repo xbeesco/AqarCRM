@@ -183,6 +183,12 @@ class UnitResource extends Resource
     {
         return $table
             ->columns([
+                TextColumn::make('id')
+                    ->label('م')
+                    ->searchable()
+                    ->sortable()
+                    ->width('60px'),
+                
                 TextColumn::make('name')
                     ->label('اسم الوحدة')
                     ->searchable()
@@ -193,41 +199,36 @@ class UnitResource extends Resource
                     ->searchable()
                     ->sortable(),
                 
-                TextColumn::make('unitType.name_ar')
-                    ->label('النوع')
-                    ->searchable(),
-                
-                TextColumn::make('unitCategory.name_ar')
-                    ->label('التصنيف')
-                    ->searchable(),
-                
                 TextColumn::make('rooms_count')
-                    ->label('الغرف')
-                    ->sortable(),
+                    ->label('عدد الغرف')
+                    ->searchable()
+                    ->sortable()
+                    ->default('-')
+                    ->alignCenter(),
                 
                 TextColumn::make('bathrooms_count')
-                    ->label('الحمامات')
-                    ->sortable(),
-                
-                TextColumn::make('floor_number')
-                    ->label('الطابق')
-                    ->sortable(),
-                
-                TextColumn::make('area_sqm')
-                    ->label('المساحة')
-                    ->suffix(' م²')
-                    ->sortable(),
+                    ->label('دورات المياه')
+                    ->searchable()
+                    ->sortable()
+                    ->default('-')
+                    ->alignCenter(),
                 
                 TextColumn::make('rent_price')
-                    ->label('الإيجار')
-                    ->money('SAR')
-                    ->sortable(),
-                
-                TextColumn::make('created_at')
-                    ->label('تاريخ الإضافة')
-                    ->dateTime('Y-m-d')
+                    ->label('الإيجار السنوي')
+                    ->formatStateUsing(fn ($state) => $state ? number_format($state * 12) . ' ريال' : '-')
+                    ->searchable(query: function ($query, $search) {
+                        // البحث بالإيجار الشهري أو السنوي
+                        $monthlyRent = str_replace(',', '', $search);
+                        $monthlyRent = floatval($monthlyRent);
+                        $yearlyRent = $monthlyRent / 12;
+                        
+                        return $query
+                            ->orWhere('rent_price', 'like', '%' . $search . '%')
+                            ->orWhere('rent_price', $monthlyRent)
+                            ->orWhere('rent_price', $yearlyRent);
+                    })
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->alignEnd(),
             ])
             ->filters([])
             ->recordActions([
