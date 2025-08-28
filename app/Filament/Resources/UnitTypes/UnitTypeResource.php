@@ -59,7 +59,9 @@ class UnitTypeResource extends Resource
                 //
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->label('تعديل')
+                    ->icon('heroicon-o-pencil-square'),
             ])
             ->toolbarActions([
                 // إزالة bulk actions

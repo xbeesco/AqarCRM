@@ -56,7 +56,9 @@ class UnitFeatureResource extends Resource
             ->searchable(false)
             ->filters([])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->label('تعديل')
+                    ->icon('heroicon-o-pencil-square'),
             ])
             ->toolbarActions([])
             ->toggleColumnsTriggerAction(null)

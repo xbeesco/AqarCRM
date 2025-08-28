@@ -53,8 +53,7 @@ class PropertyStatusResource extends Resource
             ->recordActions([
                 EditAction::make()
                     ->label('تعديل')
-                    ->icon('heroicon-m-pencil-square')
-                    ->tooltip('تعديل'),
+                    ->icon('heroicon-o-pencil-square'),
             ])
             ->toolbarActions([])
             ->paginated(false);

@@ -159,6 +159,8 @@ Select::make('level')
             ->filtersLayout(FiltersLayout::AboveContent)
             ->recordActions([
                 EditAction::make()
+                    ->label('تعديل')
+                    ->icon('heroicon-o-pencil-square')
                     ->modalHeading(fn ($record) => 'تعديل موقع: ' . $record->name)
                     ->modalSubmitActionLabel('حفظ التغييرات')
                     ->modalWidth('xl'),
