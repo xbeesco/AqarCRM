@@ -29,11 +29,11 @@ class PropertyContractResource extends Resource
 {
     protected static ?string $model = PropertyContract::class;
 
-    protected static ?string $navigationLabel = 'تعاقدات الملاك';
+    protected static ?string $navigationLabel = 'عقود الملاك';
 
-    protected static ?string $modelLabel = 'تعاقد المالك';
+    protected static ?string $modelLabel = 'عقد المالك';
 
-    protected static ?string $pluralModelLabel = 'تعاقدات الملاك';
+    protected static ?string $pluralModelLabel = 'عقود الملاك';
 
     public static function form(Schema $schema): Schema
     {
@@ -150,53 +150,48 @@ class PropertyContractResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('property.name')
-                    ->label('العقار')
-                    ->searchable(),
+                TextColumn::make('id')
+                    ->label('م')
+                    ->searchable()
+                    ->sortable()
+                    ->width('60px'),
 
-                TextColumn::make('start_date')
-                    ->label('تاريخ العقد')
-                    ->date('d/m/Y'),
+                TextColumn::make('contract_number')
+                    ->label('اسم العقد')
+                    ->searchable()
+                    ->sortable(),
 
-                TextColumn::make('duration_months')
-                    ->label('مدة التعاقد')
-                    ->suffix(' شهر')
-                    ->alignCenter(),
-
-                TextColumn::make('commission_rate')
-                    ->label('النسبة')
-                    ->suffix('%')
-                    ->alignCenter(),
-
-                TextColumn::make('payment_frequency')
-                    ->label('التوريد كل')
-                    ->badge()
-                    ->formatStateUsing(function ($state) {
-                        return match($state) {
-                            'monthly' => 'شهر',
-                            'quarterly' => 'ربع سنة',
-                            'semi_annually' => 'نصف سنة',
-                            'annually' => 'سنة',
-                            default => $state,
-                        };
-                    })
-                    ->color(fn (string $state): string => match ($state) {
-                        'monthly' => 'primary',
-                        'quarterly' => 'success',
-                        'semi_annually' => 'info',
-                        'annually' => 'danger',
-                        default => 'gray',
+                TextColumn::make('owner.name')
+                    ->label('اسم المالك')
+                    ->searchable()
+                    ->getStateUsing(function ($record) {
+                        return $record->property?->owner?->name ?? '-';
                     }),
 
-                TextColumn::make('payments_count')
-                    ->label('عدد الدفعات')
-                    ->alignCenter()
-                    ->suffix(' دفعة'),
+                TextColumn::make('duration_months')
+                    ->label('المدة')
+                    ->suffix(' شهر')
+                    ->searchable()
+                    ->sortable()
+                    ->alignCenter(),
 
-                TextColumn::make('created_at')
-                    ->label('تاريخ الإنشاء')
-                    ->dateTime('d/m/Y H:i')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('property.name')
+                    ->label('العقار')
+                    ->searchable()
+                    ->sortable(),
+
+                TextColumn::make('end_date')
+                    ->label('تاريخ الانتهاء')
+                    ->date('d/m/Y')
+                    ->searchable()
+                    ->sortable(),
+
+                TextColumn::make('commission_rate')
+                    ->label('النسبة المتفق عليها')
+                    ->suffix('%')
+                    ->searchable()
+                    ->sortable()
+                    ->alignCenter(),
             ])
             ->filters([
                 SelectFilter::make('property_id')
