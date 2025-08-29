@@ -4,5 +4,9 @@
       "Bash(php artisan tinker:*)"
     ],
     "deny": []
-  }
+  },
+  "enabledMcpjsonServers": [
+    "laravel-boost"
+  ],
+  "enableAllProjectMcpServers": true
 }
