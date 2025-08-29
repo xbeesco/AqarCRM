@@ -9,6 +9,10 @@ use App\Models\CollectionPayment;
 use Carbon\Carbon;
 use Filament\Forms;
 use Filament\Notifications\Notification;
+use Filament\Actions\Action;
+use Filament\Actions\ExportAction;
+use Filament\Actions\Exports\Enums\ExportFormat;
+use App\Filament\Exports\PostponedPaymentExporter;
 
 class PostponedPaymentsWidget extends BaseWidget
 {
@@ -133,9 +137,24 @@ class PostponedPaymentsWidget extends BaseWidget
                             ->when($data['to'], fn ($q) => $q->where('due_date_end', '<=', $data['to']));
                     }),
             ])
-            // تعليق الإجراءات مؤقتاً لحل مشكلة Actions
-            // ->recordActions([])
-            // ->toolbarActions([])
+            ->headerActions([
+                ExportAction::make('export')
+                ->successNotificationTitle(false)
+                    ->label('تصدير')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('primary')
+                    ->modelLabel('دفعة مؤجلة')
+                    ->pluralModelLabel('الدفعات المؤجلة')
+                    ->exporter(PostponedPaymentExporter::class)
+                    ->columnMapping(false)
+                    ->formats([
+                        ExportFormat::Xlsx,
+                        ExportFormat::Csv,
+                    ])
+                    ->fileName(fn () => 'postponed-payments-' . date('Y-m-d')),
+           ])
+            ->bulkActions([
+            ])
             ->paginated([5, 10, 25, 50])
             ->striped()
             ->poll('30s')
@@ -156,7 +175,6 @@ class PostponedPaymentsWidget extends BaseWidget
         return static::$heading . " ({$totalPostponed} دفعة - {$criticalCount} حرجة - إجمالي: {$formattedAmount})";
     }
     
-    // دالة للحصول على العنوان للاختبار
     public function getHeading(): string
     {
         return static::$heading ?? 'المستأجرين الذين تم تأجيل دفعاتهم';
