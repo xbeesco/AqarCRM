@@ -84,6 +84,9 @@ class PropertyContract extends Model
             
             // منع الحفظ إذا كانت المدة لا تتوافق مع التكرار
             $contract->validateDurationFrequency();
+            
+            // منع الحفظ إذا كان هناك تداخل مع عقود أخرى
+            $contract->validateNoOverlap();
         });
         
         static::updating(function ($contract) {
@@ -96,6 +99,11 @@ class PropertyContract extends Model
             // منع التحديث إذا كانت المدة لا تتوافق مع التكرار
             if ($contract->isDirty(['duration_months', 'payment_frequency'])) {
                 $contract->validateDurationFrequency();
+            }
+            
+            // منع التحديث إذا كان هناك تداخل مع عقود أخرى
+            if ($contract->isDirty(['start_date', 'duration_months', 'property_id'])) {
+                $contract->validateNoOverlap();
             }
         });
     }
@@ -202,6 +210,31 @@ class PropertyContract extends Model
             throw new \Exception(
                 "مدة العقد ({$this->duration_months} شهر) لا تتوافق مع التكرار المحدد ({$frequencyLabel})"
             );
+        }
+    }
+    
+    /**
+     * Validate no overlap with other contracts.
+     * @throws \Exception if overlapping
+     */
+    protected function validateNoOverlap(): void
+    {
+        if (!$this->property_id || !$this->start_date || !$this->end_date) {
+            return;
+        }
+        
+        $validationService = app(\App\Services\PropertyContractValidationService::class);
+        $excludeId = $this->exists ? $this->id : null;
+        
+        $error = $validationService->validateFullAvailability(
+            $this->property_id,
+            $this->start_date,
+            $this->end_date,
+            $excludeId
+        );
+        
+        if ($error) {
+            throw new \Exception($error);
         }
     }
 }

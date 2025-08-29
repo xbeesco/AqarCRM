@@ -13,21 +13,6 @@ class CreatePropertyContract extends CreateRecord
     {
         return $this->getResource()::getUrl('index');
     }
-    
-    protected function afterCreate(): void
-    {
-        // التحقق من توليد الدفعات التلقائي
-        if ($this->record->supplyPayments()->exists()) {
-            $count = $this->record->supplyPayments()->count();
-            
-            \Filament\Notifications\Notification::make()
-                ->title('تم توليد الدفعات تلقائياً')
-                ->body("تم توليد {$count} دفعة للمالك بنجاح")
-                ->success()
-                ->duration(5000)
-                ->send();
-        }
-    }
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {

@@ -22,6 +22,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Actions\DeleteAction;
+use Filament\Forms\Components\Select as FilterSelect;
 use Filament\Actions\Action;
 use Illuminate\Database\Eloquent\Builder;
 use Closure;
@@ -63,6 +64,26 @@ class PropertyContractResource extends Resource
                             ->label('تاريخ بداية العمل بالعقد')
                             ->required()
                             ->default(now())
+                            ->live(onBlur: true)
+                            ->rules([
+                                'required',
+                                'date',
+                                fn ($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
+                                    $propertyId = $get('property_id');
+                                    if (!$propertyId || !$value) {
+                                        return;
+                                    }
+                                    
+                                    $validationService = app(\App\Services\PropertyContractValidationService::class);
+                                    $excludeId = $record ? $record->id : null;
+                                    
+                                    // التحقق من تاريخ البداية فقط
+                                    $error = $validationService->validateStartDate($propertyId, $value, $excludeId);
+                                    if ($error) {
+                                        $fail($error);
+                                    }
+                                },
+                            ])
                             ->columnSpan(3),
 
 
@@ -79,7 +100,8 @@ class PropertyContractResource extends Resource
                                 $set('payments_count', $count);
                             })
                             ->rules([
-                                fn ($get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                fn ($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
+                                    // التحقق من توافق المدة مع تكرار الدفع
                                     $frequency = $get('payment_frequency') ?? 'monthly';
                                     if (!\App\Services\PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
                                         $periodName = match($frequency) {
@@ -90,6 +112,22 @@ class PropertyContractResource extends Resource
                                         };
                                         
                                         $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
+                                        return;
+                                    }
+                                    
+                                    // التحقق من عدم التداخل مع عقود أخرى
+                                    $propertyId = $get('property_id');
+                                    $startDate = $get('start_date');
+                                    
+                                    if ($propertyId && $startDate && $value) {
+                                        $validationService = app(\App\Services\PropertyContractValidationService::class);
+                                        $excludeId = $record ? $record->id : null;
+                                        
+                                        // التحقق من المدة وتأثيرها على النهاية
+                                        $error = $validationService->validateDuration($propertyId, $startDate, $value, $excludeId);
+                                        if ($error) {
+                                            $fail($error);
+                                        }
                                     }
                                 },
                             ])
@@ -134,6 +172,9 @@ class PropertyContractResource extends Resource
                             ->directory('contract-files')
                             ->preserveFilenames()
                             ->maxSize(10240) // 10MB
+                            ->downloadable()
+                            ->openable()
+                            ->previewable()
                             ->columnSpan(6),
 
                         Textarea::make('notes')
@@ -150,17 +191,6 @@ class PropertyContractResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('id')
-                    ->label('م')
-                    ->searchable()
-                    ->sortable()
-                    ->width('60px'),
-
-                TextColumn::make('contract_number')
-                    ->label('اسم العقد')
-                    ->searchable()
-                    ->sortable(),
-
                 TextColumn::make('owner.name')
                     ->label('اسم المالك')
                     ->searchable()
@@ -168,29 +198,24 @@ class PropertyContractResource extends Resource
                         return $record->property?->owner?->name ?? '-';
                     }),
 
-                TextColumn::make('duration_months')
-                    ->label('المدة')
-                    ->suffix(' شهر')
-                    ->searchable()
-                    ->sortable()
-                    ->alignCenter(),
-
                 TextColumn::make('property.name')
                     ->label('العقار')
                     ->searchable()
                     ->sortable(),
 
+                TextColumn::make('duration_months')
+                    ->label('المدة')
+                    ->suffix(' شهر')
+                    ->sortable()
+                    ->alignCenter(),
+
                 TextColumn::make('end_date')
                     ->label('تاريخ الانتهاء')
-                    ->date('d/m/Y')
-                    ->searchable()
-                    ->sortable(),
+                    ->date('d/m/Y'),
 
                 TextColumn::make('commission_rate')
                     ->label('النسبة المتفق عليها')
                     ->suffix('%')
-                    ->searchable()
-                    ->sortable()
                     ->alignCenter(),
             ])
             ->filters([
@@ -199,15 +224,25 @@ class PropertyContractResource extends Resource
                     ->relationship('property', 'name')
                     ->searchable(),
 
-                SelectFilter::make('payment_frequency')
-                    ->label('تكرار السداد')
-                    ->options([
-                        'monthly' => 'شهري',
-                        'quarterly' => 'ربع سنوي',
-                        'four_monthly' => 'ثلث سنوي',
-                        'semi_annually' => 'نصف سنوي',
-                        'annually' => 'سنوي',
-                    ]),
+                Filter::make('owner')
+                    ->label('المالك')
+                    ->form([
+                        FilterSelect::make('owner_id')
+                            ->label('المالك')
+                            ->options(function () {
+                                return \App\Models\User::where('type', 'owner')
+                                    ->pluck('name', 'id');
+                            })
+                            ->searchable(),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['owner_id'],
+                            fn (Builder $query, $value): Builder => $query->whereHas('property', function ($q) use ($value) {
+                                $q->where('owner_id', $value);
+                            })
+                        );
+                    }),
             ])
             ->recordActions([
                 Action::make('generatePayments')
@@ -249,6 +284,8 @@ class PropertyContractResource extends Resource
                     ->visible(fn ($record) => $record->supplyPayments()->exists()),
                     
                 EditAction::make()
+                    ->label('تعديل')
+                    ->icon('heroicon-o-pencil-square')
                     ->visible(fn () => auth()->user()?->type === 'super_admin'),
             ])
             ->defaultSort('created_at', 'desc');
