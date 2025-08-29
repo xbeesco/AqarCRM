@@ -52,13 +52,26 @@ class UnitContractResource extends Resource
                             ->relationship('property', 'name')
                             ->preload()
                             ->live()
-                            ->afterStateUpdated(fn (callable $set) => $set('unit_id', null))
+                            ->afterStateUpdated(function (callable $set, $state) {
+                                // Clear unit selection when property changes
+                                $set('unit_id', null);
+                                
+                                // Auto-select unit if only one unit exists
+                                if ($state) {
+                                    $units = Unit::where('property_id', $state)->get();
+                                    if ($units->count() === 1) {
+                                        $unit = $units->first();
+                                        $set('unit_id', $unit->id);
+                                        $set('monthly_rent', $unit->rent_price ?? 0);
+                                    }
+                                }
+                            })
                             ->columnSpan(3),
 
                         Select::make('unit_id')
                             ->label('الوحدة')
                             ->required()
-                            ->native(false)
+                            ->native(true)
                             ->placeholder('اختر وحدة')
                             ->options(function (callable $get) {
                                 $propertyId = $get('property_id');
@@ -67,10 +80,11 @@ class UnitContractResource extends Resource
                                     return [];
                                 }
                                 
-                                // Simply get all units for the property
+                                // Get all units for the property immediately without search
                                 return Unit::where('property_id', $propertyId)
                                     ->pluck('name', 'id');
                             })
+                            ->searchable(false) // Disable search to show all options immediately
                             ->disabled(fn (callable $get): bool => !$get('property_id'))
                             ->live()
                             ->afterStateUpdated(function (callable $set, $state) {
@@ -240,17 +254,6 @@ class UnitContractResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('id')
-                    ->label('م')
-                    ->searchable()
-                    ->sortable()
-                    ->width('60px'),
-
-                TextColumn::make('contract_number')
-                    ->label('اسم العقد')
-                    ->searchable()
-                    ->sortable(),
-
                 TextColumn::make('tenant.name')
                     ->label('اسم المستأجر')
                     ->searchable()
@@ -267,29 +270,27 @@ class UnitContractResource extends Resource
                     ->sortable(),
 
                 TextColumn::make('duration_months')
-                    ->label('المدة/شهر')
-                    ->suffix(' شهر')
-                    ->searchable()
-                    ->sortable()
-                    ->alignCenter(),
+                    ->label('المدة')
+                    ->suffix(' شهر'),
 
                 TextColumn::make('end_date')
                     ->label('نهاية العقد')
                     ->date('d/m/Y')
-                    ->searchable()
                     ->sortable(),
 
                 TextColumn::make('monthly_rent')
-                    ->label('قيمة الدفعة للإيجار')
-                    ->money('SAR')
-                    ->searchable()
-                    ->sortable()
-                    ->alignEnd(),
+                    ->label('الايجار الشهري')
+                    ->money('SAR' , 1 , null , 0 ),
             ])
             ->filters([
                 SelectFilter::make('property_id')
                     ->label('العقار')
                     ->relationship('property', 'name')
+                    ->searchable(),
+
+                SelectFilter::make('unit_id')
+                    ->label('الوحدة')
+                    ->relationship('unit', 'name')
                     ->searchable(),
 
                 SelectFilter::make('tenant_id')
@@ -305,17 +306,6 @@ class UnitContractResource extends Resource
                         'semi_annually' => 'نصف سنوي',
                         'annually' => 'سنوي',
                     ]),
-
-                SelectFilter::make('contract_status')
-                    ->label('حالة العقد')
-                    ->options([
-                        'draft' => 'مسودة',
-                        'active' => 'نشط',
-                        'expired' => 'منتهي',
-                        'terminated' => 'ملغي',
-                        'renewed' => 'مُجدد',
-                    ])
-                    ->default('active'),
             ])
             //->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
             ->recordActions([
@@ -327,9 +317,9 @@ class UnitContractResource extends Resource
                         'unit_contract_id' => $record->id
                     ]) : '#')
                     ->visible(fn ($record) => $record && $record->payments()->exists()),
-                    
                 EditAction::make()
-                    ->visible(fn () => auth()->user()?->type === 'super_admin'),
+                    ->label('تعديل')
+                    ->icon('heroicon-o-pencil-square')->visible(fn () => auth()->user()?->type === 'super_admin'),
             ])
             ->defaultSort('created_at', 'desc');
     }
