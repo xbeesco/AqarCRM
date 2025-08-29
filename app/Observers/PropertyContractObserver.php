@@ -20,6 +20,12 @@ class PropertyContractObserver
      */
     public function created(PropertyContract $contract): void
     {
+        // Set contract to active if not specified
+        if (!$contract->contract_status || $contract->contract_status === 'draft') {
+            $contract->contract_status = 'active';
+            $contract->saveQuietly(); // Save without triggering events again
+        }
+        
         $this->generatePaymentsIfNeeded($contract, 'created');
     }
     
