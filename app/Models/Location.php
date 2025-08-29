@@ -5,9 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Traits\HasHierarchicalPath;
 
 class Location extends Model
 {
+    use HasHierarchicalPath;
     protected $fillable = [
         'name',
         'code',
@@ -103,99 +105,6 @@ class Location extends Model
         return $query->where('level', 4);
     }
     
-    /**
-     * Get the level label in Arabic
-     */
-    public function getLevelLabelAttribute(): string
-    {
-        return match($this->level) {
-            1 => 'منطقة',
-            2 => 'مدينة',
-            3 => 'مركز',
-            4 => 'حي',
-            default => 'غير محدد'
-        };
-    }
-    
-    /**
-     * Get the full path of the location
-     */
-    public function getFullPathAttribute(): string
-    {
-        $path = collect();
-        $current = $this;
-        
-        while ($current) {
-            $path->prepend($current->name);
-            $current = $current->parent;
-        }
-        
-        return $path->join(' > ');
-    }
-    
-    /**
-     * Get breadcrumbs for the location
-     */
-    public function getBreadcrumbsAttribute(): array
-    {
-        $breadcrumbs = collect();
-        $current = $this;
-        
-        while ($current) {
-            $breadcrumbs->prepend([
-                'id' => $current->id,
-                'name' => $current->name,
-                'level' => $current->level,
-                'level_label' => $current->level_label
-            ]);
-            $current = $current->parent;
-        }
-        
-        return $breadcrumbs->toArray();
-    }
-    
-    
-    /**
-     * Get level options for select
-     */
-    public static function getLevelOptions(): array
-    {
-        return [
-            1 => 'منطقة',
-            2 => 'مدينة', 
-            3 => 'مركز',
-            4 => 'حي'
-        ];
-    }
-    
-    /**
-     * Get parent options based on level
-     */
-    public static function getParentOptions(int $level): array
-    {
-        if ($level <= 1) {
-            return [];
-        }
-        
-        $locations = self::where('level', $level - 1)
-            ->with('parent')
-            ->orderBy('path')
-            ->get();
-            
-        $options = [];
-        foreach ($locations as $location) {
-            // Build full path for display
-            $fullPath = [];
-            $current = $location;
-            while ($current) {
-                array_unshift($fullPath, $current->name);
-                $current = $current->parent;
-            }
-            $options[$location->id] = implode(' › ', $fullPath);
-        }
-        
-        return $options;
-    }
     
     /**
      * Update the path field for hierarchical ordering without saving

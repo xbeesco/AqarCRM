@@ -84,9 +84,9 @@ class PropertyResource extends Resource
                 ->schema([
                     Select::make('location_id')
                         ->label('الموقع')
-                        ->relationship('location', 'name')
+                        ->options(\App\Models\Location::getHierarchicalOptions())
                         ->searchable()
-                        ->preload()
+                        ->allowHtml()
                         ->nullable(),
                         
                     Grid::make(2)->schema([
@@ -128,17 +128,19 @@ class PropertyResource extends Resource
                             ->maxValue(date('Y'))
                             ->nullable(),
                     ]),
-                                        
-                    CheckboxList::make('features')
-                        ->label('المميزات')
-                        ->relationship('features', 'name_ar')
-                        ->columns(4)
-                        ->columnSpanFull(),
+                    
+                    Grid::make(2)->schema([
+                        CheckboxList::make('features')
+                            ->label('المميزات')
+                            ->relationship('features', 'name_ar')
+                            ->columns(2)
+                            ->columnSpan(1),
 
-                    Textarea::make('notes')
-                        ->label('ملاحظات خاصة')
-                        ->rows(2)
-                        ->columnSpanFull(),
+                        Textarea::make('notes')
+                            ->label('ملاحظات خاصة')
+                            ->rows(6)
+                            ->columnSpan(1),
+                    ]),
                 ]),
         ]);
     }
@@ -147,12 +149,6 @@ class PropertyResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('id')
-                    ->label('م')
-                    ->searchable()
-                    ->sortable()
-                    ->width('60px'),
-
                 TextColumn::make('name')
                     ->label('اسم العقار')
                     ->searchable()
@@ -166,69 +162,41 @@ class PropertyResource extends Resource
                 TextColumn::make('total_units')
                     ->label('الوحدات')
                     ->default(0)
-                    ->alignCenter()
-                    ->sortable(),
+                    ->alignCenter(),
 
                 TextColumn::make('location.name')
-                    ->label('المنطقة')
+                    ->label('الموقع')
                     ->searchable()
                     ->sortable()
                     ->getStateUsing(function ($record) {
-                        // Get the district level location
-                        $location = $record->location;
-                        while ($location && $location->parent_id && $location->level != 1) {
-                            $location = $location->parent;
+                        if (!$record->location) {
+                            return '-';
                         }
-                        return $location?->name ?? '-';
-                    }),
-
-                TextColumn::make('location.name')
-                    ->label('المدينة')
-                    ->searchable()
-                    ->sortable()
-                    ->getStateUsing(function ($record) {
-                        // Get the city level location
-                        $location = $record->location;
-                        while ($location && $location->parent_id && $location->level != 2) {
-                            $location = $location->parent;
+                        
+                        // Build full path from current location to root
+                        $path = [];
+                        $current = $record->location;
+                        
+                        while ($current) {
+                            array_unshift($path, $current->name);
+                            $current = $current->parent;
                         }
-                        return $location?->name ?? '-';
-                    }),
-
-                TextColumn::make('location.parent.name')
-                    ->label('المركز')
-                    ->searchable()
-                    ->sortable()
-                    ->getStateUsing(function ($record) {
-                        // Get the center level location (level 3)
-                        $location = $record->location;
-                        if ($location && $location->level == 4) {
-                            return $location->parent?->name ?? '-';
-                        }
-                        return $location?->name ?? '-';
-                    }),
-
-                TextColumn::make('location.name')
-                    ->label('الحي')
-                    ->searchable()
-                    ->sortable()
-                    ->getStateUsing(function ($record) {
-                        // Get the neighborhood level location (level 4)
-                        $location = $record->location;
-                        if ($location && $location->level == 4) {
-                            return $location->name;
-                        }
-                        return '-';
+                        
+                        return implode(' > ', $path);
                     }),
             ])
             ->searchable()
             ->filters([])
             ->recordActions([
                 ViewAction::make()
-                    ->label(''),
+                    ->label('تقرير')
+                    ->icon('heroicon-o-document-text'),
                 EditAction::make()
-                    ->label(''),
-            ]);
+                    ->label('تعديل')
+                    ->icon('heroicon-o-pencil-square'),
+            ])
+            ->paginated([25, 50, 100, 'all'])
+            ->defaultPaginationPageOption(25);
     }
 
     public static function getRelations(): array

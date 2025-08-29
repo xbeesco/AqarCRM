@@ -183,12 +183,6 @@ class UnitResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('id')
-                    ->label('م')
-                    ->searchable()
-                    ->sortable()
-                    ->width('60px'),
-                
                 TextColumn::make('name')
                     ->label('اسم الوحدة')
                     ->searchable()
@@ -197,7 +191,41 @@ class UnitResource extends Resource
                 TextColumn::make('property.name')
                     ->label('العقار')
                     ->searchable()
+                    ->sortable()
+                    ->tooltip(function ($record) {
+                        if (!$record->property || !$record->property->location) {
+                            return null;
+                        }
+                        
+                        // Build full path from current location to root
+                        $path = [];
+                        $current = $record->property->location;
+                        
+                        while ($current) {
+                            array_unshift($path, $current->name);
+                            $current = $current->parent;
+                        }
+                        
+                        return 'الموقع: ' . implode(' > ', $path);
+                    }),
+                    
+                TextColumn::make('unitType.name_ar')
+                    ->label('نوع الوحدة')
+                    ->searchable()
                     ->sortable(),
+                    
+                TextColumn::make('unitCategory.name_ar')
+                    ->label('تصنيف الوحدة')
+                    ->searchable()
+                    ->sortable(),
+                    
+                TextColumn::make('area_sqm')
+                    ->label('المساحة')
+                    ->suffix(' م²')
+                    ->searchable()
+                    ->sortable()
+                    ->default('-')
+                    ->alignCenter(),
                 
                 TextColumn::make('rooms_count')
                     ->label('عدد الغرف')
@@ -214,8 +242,8 @@ class UnitResource extends Resource
                     ->alignCenter(),
                 
                 TextColumn::make('rent_price')
-                    ->label('الإيجار السنوي')
-                    ->formatStateUsing(fn ($state) => $state ? number_format($state * 12) . ' ريال' : '-')
+                    ->label('الإيجار الشهري')
+                    ->formatStateUsing(fn ($state) => $state ? number_format($state) . ' ريال' : '-')
                     ->searchable(query: function ($query, $search) {
                         // البحث بالإيجار الشهري أو السنوي
                         $monthlyRent = str_replace(',', '', $search);
@@ -233,11 +261,15 @@ class UnitResource extends Resource
             ->filters([])
             ->recordActions([
                 ViewAction::make()
-                    ->label(''),
+                    ->label('تقرير')
+                    ->icon('heroicon-o-document-text'),
                 EditAction::make()
-                    ->label(''),
+                    ->label('تعديل')
+                    ->icon('heroicon-o-pencil-square'),
             ])
-            ->toolbarActions([]);
+            ->toolbarActions([])
+            ->paginated([25, 50, 100, 'all'])
+            ->defaultPaginationPageOption(25);
     }
 
     public static function getRelations(): array
