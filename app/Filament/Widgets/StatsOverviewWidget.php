@@ -14,7 +14,8 @@ use Carbon\Carbon;
 class StatsOverviewWidget extends BaseWidget
 {
     protected static ?int $sort = 0;
-    
+    protected static bool $isLazy = false;
+
     protected function getStats(): array
     {
         $today = Carbon::today();
