@@ -19,6 +19,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -349,18 +350,117 @@ class ExpenseResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                Filter::make('property_and_unit')
+                    ->label('العقار')
+                    ->form([
+                        Grid::make(2)->schema([
+                            Select::make('property_id')
+                                ->label('العقار')
+                                ->options(Property::pluck('name', 'id'))
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->afterStateUpdated(fn ($set) => $set('unit_id', null)),
+                            
+                            Select::make('unit_id')
+                                ->label('خاص بـ')
+                                ->native(true)
+                                ->placeholder('العقار ككل')
+                                ->options(function ($get) {
+                                    $propertyId = $get('property_id');
+                                    if (!$propertyId) {
+                                        return [];
+                                    }
+                                    $units = Unit::where('property_id', $propertyId)
+                                        ->pluck('name', 'id')
+                                        ->toArray();
+
+                                    return $units;
+                                })
+                                ->visible(fn ($get) => (bool)$get('property_id')),
+                        ]),
+                    ])
+                    ->query(function (EloquentBuilder $query, array $data): EloquentBuilder {
+                        if (isset($data['property_id']) && $data['property_id']) {
+                            if (isset($data['unit_id']) && $data['unit_id']) {
+                                // نفقات وحدة محددة
+                                $query->where('subject_type', 'App\\Models\\Unit')
+                                      ->where('subject_id', $data['unit_id']);
+                            } else {
+                                // نفقات العقار ككل فقط (ليس الوحدات)
+                                $query->where('subject_type', 'App\\Models\\Property')
+                                      ->where('subject_id', $data['property_id']);
+                            }
+                        }
+                        return $query;
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if (isset($data['property_id']) && $data['property_id']) {
+                            $property = Property::find($data['property_id']);
+                            if ($property) {
+                                if (isset($data['unit_id']) && $data['unit_id']) {
+                                    $unit = Unit::find($data['unit_id']);
+                                    if ($unit) {
+                                        $indicators['filter'] = 'العقار: ' . $property->name . ' - خاص بـ: ' . $unit->name;
+                                    }
+                                } else {
+                                    $indicators['filter'] = 'العقار: ' . $property->name . ' (العقار ككل)';
+                                }
+                            }
+                        }
+                        return $indicators;
+                    }),
+
+                // الصف الثاني: نوع النفقة
                 SelectFilter::make('type')
                     ->label('نوع النفقة')
                     ->options(Expense::TYPES)
                     ->multiple(),
 
+                // الصف الثالث: الفترة (الشهر والسنة)
+                Filter::make('period')
+                    ->label('الفترة')
+                    ->form([
+                        Grid::make(2)->schema([
+                            Toggle::make('this_month')
+                                ->label('هذا الشهر')
+                                ->inline(false),
+                            Toggle::make('this_year')
+                                ->label('هذا العام')
+                                ->inline(false),
+                        ]),
+                    ])
+                    ->query(function (EloquentBuilder $query, array $data): EloquentBuilder {
+                        if (isset($data['this_month']) && $data['this_month']) {
+                            $query->thisMonth();
+                        }
+                        if (isset($data['this_year']) && $data['this_year']) {
+                            $query->thisYear();
+                        }
+                        return $query;
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if (isset($data['this_month']) && $data['this_month']) {
+                            $indicators['this_month'] = 'هذا الشهر';
+                        }
+                        if (isset($data['this_year']) && $data['this_year']) {
+                            $indicators['this_year'] = 'هذا العام';
+                        }
+                        return $indicators;
+                    }),
+
+                // الصف الرابع: نطاق التاريخ (من - إلى)
                 Filter::make('date_range')
                     ->label('نطاق التاريخ')
                     ->form([
-                        DatePicker::make('from_date')
-                            ->label('من تاريخ'),
-                        DatePicker::make('to_date')
-                            ->label('إلى تاريخ'),
+                        Grid::make(2)->schema([
+                            DatePicker::make('from_date')
+                                ->label('من تاريخ'),
+                            DatePicker::make('to_date')
+                                ->label('إلى تاريخ'),
+                        ]),
                     ])
                     ->query(function (EloquentBuilder $query, array $data): EloquentBuilder {
                         return $query
@@ -372,52 +472,17 @@ class ExpenseResource extends Resource
                                 $data['to_date'],
                                 fn (EloquentBuilder $query, $date): EloquentBuilder => $query->whereDate('date', '<=', $date),
                             );
-                    }),
-
-                Filter::make('this_month')
-                    ->label('هذا الشهر')
-                    ->query(fn (EloquentBuilder $query): EloquentBuilder => $query->thisMonth()),
-
-                Filter::make('this_year')
-                    ->label('هذا العام')
-                    ->query(fn (EloquentBuilder $query): EloquentBuilder => $query->thisYear()),
-
-                SelectFilter::make('expense_for')
-                    ->label('نوع الارتباط')
-                    ->options([
-                        'property' => 'نفقة عامة للعقار',
-                        'unit' => 'نفقة خاصة بوحدة',
-                    ])
-                    ->query(function (EloquentBuilder $query, array $data): EloquentBuilder {
-                        if (!isset($data['value']) || $data['value'] === '') {
-                            return $query;
-                        }
-                        
-                        return match ($data['value']) {
-                            'property' => $query->where('subject_type', 'App\\Models\\Property'),
-                            'unit' => $query->where('subject_type', 'App\\Models\\Unit'),
-                            default => $query,
-                        };
-                    }),
-
-                SelectFilter::make('property_id')
-                    ->label('العقار')
-                    ->options(Property::pluck('name', 'id'))
-                    ->query(function (EloquentBuilder $query, array $data): EloquentBuilder {
-                        if (!isset($data['value']) || $data['value'] === '') {
-                            return $query;
-                        }
-                        
-                        return $query->where(function ($query) use ($data) {
-                            $query->where('subject_type', 'App\\Models\\Property')
-                                  ->where('subject_id', $data['value'])
-                                  ->orWhereHas('subject', function ($subQuery) use ($data) {
-                                      $subQuery->where('property_id', $data['value']);
-                                  });
-                        });
                     })
-                    ->searchable()
-                    ->preload(),
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if (isset($data['from_date']) && $data['from_date']) {
+                            $indicators['from_date'] = 'من: ' . \Carbon\Carbon::parse($data['from_date'])->format('Y-m-d');
+                        }
+                        if (isset($data['to_date']) && $data['to_date']) {
+                            $indicators['to_date'] = 'إلى: ' . \Carbon\Carbon::parse($data['to_date'])->format('Y-m-d');
+                        }
+                        return $indicators;
+                    }),
             ])
             ->recordActions([
                 EditAction::make(),

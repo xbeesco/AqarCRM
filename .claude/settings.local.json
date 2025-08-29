@@ -3,7 +3,8 @@
     "allow": [
       "Bash(php artisan tinker:*)",
       "mcp__laravel-boost__:*",
-      "mcp__laravel-boost__database-schema"
+      "mcp__laravel-boost__database-schema",
+      "mcp__laravel-boost__database-query"
     ],
     "deny": []
   },
