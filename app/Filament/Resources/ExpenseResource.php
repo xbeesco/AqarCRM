@@ -308,8 +308,7 @@ class ExpenseResource extends Resource
                 TextColumn::make('desc')
                     ->label('التوصيف')
                     ->wrap()
-                    ->searchable()
-                    ->sortable(),
+                    ->searchable(),
 
                 TextColumn::make('type')
                     ->label('النوع')
@@ -365,7 +364,7 @@ class ExpenseResource extends Resource
                             Select::make('unit_id')
                                 ->label('خاص بـ')
                                 ->native(true)
-                                ->placeholder('العقار ككل')
+                                ->placeholder('العقار نفسه')
                                 ->options(function ($get) {
                                     $propertyId = $get('property_id');
                                     if (!$propertyId) {
