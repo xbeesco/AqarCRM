@@ -98,6 +98,11 @@ class ExpiredContractsWidget extends BaseWidget
             //         ->color('danger')
             //         ->icon('heroicon-o-x-circle'),
             ])
+            ->defaultGroup(
+                Group::make('property.name')
+                    ->label('العقار')
+                    ->collapsible()
+            )
              ->defaultSort('end_date', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('property_id')
