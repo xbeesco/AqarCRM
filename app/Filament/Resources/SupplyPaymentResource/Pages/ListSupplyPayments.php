@@ -17,8 +17,6 @@ class ListSupplyPayments extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()
-                ->label('دفعة توريد جديدة'),
             Action::make('export')
                 ->label('تصدير')
                 ->icon('heroicon-o-arrow-down-tray')
