@@ -8,6 +8,7 @@ use Filament\Tables\Grouping\Group;
 use Filament\Widgets\TableWidget as BaseWidget;
 use App\Models\CollectionPayment;
 use Carbon\Carbon;
+use App\Helpers\DateHelper;
 use Filament\Forms;
 use Filament\Actions\Action;
 
@@ -25,9 +26,7 @@ class TenantsPaymentDueWidget extends BaseWidget
     
     protected function getToday(): Carbon
     {
-        return env('TEST_DATE') ? 
-            Carbon::parse(env('TEST_DATE'))->startOfDay() : 
-            Carbon::today();
+        return DateHelper::getCurrentDate()->copy()->startOfDay();
     }
     
     public function table(Table $table): Table
@@ -122,7 +121,7 @@ class TenantsPaymentDueWidget extends BaseWidget
                     
                 Tables\Filters\Filter::make('overdue')
                     ->label('متأخر')
-                    ->query(fn ($query) => $query->where('due_date_start', '<', Carbon::today())),
+                    ->query(fn ($query) => $query->where('due_date_start', '<', $this->getToday())),
             ])
             ->paginated([10, 25, 50])
             ->striped()

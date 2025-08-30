@@ -7,6 +7,7 @@ use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use App\Models\CollectionPayment;
 use Carbon\Carbon;
+use App\Helpers\DateHelper;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Actions\Action;
@@ -79,8 +80,8 @@ class PostponedPaymentsWidget extends BaseWidget
                     ->label('مدة التأجيل')
                     ->getStateUsing(function ($record) {
                         if (!$record->delay_duration) {
-                            // احسب المدة من التاريخ
-                            $days = Carbon::parse($record->due_date_end)->diffInDays(Carbon::now());
+                            // احسب المدة من التاريخ باستخدام DateHelper
+                            $days = Carbon::parse($record->due_date_end)->diffInDays(DateHelper::getCurrentDate());
                             return "{$days} يوم";
                         }
                         return "{$record->delay_duration} يوم";
@@ -172,7 +173,11 @@ class PostponedPaymentsWidget extends BaseWidget
         
         $formattedAmount = number_format($totalAmount, 2) . ' ريال';
         
-        return static::$heading . " ({$totalPostponed} دفعة - {$criticalCount} حرجة - إجمالي: {$formattedAmount})";
+        // إضافة التاريخ الحالي للاختبار
+        $currentDate = DateHelper::formatDate();
+        $dateLabel = DateHelper::isTestMode() ? " [تاريخ الاختبار: {$currentDate}]" : "";
+        
+        return static::$heading . " ({$totalPostponed} دفعة - {$criticalCount} حرجة - إجمالي: {$formattedAmount})" . $dateLabel;
     }
     
     public function getHeading(): string

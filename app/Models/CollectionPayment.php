@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Carbon\Carbon;
+use App\Helpers\DateHelper;
 
 class CollectionPayment extends Model
 {
@@ -111,10 +112,10 @@ class CollectionPayment extends Model
                 $payment->collection_status === self::STATUS_OVERDUE) {
                 // للحالات المؤجلة أو المتأخرة، نضع تواريخ افتراضية إذا لم تكن موجودة
                 if (empty($payment->due_date_start)) {
-                    $payment->due_date_start = now()->startOfMonth();
+                    $payment->due_date_start = DateHelper::getCurrentDate()->startOfMonth();
                 }
                 if (empty($payment->due_date_end)) {
-                    $payment->due_date_end = now()->endOfMonth();
+                    $payment->due_date_end = DateHelper::getCurrentDate()->endOfMonth();
                 }
             }
             
@@ -129,7 +130,7 @@ class CollectionPayment extends Model
             // توليد الشهر والسنة للتقارير
             if (empty($payment->month_year)) {
                 // استخدم due_date_start إن وجد، وإلا استخدم التاريخ الحالي
-                $dateForMonth = $payment->due_date_start ?? now();
+                $dateForMonth = $payment->due_date_start ?? DateHelper::getCurrentDate();
                 $payment->month_year = \Carbon\Carbon::parse($dateForMonth)->format('Y-m');
             }
         });
@@ -204,7 +205,7 @@ class CollectionPayment extends Model
 
     public function scopeOverdue($query)
     {
-        return $query->where('due_date_end', '<', now())
+        return $query->where('due_date_end', '<', DateHelper::getCurrentDate())
                     ->whereHas('paymentStatus', function($q) {
                         $q->where('is_paid_status', false);
                     });
@@ -236,14 +237,14 @@ class CollectionPayment extends Model
         return $query->postponed()
                      ->where(function($q) {
                          $q->where('delay_duration', '>', 30)
-                           ->orWhere('due_date_end', '<', Carbon::now()->subDays(30));
+                           ->orWhere('due_date_end', '<', DateHelper::getCurrentDate()->subDays(30));
                      });
     }
     
     public function scopeRecentPostponed($query, $days = 7)
     {
         return $query->postponed()
-                     ->where('created_at', '>=', Carbon::now()->subDays($days));
+                     ->where('created_at', '>=', DateHelper::getCurrentDate()->subDays($days));
     }
 
     // Methods
@@ -272,7 +273,7 @@ class CollectionPayment extends Model
             return 0;
         }
 
-        return Carbon::parse($this->due_date_end)->diffInDays(now());
+        return Carbon::parse($this->due_date_end)->diffInDays(DateHelper::getCurrentDate());
     }
 
     public function isOverdue(): bool
@@ -291,7 +292,7 @@ class CollectionPayment extends Model
     {
         $this->update([
             'payment_method_id' => $paymentMethodId,
-            'paid_date' => $paidDate ?: now()->toDateString(),
+            'paid_date' => $paidDate ?: DateHelper::getCurrentDate()->toDateString(),
             'payment_reference' => $paymentReference,
             'payment_status_id' => PaymentStatus::COLLECTED,
             'receipt_number' => $this->generateReceiptNumber(),

@@ -8,6 +8,7 @@ use Filament\Tables\Grouping\Group;
 use Filament\Widgets\TableWidget as BaseWidget;
 use App\Models\UnitContract;
 use Carbon\Carbon;
+use App\Helpers\DateHelper;
 use Filament\Forms;
 
 class ExpiredContractsWidget extends BaseWidget
@@ -24,9 +25,7 @@ class ExpiredContractsWidget extends BaseWidget
     
     protected function getToday(): Carbon
     {
-        return env('TEST_DATE') ? 
-            Carbon::parse(env('TEST_DATE'))->startOfDay() : 
-            Carbon::today();
+        return DateHelper::getCurrentDate()->copy()->startOfDay();
     }
     
     public function table(Table $table): Table
@@ -113,11 +112,11 @@ class ExpiredContractsWidget extends BaseWidget
                     
                 Tables\Filters\Filter::make('expired_over_30')
                     ->label('منتهي منذ أكثر من 30 يوم')
-                    ->query(fn ($query) => $query->where('end_date', '<', Carbon::today()->subDays(30))),
+                    ->query(fn ($query) => $query->where('end_date', '<', $this->getToday()->subDays(30))),
                     
                 Tables\Filters\Filter::make('expired_over_60')
                     ->label('منتهي منذ أكثر من 60 يوم')
-                    ->query(fn ($query) => $query->where('end_date', '<', Carbon::today()->subDays(60))),
+                    ->query(fn ($query) => $query->where('end_date', '<', $this->getToday()->subDays(60))),
             ])
             ->paginated([10, 25, 50])
             ->striped()

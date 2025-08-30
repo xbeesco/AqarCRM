@@ -10,6 +10,7 @@ use App\Models\Property;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Carbon\Carbon;
+use App\Helpers\DateHelper;
 
 class StatsOverviewWidget extends BaseWidget
 {
@@ -18,9 +19,11 @@ class StatsOverviewWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $today = Carbon::today();
-        $startOfMonth = Carbon::now()->startOfMonth();
-        $endOfMonth = Carbon::now()->endOfMonth();
+        // استخدام DateHelper للحصول على التاريخ الحالي
+        $currentDate = DateHelper::getCurrentDate();
+        $today = $currentDate->copy()->startOfDay();
+        $startOfMonth = $currentDate->copy()->startOfMonth();
+        $endOfMonth = $currentDate->copy()->endOfMonth();
         
         // حساب المفروض تحصيله اليوم
         $todayCollectionDue = CollectionPayment::whereDate('due_date_start', '<=', $today)
