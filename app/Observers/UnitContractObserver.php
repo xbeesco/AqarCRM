@@ -96,15 +96,26 @@ class UnitContractObserver
                 throw new \Exception('تاريخ البداية لا يمكن أن يكون بعد تاريخ النهاية');
             }
             
-            // Ensure duration matches dates
-            $calculatedMonths = $startDate->diffInMonths($endDate->addDay());
-            if (abs($contract->duration_months - $calculatedMonths) > 1) {
-                Log::warning('Duration mismatch detected, auto-correcting', [
+            // إذا تم تغيير duration_months يدوياً، نحترم التغيير ونحدث end_date
+            if ($contract->isDirty('duration_months')) {
+                // المستخدم غيّر المدة، نحدث تاريخ النهاية بناءً على المدة الجديدة
+                $contract->end_date = $startDate->copy()->addMonths($contract->duration_months)->subDay();
+                Log::info('End date recalculated based on new duration', [
                     'contract_id' => $contract->id,
-                    'stored_duration' => $contract->duration_months,
-                    'calculated_duration' => $calculatedMonths
+                    'duration_months' => $contract->duration_months,
+                    'new_end_date' => $contract->end_date
                 ]);
-                $contract->duration_months = $calculatedMonths;
+            } else {
+                // إذا لم يتم تغيير المدة، نتحقق من التطابق فقط دون تعديل
+                $calculatedMonths = $startDate->diffInMonths($endDate->addDay());
+                if (abs($contract->duration_months - $calculatedMonths) > 1) {
+                    Log::warning('Duration mismatch detected but not auto-correcting during update', [
+                        'contract_id' => $contract->id,
+                        'stored_duration' => $contract->duration_months,
+                        'calculated_duration' => $calculatedMonths
+                    ]);
+                    // في حالة عدم التطابق الكبير، نعطي تحذير فقط دون تعديل تلقائي
+                }
             }
         }
     }
