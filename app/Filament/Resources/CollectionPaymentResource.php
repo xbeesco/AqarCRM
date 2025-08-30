@@ -4,31 +4,30 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\CollectionPaymentResource\Pages;
 use App\Models\CollectionPayment;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Schema;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Select;
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\BadgeColumn;
-use Filament\Tables\Table;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
-use Filament\Tables\Filters\TernaryFilter;
-use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\Action;
-use Filament\Resources\Resource;
-use BackedEnum;
+use Filament\Tables\Table;
 
 class CollectionPaymentResource extends Resource
 {
     protected static ?string $model = CollectionPayment::class;
+
     protected static ?string $navigationLabel = 'دفعات تحصيل';
+
     protected static ?string $modelLabel = 'دفعة تحصيل';
+
     protected static ?string $pluralModelLabel = 'دفعات تحصيل';
+
     protected static ?string $recordTitleAttribute = 'payment_number';
     // Navigation properties removed - managed centrally in AdminPanelProvider
 
@@ -71,7 +70,6 @@ class CollectionPaymentResource extends Resource
                                 }
                             })
                             ->columnSpan(['lg' => 2, 'xl' => 3]),
-                        
                         // القيمة المالية
                         TextInput::make('amount')
                             ->label('القيمة المالية')
@@ -81,8 +79,7 @@ class CollectionPaymentResource extends Resource
                             ->step(0.01)
                             ->prefix('SAR')
                             ->columnSpan(['lg' => 1, 'xl' => 1]),
-                        
-                        // حالة التحصيل - تفاعلية
+                            
                         Select::make('collection_status')
                             ->label('حالة التحصيل')
                             ->required()
@@ -99,48 +96,44 @@ class CollectionPaymentResource extends Resource
                                 $set('late_payment_notes', null);
                             })
                             ->columnSpan(['lg' => 3, 'xl' => 4]),
-                        
-                        // الحقول الديناميكية حسب الحالة
-                        
-                        // حقول "تم التحصيل" - 3 حقول
+
                         DatePicker::make('due_date_start')
                             ->label('بداية التاريخ')
                             ->visible(fn ($get) => in_array($get('collection_status'), [
                                 CollectionPayment::STATUS_COLLECTED,
-                                CollectionPayment::STATUS_DUE
+                                CollectionPayment::STATUS_DUE,
                             ]))
                             ->required(fn ($get) => in_array($get('collection_status'), [
                                 CollectionPayment::STATUS_COLLECTED,
-                                CollectionPayment::STATUS_DUE
+                                CollectionPayment::STATUS_DUE,
                             ]))
                             ->default(now()->startOfMonth()),
-                        
+
                         DatePicker::make('due_date_end')
                             ->label('إلى التاريخ')
                             ->visible(fn ($get) => in_array($get('collection_status'), [
                                 CollectionPayment::STATUS_COLLECTED,
-                                CollectionPayment::STATUS_DUE
+                                CollectionPayment::STATUS_DUE,
                             ]))
                             ->required(fn ($get) => in_array($get('collection_status'), [
                                 CollectionPayment::STATUS_COLLECTED,
-                                CollectionPayment::STATUS_DUE
+                                CollectionPayment::STATUS_DUE,
                             ]))
                             ->default(now()->endOfMonth()),
-                        
+
                         DatePicker::make('collection_date')
                             ->label('تاريخ التحصيل')
                             ->visible(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_COLLECTED)
                             ->required(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_COLLECTED)
                             ->default(now()),
-                        
-                        // حقول "المؤجلة" - 2 حقول
+
                         Textarea::make('delay_reason')
                             ->label('سبب التأجيل')
                             ->visible(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_POSTPONED)
                             ->required(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_POSTPONED)
                             ->rows(2)
                             ->columnSpan(['lg' => 2, 'xl' => 3]),
-                        
+
                         TextInput::make('delay_duration')
                             ->label('مدة التأجيل بالأيام')
                             ->numeric()
@@ -149,7 +142,7 @@ class CollectionPaymentResource extends Resource
                             ->required(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_POSTPONED)
                             ->suffix('يوم')
                             ->columnSpan(['lg' => 1, 'xl' => 1]),
-                        
+
                         // حقل "تجاوزت المدة" - 1 حقل
                         Textarea::make('late_payment_notes')
                             ->label('ملاحظات في حالة تجاوز مدة الدفعة')
@@ -157,17 +150,12 @@ class CollectionPaymentResource extends Resource
                             ->required(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_OVERDUE)
                             ->rows(3)
                             ->columnSpan(['lg' => 3, 'xl' => 4]),
-                        
+
                         // Hidden fields للحفظ
                         \Filament\Forms\Components\Hidden::make('unit_id'),
                         \Filament\Forms\Components\Hidden::make('property_id'),
                         \Filament\Forms\Components\Hidden::make('tenant_id'),
-                    ])->columns([
-                        'sm' => 1,
-                        'md' => 2,
-                        'lg' => 3,
-                        'xl' => 4,
-                    ]),
+                    ])->columns(12),
             ]);
     }
 
@@ -175,30 +163,26 @@ class CollectionPaymentResource extends Resource
     {
         return $table
             ->modifyQueryUsing(function (\Illuminate\Database\Eloquent\Builder $query) {
-                $query->with(['unitContract.tenant', 'unitContract.unit', 'unitContract.property']);
+                $query->with(['tenant', 'unit', 'property', 'unitContract']);
             })
             ->columns([
-                TextColumn::make('id')
-                    ->label('م')
+                TextColumn::make('tenant.name')
+                    ->label('المستأجر')
                     ->searchable()
                     ->sortable()
-                    ->width('60px'),
+                    ->placeholder('غير محدد'),
 
-                TextColumn::make('payment_number')
-                    ->label('البيان')
-                    ->getStateUsing(function ($record) {
-                        $property = $record->unitContract?->property?->name ?? '';
-                        $unit = $record->unitContract?->unit?->name ?? '';
-                        $tenant = $record->unitContract?->tenant?->name ?? '';
-                        return "تحصيل {$property} - {$unit} - {$tenant}";
-                    })
-                    ->wrap()
-                    ->searchable(),
-
-                TextColumn::make('unitContract.contract_number')
-                    ->label('العقد')
+                TextColumn::make('property.name')
+                    ->label('العقار')
+                    ->searchable()
                     ->sortable()
-                    ->searchable(),
+                    ->placeholder('غير محدد'),
+
+                TextColumn::make('unit.name')
+                    ->label('الوحدة')
+                    ->searchable()
+                    ->sortable()
+                    ->placeholder('غير محدد'),
 
                 TextColumn::make('amount')
                     ->label('القيمة')
@@ -224,7 +208,7 @@ class CollectionPaymentResource extends Resource
                     ->date('d/m/Y')
                     ->searchable()
                     ->sortable(),
-                
+
                 TextColumn::make('delay_reason')
                     ->label('ملاحظات')
                     ->limit(30)
@@ -232,49 +216,75 @@ class CollectionPaymentResource extends Resource
                     ->placeholder('-'),
             ])
             ->filters([
+                Filter::make('property_and_unit')
+                    ->label('العقار والوحدة')
+                    ->form([
+                        Grid::make(2)->schema([
+                            Select::make('property_id')
+                                ->label('العقار')
+                                ->options(\App\Models\Property::pluck('name', 'id'))
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->afterStateUpdated(fn ($set) => $set('unit_id', null)),
+                            
+                            Select::make('unit_id')
+                                ->label('الوحدة')
+                                ->native(true)
+                                ->placeholder('جميع الوحدات')
+                                ->options(function ($get) {
+                                    $propertyId = $get('property_id');
+                                    if (!$propertyId) {
+                                        return [];
+                                    }
+                                    return \App\Models\Unit::where('property_id', $propertyId)
+                                        ->pluck('name', 'id')
+                                        ->toArray();
+                                })
+                                ->visible(fn ($get) => (bool)$get('property_id')),
+                        ]),
+                    ])
+                    ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
+                        if (!empty($data['property_id'])) {
+                            $query->where('property_id', $data['property_id']);
+                        }
+                        if (!empty($data['unit_id'])) {
+                            $query->where('unit_id', $data['unit_id']);
+                        }
+                        return $query;
+                    }),
+
+                SelectFilter::make('tenant_id')
+                    ->label('المستأجر')
+                    ->relationship('tenant', 'name', fn ($query) => $query->where('type', 'tenant'))
+                    ->searchable()
+                    ->preload(),
+
                 SelectFilter::make('collection_status')
                     ->label('حالة التحصيل')
                     ->options(CollectionPayment::getStatusOptions()),
-                
-                SelectFilter::make('unit_contract_id')
-                    ->label('العقد')
-                    ->relationship('unitContract', 'contract_number')
-                    ->getOptionLabelFromRecordUsing(function ($record) {
-                        return sprintf(
-                            '%s - %s - %s - %s',
-                            $record->contract_number ?? 'بدون رقم',
-                            $record->tenant?->name ?? 'غير محدد',
-                            $record->unit?->name ?? 'غير محدد',
-                            $record->property?->name ?? 'غير محدد'
-                        );
-                    })
-                    ->searchable()
-                    ->preload(),
-                
-                SelectFilter::make('tenant_id')
-                    ->label('المستأجر')
-                    ->relationship('tenant', 'name')
-                    ->searchable(),
             ])
             ->recordActions([
-                EditAction::make()
-                    ->label(''),
+                                EditAction::make()
+                    ->label('تعديل')
+                    ->icon('heroicon-o-pencil-square'),
+
             ])
             ->toolbarActions([
                 // Bulk actions here
             ])
             ->defaultSort('created_at', 'desc')
             ->searchable([
-                'id',
                 'payment_number',
                 'amount',
                 'collection_status',
                 'delay_reason',
                 'late_payment_notes',
-                'unitContract.contract_number',
-                'unitContract.tenant.name',
-                'unitContract.unit.name',
-                'unitContract.property.name',
+                'tenant.name',
+                'tenant.phone',
+                'unit.name',
+                'property.name',
+                'property.address',
             ]);
     }
 
@@ -287,7 +297,7 @@ class CollectionPaymentResource extends Resource
             'edit' => Pages\EditCollectionPayment::route('/{record}/edit'),
         ];
     }
-    
+
     // البحث الذكي الشامل
     public static function getGloballySearchableAttributes(): array
     {
@@ -304,33 +314,33 @@ class CollectionPaymentResource extends Resource
             'payment_reference',
             'receipt_number',
             'month_year',
-            'unitContract.tenant.name',
-            'unitContract.tenant.phone',
-            'unitContract.tenant.email',
-            'unitContract.unit.name',
-            'unitContract.property.name',
-            'unitContract.property.address',
+            'tenant.name',
+            'tenant.phone',
+            'tenant.email',
+            'unit.name',
+            'property.name',
+            'property.address',
         ];
     }
-    
+
     public static function getGlobalSearchEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
         return parent::getGlobalSearchEloquentQuery()
-            ->with(['unitContract.tenant', 'unitContract.unit', 'unitContract.property']);
+            ->with(['tenant', 'unit', 'property']);
     }
-    
+
     public static function getGlobalSearchResults(string $search): \Illuminate\Support\Collection
     {
         $search = trim($search);
-        
+
         // تطبيع البحث العربي - إزالة الهمزات والتاء المربوطة
         $normalizedSearch = str_replace(['أ', 'إ', 'آ'], 'ا', $search);
         $normalizedSearch = str_replace(['ة'], 'ه', $normalizedSearch);
         $normalizedSearch = str_replace(['ى'], 'ي', $normalizedSearch);
-        
+
         // إزالة المسافات الزائدة
         $searchWithoutSpaces = str_replace(' ', '', $normalizedSearch);
-        
+
         return static::getGlobalSearchEloquentQuery()
             ->where(function (\Illuminate\Database\Eloquent\Builder $query) use ($search, $normalizedSearch, $searchWithoutSpaces) {
                 // البحث في رقم الدفعة والمراجع
@@ -339,7 +349,7 @@ class CollectionPaymentResource extends Resource
                     ->orWhere('payment_reference', 'LIKE', "%{$search}%")
                     ->orWhere('receipt_number', 'LIKE', "%{$search}%")
                     ->orWhere('month_year', 'LIKE', "%{$search}%");
-                
+
                 // البحث في حالة التحصيل - مهم جداً
                 $statusSearch = CollectionPayment::getStatusOptions();
                 foreach ($statusSearch as $key => $label) {
@@ -347,30 +357,30 @@ class CollectionPaymentResource extends Resource
                         $query->orWhere('collection_status', $key);
                     }
                 }
-                
+
                 // البحث في المبلغ (حتى لو رقم واحد)
                 if (is_numeric($search)) {
                     $query->orWhere('amount', 'LIKE', "%{$search}%")
                         ->orWhere('amount', $search);
                 }
-                
+
                 // البحث في الملاحظات
                 $query->orWhere('delay_reason', 'LIKE', "%{$normalizedSearch}%")
                     ->orWhere('late_payment_notes', 'LIKE', "%{$normalizedSearch}%");
-                
+
                 // البحث في مدة التأجيل
                 if (is_numeric($search)) {
                     $query->orWhere('delay_duration', $search)
                         ->orWhere('delay_duration', 'LIKE', "%{$search}%");
                 }
-                
+
                 // البحث في كل التواريخ
                 $query->orWhere('collection_date', 'LIKE', "%{$search}%")
                     ->orWhere('due_date_start', 'LIKE', "%{$search}%")
                     ->orWhere('due_date_end', 'LIKE', "%{$search}%")
                     ->orWhere('paid_date', 'LIKE', "%{$search}%")
                     ->orWhere('created_at', 'LIKE', "%{$search}%");
-                
+
                 // البحث بالسنة فقط
                 if (preg_match('/^\d{4}$/', $search)) {
                     $query->orWhereYear('collection_date', $search)
@@ -379,7 +389,7 @@ class CollectionPaymentResource extends Resource
                         ->orWhereYear('paid_date', $search)
                         ->orWhereYear('created_at', $search);
                 }
-                
+
                 // البحث بالشهر والسنة
                 if (preg_match('/^\d{1,2}[-\/]\d{4}$/', $search)) {
                     $parts = preg_split('/[-\/]/', $search);
@@ -389,9 +399,9 @@ class CollectionPaymentResource extends Resource
                         ->orWhereMonth('due_date_start', $month)->whereYear('due_date_start', $year)
                         ->orWhereMonth('due_date_end', $month)->whereYear('due_date_end', $year);
                 }
-                
+
                 // البحث في المستأجر - مع التطبيع
-                $query->orWhereHas('unitContract.tenant', function ($q) use ($search, $normalizedSearch, $searchWithoutSpaces) {
+                $query->orWhereHas('tenant', function ($q) use ($search, $normalizedSearch, $searchWithoutSpaces) {
                     $q->where(function ($subQuery) use ($search, $normalizedSearch, $searchWithoutSpaces) {
                         $subQuery->where('name', 'LIKE', "%{$normalizedSearch}%")
                             ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%")
@@ -400,34 +410,34 @@ class CollectionPaymentResource extends Resource
                             ->orWhere('email', 'LIKE', "%{$search}%");
                     });
                 });
-                
+
                 // البحث في الوحدة
-                $query->orWhereHas('unitContract.unit', function ($q) use ($search, $normalizedSearch, $searchWithoutSpaces) {
+                $query->orWhereHas('unit', function ($q) use ($search, $normalizedSearch, $searchWithoutSpaces) {
                     $q->where('name', 'LIKE', "%{$normalizedSearch}%")
                         ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%");
-                    
+
                     // البحث في رقم الطابق إذا كان رقم
                     if (is_numeric($search)) {
                         $q->orWhere('floor_number', $search)
-                          ->orWhere('rooms_count', $search);
+                            ->orWhere('rooms_count', $search);
                     }
                 });
-                
+
                 // البحث في العقار
-                $query->orWhereHas('unitContract.property', function ($q) use ($search, $normalizedSearch, $searchWithoutSpaces) {
+                $query->orWhereHas('property', function ($q) use ($normalizedSearch, $searchWithoutSpaces) {
                     $q->where('name', 'LIKE', "%{$normalizedSearch}%")
                         ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%")
                         ->orWhere('address', 'LIKE', "%{$normalizedSearch}%");
                 });
-                
+
             })
             ->limit(50)
             ->get()
             ->map(function ($record) {
-                $tenant = $record->unitContract?->tenant?->name ?? 'غير محدد';
-                $unit = $record->unitContract?->unit?->name ?? 'غير محدد';
-                $property = $record->unitContract?->property?->name ?? 'غير محدد';
-                
+                $tenant = $record->tenant?->name ?? 'غير محدد';
+                $unit = $record->unit?->name ?? 'غير محدد';
+                $property = $record->property?->name ?? 'غير محدد';
+
                 return new \Filament\GlobalSearch\GlobalSearchResult(
                     title: $record->payment_number,
                     url: static::getUrl('edit', ['record' => $record]),
@@ -435,7 +445,7 @@ class CollectionPaymentResource extends Resource
                         'المستأجر' => $tenant,
                         'الوحدة' => $unit,
                         'العقار' => $property,
-                        'المبلغ' => number_format($record->amount, 2) . ' SAR',
+                        'المبلغ' => number_format($record->amount, 2).' SAR',
                         'الحالة' => $record->status_label,
                     ]
                 );

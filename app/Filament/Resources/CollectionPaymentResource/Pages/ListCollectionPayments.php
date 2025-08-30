@@ -18,8 +18,6 @@ class ListCollectionPayments extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make()
-                ->label('دفعة تحصيل جديدة'),
             Actions\Action::make('export')
                 ->label('تصدير')
                 ->icon('heroicon-o-arrow-down-tray')
