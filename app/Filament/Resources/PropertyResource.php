@@ -50,11 +50,11 @@ class PropertyResource extends Resource
         return $schema->schema([
             Section::make('البيانات الأساسية')
                 ->schema([
-                    Grid::make(3)->schema([
+                    Grid::make(2)->schema([
                         TextInput::make('name')
                             ->label('اسم العقار')
                             ->required()
-                            ->columnSpan(2),
+                            ->columnSpan(1),
                             
                         Select::make('owner_id')
                             ->label('المالك')
@@ -74,7 +74,7 @@ class PropertyResource extends Resource
                             
                         Select::make('type_id')
                             ->label('نوع العقار')
-                            ->options(PropertyType::where('is_active', true)->orderBy('sort_order')->pluck('name_ar', 'id'))
+                            ->options(PropertyType::all()->pluck('name_ar', 'id'))
                             ->searchable()
                             ->required(),
                     ]),
@@ -133,7 +133,7 @@ class PropertyResource extends Resource
                         CheckboxList::make('features')
                             ->label('المميزات')
                             ->relationship('features', 'name_ar')
-                            ->columns(2)
+                            ->columns(4)
                             ->columnSpan(1),
 
                         Textarea::make('notes')
