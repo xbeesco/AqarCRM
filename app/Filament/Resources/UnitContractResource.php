@@ -283,6 +283,24 @@ class UnitContractResource extends Resource
                     ->date('d/m/Y')
                     ->sortable(),
 
+                TextColumn::make('payment_frequency')
+                    ->label('نوع التحصيل')
+                    ->formatStateUsing(fn ($state) => match($state) {
+                        'monthly' => 'شهري',
+                        'quarterly' => 'ربع سنوي',
+                        'semi_annually' => 'نصف سنوي',
+                        'annually' => 'سنوي',
+                        default => $state
+                    })
+                    ->badge()
+                    ->color(fn ($state) => match($state) {
+                        'monthly' => 'success',
+                        'quarterly' => 'info',
+                        'semi_annually' => 'warning',
+                        'annually' => 'danger',
+                        default => 'gray'
+                    }),
+
                 TextColumn::make('monthly_rent')
                     ->label('الايجار الشهري')
                     ->money('SAR' , 1 , null , 0 ),
