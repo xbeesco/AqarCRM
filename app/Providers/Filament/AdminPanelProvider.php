@@ -49,12 +49,6 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
                 return $builder
-                    // ->items([
-                    //     NavigationItem::make('لوحة التحكم')
-                    //         ->icon('heroicon-o-home')
-                    //         ->url(fn (): string => Dashboard::getUrl())
-                    //         ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.dashboard')),
-                    // ])
                     ->groups([
                         NavigationGroup::make('الماليات')
                             ->items([

@@ -14,6 +14,7 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Actions\Action;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Setting;
 use BackedEnum;
 
 class SystemManagement extends Page implements HasForms
@@ -42,9 +43,10 @@ class SystemManagement extends Page implements HasForms
             abort(403, 'Unauthorized');
         }
 
+        // Load settings from database or use defaults
         $this->form->fill([
-            'allowed_delay_days' => 5,
-            'test_date' => null,
+            'allowed_delay_days' => Setting::get('allowed_delay_days', 5),
+            'test_date' => Setting::get('test_date', null),
         ]);
     }
 
@@ -99,6 +101,12 @@ class SystemManagement extends Page implements HasForms
     {
         try {
             $data = $this->form->getState();
+            
+            // Save settings to database
+            Setting::setMany([
+                'allowed_delay_days' => $data['allowed_delay_days'] ?? 5,
+                'test_date' => $data['test_date'] ?? null,
+            ]);
             
             logger()->info('System Settings Saved', [
                 'user' => Auth::user()->email,
