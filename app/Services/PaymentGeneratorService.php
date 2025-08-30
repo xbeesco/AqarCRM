@@ -6,6 +6,8 @@ use App\Models\UnitContract;
 use App\Models\PropertyContract;
 use App\Models\CollectionPayment;
 use App\Models\SupplyPayment;
+use App\Models\Setting;
+use App\Services\PropertyContractService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -14,18 +16,26 @@ class PaymentGeneratorService
     /**
      * توليد دفعات التحصيل للمستأجرين
      */
-    public function generateTenantPayments(UnitContract $contract)
+    public function generateTenantPayments(UnitContract $contract): array
     {
+        if (!$contract->monthly_rent || $contract->monthly_rent <= 0) {
+            throw new \InvalidArgumentException('مبلغ الإيجار الشهري غير صحيح');
+        }
+
         DB::beginTransaction();
         
         try {
             $payments = [];
             $startDate = Carbon::parse($contract->start_date);
             $endDate = Carbon::parse($contract->end_date);
-            $frequency = $contract->payment_frequency ?? 'monthly'; // monthly, quarterly, semi_annual, annual
+            $frequency = $contract->payment_frequency ?? 'monthly';
             
             // حساب عدد الدفعات
             $paymentCount = $this->calculatePaymentCount($startDate, $endDate, $frequency);
+            
+            if ($paymentCount <= 0) {
+                throw new \InvalidArgumentException('عدد الدفعات غير صحيح للفترة المحددة');
+            }
             
             // المبلغ الأساسي للدفعة
             $baseAmount = $this->calculatePaymentAmount($contract->monthly_rent, $frequency);
@@ -53,7 +63,7 @@ class PaymentGeneratorService
                     'unit_id' => $contract->unit_id,
                     'property_id' => $contract->property_id,
                     'tenant_id' => $contract->tenant_id,
-                    'collection_status' => 'due', // استخدام 'due' بدلاً من 'pending'
+                    'collection_status' => 'due',
                     'amount' => $baseAmount,
                     'late_fee' => 0,
                     'total_amount' => $baseAmount,
@@ -79,9 +89,10 @@ class PaymentGeneratorService
     }
     
     /**
-     * توليد دفعات التوريد للملاك
+     * توليد دفعة توريد واحدة للمالك بناءً على المبالغ المحصلة الفعلية
+     * تستخدم هذه الدالة لحساب دفعة التوريد الشهرية بناءً على ما تم تحصيله فعلياً
      */
-    public function generateOwnerPayments(PropertyContract $contract, $month = null)
+    public function generateOwnerPayments(PropertyContract $contract, $month = null): ?SupplyPayment
     {
         DB::beginTransaction();
         
@@ -139,84 +150,62 @@ class PaymentGeneratorService
     /**
      * حساب عدد الدفعات حسب التكرار
      */
-    private function calculatePaymentCount($startDate, $endDate, $frequency)
+    private function calculatePaymentCount($startDate, $endDate, $frequency): int
     {
         $months = $startDate->diffInMonths($endDate) + 1;
+        $monthsPerPayment = PropertyContractService::getMonthsPerPayment($frequency);
         
-        // استخدام نفس الأسماء المستخدمة في PropertyContractService
-        return match($frequency) {
-            'monthly' => $months,
-            'quarterly' => intval($months / 3),  // استخدم intval بدلاً من ceil للتوافق
-            'semi_annually' => intval($months / 6),  // تصحيح الاسم
-            'annually' => intval($months / 12),  // تصحيح الاسم
-            default => $months
-        };
+        if ($monthsPerPayment === 0) {
+            return 0;
+        }
+        
+        return intval($months / $monthsPerPayment);
     }
     
     /**
      * حساب مبلغ الدفعة حسب التكرار
      */
-    private function calculatePaymentAmount($monthlyRent, $frequency)
+    private function calculatePaymentAmount($monthlyRent, $frequency): float
     {
-        return match($frequency) {
-            'monthly' => $monthlyRent,
-            'quarterly' => $monthlyRent * 3,
-            'semi_annual' => $monthlyRent * 6,
-            'annual' => $monthlyRent * 12,
-            default => $monthlyRent
-        };
+        $monthsPerPayment = PropertyContractService::getMonthsPerPayment($frequency);
+        return $monthlyRent * $monthsPerPayment;
     }
     
     /**
      * حساب نهاية الفترة
      */
-    private function calculatePeriodEnd($startDate, $frequency)
+    private function calculatePeriodEnd($startDate, $frequency): Carbon
     {
         $date = $startDate->copy();
+        $monthsPerPayment = PropertyContractService::getMonthsPerPayment($frequency);
         
-        return match($frequency) {
-            'monthly' => $date->addMonth()->subDay(),
-            'quarterly' => $date->addMonths(3)->subDay(),
-            'semi_annual' => $date->addMonths(6)->subDay(),
-            'annual' => $date->addYear()->subDay(),
-            default => $date->addMonth()->subDay()
-        };
+        return $date->addMonths($monthsPerPayment)->subDay();
     }
     
     /**
      * الحصول على بداية الفترة التالية
      */
-    private function getNextPeriodStart($currentDate, $frequency)
+    private function getNextPeriodStart($currentDate, $frequency): Carbon
     {
         $date = $currentDate->copy();
+        $monthsPerPayment = PropertyContractService::getMonthsPerPayment($frequency);
         
-        return match($frequency) {
-            'monthly' => $date->addMonth(),
-            'quarterly' => $date->addMonths(3),
-            'semi_annual' => $date->addMonths(6),
-            'annual' => $date->addYear(),
-            default => $date->addMonth()
-        };
+        return $date->addMonths($monthsPerPayment);
     }
     
     /**
      * عدد الأيام في الفترة الكاملة
      */
-    private function getFullPeriodDays($frequency)
+    private function getFullPeriodDays($frequency): int
     {
-        return match($frequency) {
-            'monthly' => 30,
-            'quarterly' => 90,
-            'semi_annually' => 180,  // تصحيح الاسم
-            'annually' => 365,  // تصحيح الاسم
-            default => 30
-        };
+        $monthsPerPayment = PropertyContractService::getMonthsPerPayment($frequency);
+        return $monthsPerPayment * 30; // تقريبياً 30 يوم للشهر
     }
     
     /**
      * توليد رقم الدفعة للمستأجر
      */
-    private function generatePaymentNumber($contract, $sequence)
+    private function generatePaymentNumber($contract, int $sequence): string
     {
         return sprintf('PAY-%s-%04d', $contract->contract_number, $sequence);
     }
@@ -224,7 +213,7 @@ class PaymentGeneratorService
     /**
      * توليد رقم دفعة التوريد للمالك
      */
-    private function generateSupplyPaymentNumber($contract, $month)
+    private function generateSupplyPaymentNumber($contract, Carbon $month): string
     {
         return sprintf('SUP-%s-%s', $contract->contract_number, $month->format('Ym'));
     }
@@ -232,15 +221,15 @@ class PaymentGeneratorService
     /**
      * حساب المصروفات الشهرية للعقار
      */
-    private function calculateMonthlyExpenses($propertyId, $month)
+    private function calculateMonthlyExpenses(int $propertyId, Carbon $month): float
     {
-        // هنا يمكن حساب المصروفات من جدول expenses
-        // مؤقتاً نرجع 0
+        // TODO: حساب المصروفات من جدول expenses
         return 0;
     }
     
     /**
-     * توليد دفعات التوريد لعقد المالك
+     * توليد جدول دفعات التوريد المتوقعة لعقد المالك (للتخطيط المسبق)
+     * تستخدم هذه الدالة عند إنشاء العقد لتوليد جميع الدفعات المتوقعة مقدماً
      */
     public function generateSupplyPaymentsForContract(PropertyContract $contract): int
     {
@@ -254,8 +243,6 @@ class PaymentGeneratorService
             throw new \Exception('مدة العقد لا تتوافق مع تكرار الدفع المحدد');
         }
         
-        // في حالة التوليد التلقائي، نثق بقيمة payments_count المحفوظة
-        // لأنها محسوبة بالفعل عند الحفظ
         $paymentsToGenerate = $contract->payments_count;
         
         DB::beginTransaction();
@@ -314,7 +301,7 @@ class PaymentGeneratorService
             'other_deductions' => 0,
             'net_amount' => 0,
             'supply_status' => 'pending',
-            'due_date' => $periodEnd->copy()->addMonth()->startOfMonth()->addDays(4),
+            'due_date' => $periodEnd->copy()->addDays($this->getPaymentDueDays()),
             'approval_status' => 'pending',
             'month_year' => $periodStart->format('Y-m'),
             'notes' => sprintf(
@@ -337,14 +324,22 @@ class PaymentGeneratorService
     /**
      * الحصول على تسمية التكرار بالعربية
      */
-    private function getFrequencyLabel($frequency)
+    private function getFrequencyLabel(string $frequency): string
     {
         return match($frequency) {
             'monthly' => 'شهري',
             'quarterly' => 'ربع سنوي',
-            'semi_annual', 'semi_annually' => 'نصف سنوي',
-            'annual', 'annually' => 'سنوي',
+            'semi_annually' => 'نصف سنوي',
+            'annually' => 'سنوي',
             default => 'شهري'
         };
+    }
+    
+    /**
+     * الحصول على عدد أيام الاستحقاق من الإعدادات
+     */
+    private function getPaymentDueDays(): int
+    {
+        return (int) Setting::get('payment_due_days', 5);
     }
 }
