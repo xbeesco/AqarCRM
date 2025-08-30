@@ -69,7 +69,7 @@ class CollectionPaymentResource extends Resource
                                     }
                                 }
                             })
-                            ->columnSpan(['lg' => 2, 'xl' => 3]),
+                            ->columnSpan(6),
                         // القيمة المالية
                         TextInput::make('amount')
                             ->label('القيمة المالية')
@@ -77,9 +77,35 @@ class CollectionPaymentResource extends Resource
                             ->required()
                             ->minValue(0.01)
                             ->step(0.01)
-                            ->prefix('SAR')
-                            ->columnSpan(['lg' => 1, 'xl' => 1]),
-                            
+                            ->postfix('ريال')
+                            ->columnSpan(6),
+                        
+                        DatePicker::make('due_date_start')
+                            ->label('بداية التاريخ')
+                            ->visible(fn ($get) => in_array($get('collection_status'), [
+                                CollectionPayment::STATUS_COLLECTED,
+                                CollectionPayment::STATUS_DUE,
+                            ]))
+                            ->required(fn ($get) => in_array($get('collection_status'), [
+                                CollectionPayment::STATUS_COLLECTED,
+                                CollectionPayment::STATUS_DUE,
+                            ]))
+                            ->columnSpan(6)
+                            ->default(now()->startOfMonth()),
+
+                        DatePicker::make('due_date_end')
+                            ->label('إلى التاريخ')
+                            ->visible(fn ($get) => in_array($get('collection_status'), [
+                                CollectionPayment::STATUS_COLLECTED,
+                                CollectionPayment::STATUS_DUE,
+                            ]))
+                            ->required(fn ($get) => in_array($get('collection_status'), [
+                                CollectionPayment::STATUS_COLLECTED,
+                                CollectionPayment::STATUS_DUE,
+                            ]))
+                            ->columnSpan(6)
+                            ->default(now()->endOfMonth()),
+  
                         Select::make('collection_status')
                             ->label('حالة التحصيل')
                             ->required()
@@ -95,44 +121,15 @@ class CollectionPaymentResource extends Resource
                                 $set('delay_duration', null);
                                 $set('late_payment_notes', null);
                             })
-                            ->columnSpan(['lg' => 3, 'xl' => 4]),
+                            ->columnSpan(6),
 
-                        DatePicker::make('due_date_start')
-                            ->label('بداية التاريخ')
-                            ->visible(fn ($get) => in_array($get('collection_status'), [
-                                CollectionPayment::STATUS_COLLECTED,
-                                CollectionPayment::STATUS_DUE,
-                            ]))
-                            ->required(fn ($get) => in_array($get('collection_status'), [
-                                CollectionPayment::STATUS_COLLECTED,
-                                CollectionPayment::STATUS_DUE,
-                            ]))
-                            ->default(now()->startOfMonth()),
-
-                        DatePicker::make('due_date_end')
-                            ->label('إلى التاريخ')
-                            ->visible(fn ($get) => in_array($get('collection_status'), [
-                                CollectionPayment::STATUS_COLLECTED,
-                                CollectionPayment::STATUS_DUE,
-                            ]))
-                            ->required(fn ($get) => in_array($get('collection_status'), [
-                                CollectionPayment::STATUS_COLLECTED,
-                                CollectionPayment::STATUS_DUE,
-                            ]))
-                            ->default(now()->endOfMonth()),
 
                         DatePicker::make('collection_date')
                             ->label('تاريخ التحصيل')
                             ->visible(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_COLLECTED)
                             ->required(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_COLLECTED)
-                            ->default(now()),
-
-                        Textarea::make('delay_reason')
-                            ->label('سبب التأجيل')
-                            ->visible(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_POSTPONED)
-                            ->required(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_POSTPONED)
-                            ->rows(2)
-                            ->columnSpan(['lg' => 2, 'xl' => 3]),
+                            ->default(now())
+                            ->columnSpan(6),
 
                         TextInput::make('delay_duration')
                             ->label('مدة التأجيل بالأيام')
@@ -141,15 +138,19 @@ class CollectionPaymentResource extends Resource
                             ->visible(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_POSTPONED)
                             ->required(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_POSTPONED)
                             ->suffix('يوم')
-                            ->columnSpan(['lg' => 1, 'xl' => 1]),
+                            ->columnSpan(2),
 
-                        // حقل "تجاوزت المدة" - 1 حقل
-                        Textarea::make('late_payment_notes')
+                        TextInput::make('delay_reason')
+                            ->label('سبب التأجيل')
+                            ->visible(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_POSTPONED)
+                            ->required(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_POSTPONED)
+                            ->columnSpan(4),
+
+                        TextInput::make('late_payment_notes')
                             ->label('ملاحظات في حالة تجاوز مدة الدفعة')
                             ->visible(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_OVERDUE)
                             ->required(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_OVERDUE)
-                            ->rows(3)
-                            ->columnSpan(['lg' => 3, 'xl' => 4]),
+                            ->columnSpan(6),
 
                         // Hidden fields للحفظ
                         \Filament\Forms\Components\Hidden::make('unit_id'),
@@ -204,16 +205,25 @@ class CollectionPaymentResource extends Resource
                     }),
 
                 TextColumn::make('due_date_start')
-                    ->label('التاريخ')
+                    ->label('بداية الاستحقاق')
                     ->date('d/m/Y')
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('delay_reason')
+                TextColumn::make('delay_duration')
                     ->label('ملاحظات')
-                    ->limit(30)
-                    ->tooltip(fn ($record) => $record->delay_reason ?? $record->late_payment_notes)
-                    ->placeholder('-'),
+                    ->formatStateUsing(function ($record) {
+                        if ($record->delay_duration && $record->delay_duration > 0) {
+                            $text = $record->delay_duration . ' يوم';
+                            if ($record->delay_reason) {
+                                $text .= ' - السبب: ' . $record->delay_reason;
+                            }
+                            return $text;
+                        }
+                        return '';
+                    })
+                    ->placeholder('')
+                    ->wrap(),
             ])
             ->filters([
                 Filter::make('property_and_unit')

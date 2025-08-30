@@ -14,7 +14,13 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Actions\Action;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use App\Models\Setting;
+use App\Models\UnitContract;
+use App\Models\PropertyContract;
+use App\Models\CollectionPayment;
+use App\Models\SupplyPayment;
+use App\Models\Expense;
 use BackedEnum;
 
 class SystemManagement extends Page implements HasForms
@@ -77,6 +83,22 @@ class SystemManagement extends Page implements HasForms
                                     ->displayFormat('Y-m-d')
                                     ->helperText('حدد التاريخ الذي تريد اختبار النظام عليه'),
                             ]),
+
+                        Tab::make('التنظيف')
+                            ->icon('heroicon-o-trash')
+                            ->schema([
+                                Section::make()
+                                    ->heading('⚠️ تحذير مهم')
+                                    ->description('سيتم حذف جميع البيانات التالية نهائياً:
+                                        • جميع عقود الوحدات
+                                        • جميع عقود الملاك
+                                        • جميع دفعات المستأجرين
+                                        • جميع دفعات الملاك
+                                        • جميع المصروفات
+                                        
+                                        هذا الإجراء لا يمكن التراجع عنه!')
+                                    ->schema([]),
+                            ]),
                     ]),
             ])
             ->statePath('data');
@@ -94,6 +116,17 @@ class SystemManagement extends Page implements HasForms
                 ->modalHeading('تأكيد الحفظ')
                 ->modalDescription('هل أنت متأكد من حفظ هذه الإعدادات؟')
                 ->modalSubmitActionLabel('نعم، احفظ'),
+                
+            Action::make('cleanAllData')
+                ->label('مسح جميع البيانات')
+                ->color('danger')
+                ->icon('heroicon-o-trash')
+                ->requiresConfirmation()
+                ->modalHeading('⚠️ تأكيد المسح النهائي')
+                ->modalDescription('سيتم حذف جميع العقود والدفعات والمصروفات نهائياً. هذا الإجراء لا يمكن التراجع عنه!')
+                ->modalSubmitActionLabel('نعم، امسح كل شيء')
+                ->modalCancelActionLabel('إلغاء')
+                ->action('cleanAllData'),
         ];
     }
 
@@ -131,6 +164,38 @@ class SystemManagement extends Page implements HasForms
                 ->body($e->getMessage())
                 ->danger()
                 ->duration(5000)
+                ->send();
+        }
+    }
+
+    public function cleanAllData(): void
+    {
+        try {
+            DB::transaction(function () {
+                // مسح البيانات بالترتيب الصحيح لتجنب أخطاء التكامل المرجعي
+                // 1. مسح الجداول التابعة أولاً
+                CollectionPayment::query()->delete();  // دفعات المستأجرين
+                SupplyPayment::query()->delete();      // دفعات الملاك
+                Expense::query()->delete();            // المصروفات
+                
+                // 2. مسح الجداول الرئيسية
+                UnitContract::query()->delete();       // عقود الوحدات
+                PropertyContract::query()->delete();   // عقود الملاك
+            });
+            
+            Notification::make()
+                ->title('تم المسح بنجاح')
+                ->body('تم حذف جميع العقود والدفعات والمصروفات بنجاح')
+                ->success()
+                ->duration(5000)
+                ->send();
+                
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('فشل المسح')
+                ->body('حدث خطأ أثناء المسح: ' . $e->getMessage())
+                ->danger()
+                ->duration(10000)
                 ->send();
         }
     }
