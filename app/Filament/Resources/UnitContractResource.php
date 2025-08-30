@@ -269,6 +269,11 @@ class UnitContractResource extends Resource
                     ->searchable()
                     ->sortable(),
 
+                TextColumn::make('start_date')
+                    ->label('بداية العقد')
+                    ->date('d/m/Y')
+                    ->sortable(),
+
                 TextColumn::make('duration_months')
                     ->label('المدة')
                     ->suffix(' شهر'),
@@ -317,6 +322,34 @@ class UnitContractResource extends Resource
                         'unit_contract_id' => $record->id
                     ]) : '#')
                     ->visible(fn ($record) => $record && $record->payments()->exists()),
+                Action::make('generatePayments')
+                    ->label('توليد الدفعات')
+                    ->icon('heroicon-o-calculator')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('توليد دفعات التحصيل')
+                    ->modalDescription(fn ($record) => $record ? "سيتم توليد {$record->payments_count} دفعة للمستأجر" : '')
+                    ->modalSubmitActionLabel('توليد')
+                    ->visible(fn ($record) => $record && $record->canGeneratePayments())
+                    ->action(function ($record) {
+                        try {
+                            $paymentService = app(\App\Services\PaymentGeneratorService::class);
+                            $payments = $paymentService->generateTenantPayments($record);
+                            $count = count($payments);
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->title('تم توليد الدفعات بنجاح')
+                                ->body("تم توليد {$count} دفعة للعقد رقم {$record->contract_number}")
+                                ->success()
+                                ->send();
+                        } catch (\Exception $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('فشل توليد الدفعات')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
                 EditAction::make()
                     ->label('تعديل')
                     ->icon('heroicon-o-pencil-square')->visible(fn () => auth()->user()?->type === 'super_admin'),

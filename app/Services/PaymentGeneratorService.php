@@ -53,7 +53,7 @@ class PaymentGeneratorService
                     'unit_id' => $contract->unit_id,
                     'property_id' => $contract->property_id,
                     'tenant_id' => $contract->tenant_id,
-                    'payment_status_id' => 1, // pending
+                    'collection_status' => 'due', // استخدام 'due' بدلاً من 'pending'
                     'amount' => $baseAmount,
                     'late_fee' => 0,
                     'total_amount' => $baseAmount,

@@ -14,6 +14,8 @@ use Maatwebsite\Excel\Facades\Excel;
 class ListCollectionPayments extends ListRecords
 {
     protected static string $resource = CollectionPaymentResource::class;
+    
+    protected ?int $unitContractId = null;
 
     protected function getHeaderActions(): array
     {
@@ -34,11 +36,26 @@ class ListCollectionPayments extends ListRecords
     {
         parent::mount();
         
-        // Apply unit_contract_id filter from URL if present
-        $unitContractId = request('unit_contract_id');
-        if ($unitContractId) {
-            $this->tableFilters['unit_contract_id']['value'] = $unitContractId;
+        // Get unit_contract_id from URL if present
+        $this->unitContractId = request()->integer('unit_contract_id');
+        
+        // Apply filter if unit_contract_id exists
+        if ($this->unitContractId) {
+            // Set the filter value for the hidden filter
+            $this->tableFilters['unit_contract_id'] = $this->unitContractId;
         }
+    }
+    
+    protected function getTableQuery(): Builder
+    {
+        $query = parent::getTableQuery();
+        
+        // Apply unit_contract_id filter directly to query if present
+        if ($this->unitContractId) {
+            $query->where('unit_contract_id', $this->unitContractId);
+        }
+        
+        return $query;
     }
     
     protected function applySearchToTableQuery(Builder $query): Builder

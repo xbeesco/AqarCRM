@@ -4,16 +4,21 @@ namespace App\Observers;
 
 use App\Models\UnitContract;
 use App\Services\UnitContractService;
+use App\Services\PaymentGeneratorService;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class UnitContractObserver
 {
     protected UnitContractService $contractService;
+    protected PaymentGeneratorService $paymentService;
     
-    public function __construct(UnitContractService $contractService)
-    {
+    public function __construct(
+        UnitContractService $contractService,
+        PaymentGeneratorService $paymentService
+    ) {
         $this->contractService = $contractService;
+        $this->paymentService = $paymentService;
     }
     
     /**
@@ -181,6 +186,9 @@ class UnitContractObserver
             'tenant_id' => $contract->tenant_id,
             'period' => $contract->start_date . ' to ' . $contract->end_date
         ]);
+        
+        // توليد الدفعات تلقائياً
+        $this->generatePaymentsIfNeeded($contract, 'created');
     }
     
     /**
@@ -197,6 +205,47 @@ class UnitContractObserver
                 'contract_id' => $contract->id,
                 'changes' => $changes
             ]);
+        }
+        
+        // توليد الدفعات عند تفعيل العقد أو تغيير البيانات المؤثرة
+        $relevantFields = ['duration_months', 'payment_frequency', 'start_date', 'monthly_rent', 'contract_status'];
+        
+        // التحقق من تفعيل العقد (من غير نشط إلى نشط)
+        $wasActivated = $contract->wasChanged('contract_status') && 
+                       $contract->contract_status === 'active' &&
+                       $contract->getOriginal('contract_status') !== 'active';
+        
+        if (($contract->wasChanged($relevantFields) || $wasActivated) && $contract->canGeneratePayments()) {
+            $this->generatePaymentsIfNeeded($contract, 'updated');
+        }
+    }
+    
+    /**
+     * Generate payments if contract is eligible
+     */
+    protected function generatePaymentsIfNeeded(UnitContract $contract, string $event): void
+    {
+        try {
+            // التحقق من إمكانية توليد الدفعات
+            if (!$contract->canGeneratePayments()) {
+                return;
+            }
+            
+            // التحقق من أن العقد نشط
+            if ($contract->contract_status !== 'active') {
+                return;
+            }
+            
+            // توليد الدفعات
+            $payments = $this->paymentService->generateTenantPayments($contract);
+            $count = count($payments);
+            
+            // تسجيل النجاح
+            Log::info("Auto-generated {$count} collection payments for contract {$contract->contract_number} on {$event}");
+                
+        } catch (\Exception $e) {
+            // تسجيل الخطأ دون إيقاف العملية
+            Log::warning("Failed to auto-generate payments for contract {$contract->contract_number}: " . $e->getMessage());
         }
     }
 }

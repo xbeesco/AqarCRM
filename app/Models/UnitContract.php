@@ -286,5 +286,38 @@ class UnitContract extends Model
         };
     }
     
-// تم إزالة canGenerateCollectionPayments لأن التوليد يتم تلقائياً دائماً
+    /**
+     * Get payments count attribute dynamically.
+     */
+    public function getPaymentsCountAttribute()
+    {
+        return \App\Services\PropertyContractService::calculatePaymentsCount(
+            $this->duration_months ?? 0,
+            $this->payment_frequency ?? 'monthly'
+        );
+    }
+    
+    /**
+     * Check if contract can have payments generated.
+     */
+    public function canGeneratePayments(): bool
+    {
+        // التحقق من وجود دفعات مولدة مسبقاً
+        if ($this->payments()->exists()) {
+            return false;
+        }
+        
+        // التحقق من أن عدد الدفعات صحيح ورقمي
+        $paymentsCount = $this->payments_count;
+        if (!is_numeric($paymentsCount) || $paymentsCount <= 0) {
+            return false;
+        }
+        
+        // التحقق من البيانات المطلوبة
+        return $this->tenant_id && 
+               $this->unit_id && 
+               $this->monthly_rent > 0 &&
+               $this->start_date &&
+               $this->end_date;
+    }
 }

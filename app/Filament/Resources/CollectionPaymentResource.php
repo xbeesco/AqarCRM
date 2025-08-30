@@ -263,6 +263,13 @@ class CollectionPaymentResource extends Resource
                 SelectFilter::make('collection_status')
                     ->label('حالة التحصيل')
                     ->options(CollectionPayment::getStatusOptions()),
+                    
+                SelectFilter::make('unit_contract_id')
+                    ->label('العقد')
+                    ->relationship('unitContract', 'contract_number')
+                    ->searchable()
+                    ->preload()
+                    ->hidden(), // مخفي افتراضياً، يظهر فقط عند الحاجة
             ])
             ->recordActions([
                                 EditAction::make()
