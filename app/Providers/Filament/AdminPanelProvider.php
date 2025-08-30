@@ -113,10 +113,10 @@ class AdminPanelProvider extends PanelProvider
                                 //     ->icon('heroicon-o-squares-plus')
                                 //     ->url(fn (): string => \App\Filament\Pages\ModulesManager::getUrl())
                                 //     ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.modules-manager')),
-                                NavigationItem::make('Generator')
+                                NavigationItem::make('System Management')
                                     ->icon('heroicon-o-cog-6-tooth')
-                                    ->url(fn (): string => \App\Filament\Pages\Generator::getUrl())
-                                    ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.generator'))
+                                    ->url(fn (): string => \App\Filament\Pages\SystemManagement::getUrl())
+                                    ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.system-management'))
                                     ->visible(fn (): bool => auth()->user()?->type === 'super_admin'),
                             ])
                             ->collapsed(),
