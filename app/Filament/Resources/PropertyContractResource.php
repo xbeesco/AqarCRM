@@ -203,20 +203,41 @@ class PropertyContractResource extends Resource
                     ->searchable()
                     ->sortable(),
 
+                TextColumn::make('start_date')
+                    ->label('تاريخ البداية')
+                    ->date('d/m/Y')
+                    ->sortable(),
+
                 TextColumn::make('duration_months')
                     ->label('المدة')
                     ->suffix(' شهر')
-                    ->sortable()
-                    ->alignCenter(),
+                    ->sortable(),
 
                 TextColumn::make('end_date')
                     ->label('تاريخ الانتهاء')
                     ->date('d/m/Y'),
 
+                TextColumn::make('payment_frequency')
+                    ->label('نوع التوريد')
+                    ->formatStateUsing(fn ($state) => match($state) {
+                        'monthly' => 'شهري',
+                        'quarterly' => 'ربع سنوي',
+                        'semi_annually' => 'نصف سنوي',
+                        'annually' => 'سنوي',
+                        default => $state
+                    })
+                    ->badge()
+                    ->color(fn ($state) => match($state) {
+                        'monthly' => 'success',
+                        'quarterly' => 'info',
+                        'semi_annually' => 'warning',
+                        'annually' => 'danger',
+                        default => 'gray'
+                    }),
+
                 TextColumn::make('commission_rate')
                     ->label('النسبة المتفق عليها')
-                    ->suffix('%')
-                    ->alignCenter(),
+                    ->suffix('%'),
             ])
             ->filters([
                 SelectFilter::make('property_id')
