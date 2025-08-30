@@ -3,15 +3,14 @@
 namespace App\Filament\Pages;
 
 use Filament\Pages\Page;
-use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Tabs;
-use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Contracts\HasForms;
+use Filament\Schemas\Concerns\InteractsWithSchemas;
+use Filament\Schemas\Contracts\HasSchemas;
+use Filament\Schemas\Schema;
 use Filament\Actions\Action;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -23,9 +22,9 @@ use App\Models\SupplyPayment;
 use App\Models\Expense;
 use BackedEnum;
 
-class SystemManagement extends Page implements HasForms
+class SystemManagement extends Page implements HasSchemas
 {
-    use InteractsWithForms;
+    use InteractsWithSchemas;
     
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
     protected static ?string $navigationLabel = 'إدارة النظام';
@@ -37,12 +36,21 @@ class SystemManagement extends Page implements HasForms
     protected string $view = 'filament.pages.system-management';
 
     public ?array $data = [];
+    public ?array $cleanupData = [];
 
     public static function canAccess(): bool
     {
         return Auth::user()?->type === 'super_admin';
     }
 
+    protected function getSchemas(): array
+    {
+        return [
+            'form',
+            'cleanupForm',
+        ];
+    }
+    
     public function mount(): void
     {
         if (!static::canAccess()) {
@@ -52,56 +60,70 @@ class SystemManagement extends Page implements HasForms
         // Load settings from database or use defaults
         $this->form->fill([
             'allowed_delay_days' => Setting::get('allowed_delay_days', 5),
+            'payment_due_days' => Setting::get('payment_due_days', 5),
             'test_date' => Setting::get('test_date', null),
+        ]);
+        
+        // Initialize cleanup form
+        $this->cleanupForm->fill([
+            'cleanup_type' => 'financial',
+            'confirmation_text' => '',
         ]);
     }
 
     public function form(Schema $schema): Schema
     {
         return $schema
-            ->schema([
-                Tabs::make('System Management')
-                    ->tabs([
-                        Tab::make('الإعدادات العامة')
-                            ->icon('heroicon-o-cog')
-                            ->schema([
-                                TextInput::make('allowed_delay_days')
-                                    ->label('مدة التأخير المسموحة (بالأيام)')
-                                    ->numeric()
-                                    ->default(5)
-                                    ->minValue(0)
-                                    ->maxValue(30)
-                                    ->suffix('أيام'),
-                            ]),
-
-                        Tab::make('الاختبار')
-                            ->icon('heroicon-o-beaker')
-                            ->schema([
-                                DatePicker::make('test_date')
-                                    ->label('يوم الاختبار المطلوب')
-                                    ->native(false)
-                                    ->displayFormat('Y-m-d')
-                                    ->helperText('حدد التاريخ الذي تريد اختبار النظام عليه'),
-                            ]),
-
-                        Tab::make('التنظيف')
-                            ->icon('heroicon-o-trash')
-                            ->schema([
-                                Section::make()
-                                    ->heading('⚠️ تحذير مهم')
-                                    ->description('سيتم حذف جميع البيانات التالية نهائياً:
-                                        • جميع عقود الوحدات
-                                        • جميع عقود الملاك
-                                        • جميع دفعات المستأجرين
-                                        • جميع دفعات الملاك
-                                        • جميع المصروفات
-                                        
-                                        هذا الإجراء لا يمكن التراجع عنه!')
-                                    ->schema([]),
-                            ]),
+            ->components([
+                Section::make('إعدادات النظام')
+                    ->columns(2)
+                    ->schema([
+                        TextInput::make('allowed_delay_days')
+                            ->label('مدة التأخير المسموحة (بالأيام)')
+                            ->numeric()
+                            ->default(5)
+                            ->minValue(0)
+                            ->maxValue(30)
+                            ->suffix('أيام'),
+                            
+                        TextInput::make('payment_due_days')
+                            ->label('أيام الاستحقاق بعد نهاية الفترة')
+                            ->numeric()
+                            ->default(5)
+                            ->minValue(0)
+                            ->maxValue(30)
+                            ->suffix('أيام'),
+                            
+                        DatePicker::make('test_date')
+                            ->label('يوم الاختبار المطلوب')
+                            ->native(false)
+                            ->displayFormat('Y-m-d')
+                            ->columnSpanFull(),
                     ]),
             ])
             ->statePath('data');
+    }
+    
+    public function cleanupForm(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                Section::make('⚠️ تحذير: هذا الإجراء لا يمكن التراجع عنه!')
+                    ->schema([
+                        Select::make('cleanup_type')
+                            ->label('حذف بيانات النظام')
+                            ->options([
+                                'financial' => 'الماليات فقط (دفعات المستأجرين + دفعات الملاك + المصروفات)',
+                                'all' => 'كل البيانات (العقود + الدفعات + المصروفات)',
+                            ])
+                            ->default('financial')
+                            ->required()
+                            ->native(false),
+                            
+                    ])
+                    ->columns(1),
+            ])
+            ->statePath('cleanupData');
     }
 
     protected function getFormActions(): array
@@ -116,18 +138,86 @@ class SystemManagement extends Page implements HasForms
                 ->modalHeading('تأكيد الحفظ')
                 ->modalDescription('هل أنت متأكد من حفظ هذه الإعدادات؟')
                 ->modalSubmitActionLabel('نعم، احفظ'),
-                
-            Action::make('cleanAllData')
-                ->label('مسح جميع البيانات')
+        ];
+    }
+    
+    protected function getCleanupFormActions(): array
+    {
+        return [
+            Action::make('executeCleanup')
+                ->label('تنفيذ التنظيف')
                 ->color('danger')
                 ->icon('heroicon-o-trash')
+                ->action('executeCleanup')
                 ->requiresConfirmation()
-                ->modalHeading('⚠️ تأكيد المسح النهائي')
-                ->modalDescription('سيتم حذف جميع العقود والدفعات والمصروفات نهائياً. هذا الإجراء لا يمكن التراجع عنه!')
-                ->modalSubmitActionLabel('نعم، امسح كل شيء')
-                ->modalCancelActionLabel('إلغاء')
-                ->action('cleanAllData'),
+                ->modalHeading('⚠️ تأكيد نهائي للحذف')
+                ->modalDescription(fn () => 
+                    ($this->cleanupData['cleanup_type'] ?? 'financial') === 'financial'
+                        ? '⚠️ سيتم حذف جميع دفعات المستأجرين ودفعات الملاك والمصروفات نهائياً. هذا الإجراء لا يمكن التراجع عنه!'
+                        : '⚠️⚠️⚠️ سيتم حذف جميع العقود والدفعات والمصروفات نهائياً. هذا الإجراء خطير جداً ولا يمكن التراجع عنه!'
+                )
+                ->modalSubmitActionLabel(fn () => 
+                    ($this->cleanupData['cleanup_type'] ?? 'financial') === 'financial'
+                        ? 'نعم، امسح البيانات المالية نهائياً'
+                        : 'نعم، امسح كل شيء نهائياً'
+                )
+                ->modalIcon('heroicon-o-exclamation-triangle')
+                ->modalIconColor('danger')
+                ->modalCancelActionLabel('إلغاء'),
         ];
+    }
+    
+    public function executeCleanup(): void
+    {
+        try {
+            $data = $this->cleanupForm->getState();
+            
+            DB::transaction(function () use ($data) {
+                $cleanupType = $data['cleanup_type'] ?? 'financial';
+                
+                if ($cleanupType === 'financial') {
+                    $this->cleanFinancialData();
+                } else {
+                    $this->cleanAllDataCompletely();
+                }
+            });
+            
+            $cleanupType = $data['cleanup_type'] ?? 'financial';
+            $message = $cleanupType === 'financial' 
+                ? 'تم حذف جميع البيانات المالية بنجاح'
+                : 'تم حذف جميع العقود والدفعات والمصروفات بنجاح';
+            
+            logger()->info('System Data Cleanup Executed', [
+                'user' => Auth::user()->email,
+                'cleanup_type' => $cleanupType,
+                'timestamp' => now(),
+            ]);
+            
+            Notification::make()
+                ->title('تم التنظيف بنجاح')
+                ->body($message)
+                ->success()
+                ->duration(5000)
+                ->send();
+            
+            // Reset the form
+            $this->cleanupForm->fill([
+                'cleanup_type' => 'financial',
+            ]);
+            
+        } catch (\Exception $e) {
+            logger()->error('Data Cleanup Failed', [
+                'error' => $e->getMessage(),
+                'user' => Auth::user()->email,
+            ]);
+            
+            Notification::make()
+                ->title('فشلت عملية التنظيف')
+                ->body('حدث خطأ: ' . $e->getMessage())
+                ->danger()
+                ->duration(10000)
+                ->send();
+        }
     }
 
     public function saveSettings(): void
@@ -138,6 +228,7 @@ class SystemManagement extends Page implements HasForms
             // Save settings to database
             Setting::setMany([
                 'allowed_delay_days' => $data['allowed_delay_days'] ?? 5,
+                'payment_due_days' => $data['payment_due_days'] ?? 5,
                 'test_date' => $data['test_date'] ?? null,
             ]);
             
@@ -171,21 +262,23 @@ class SystemManagement extends Page implements HasForms
     public function cleanAllData(): void
     {
         try {
-            DB::transaction(function () {
-                // مسح البيانات بالترتيب الصحيح لتجنب أخطاء التكامل المرجعي
-                // 1. مسح الجداول التابعة أولاً
-                CollectionPayment::query()->delete();  // دفعات المستأجرين
-                SupplyPayment::query()->delete();      // دفعات الملاك
-                Expense::query()->delete();            // المصروفات
-                
-                // 2. مسح الجداول الرئيسية
-                UnitContract::query()->delete();       // عقود الوحدات
-                PropertyContract::query()->delete();   // عقود الملاك
+            $cleanupType = $this->form->getState()['cleanup_type'] ?? 'financial';
+            
+            DB::transaction(function () use ($cleanupType) {
+                if ($cleanupType === 'financial') {
+                    $this->cleanFinancialData();
+                } else {
+                    $this->cleanAllDataCompletely();
+                }
             });
+            
+            $message = $cleanupType === 'financial' 
+                ? 'تم حذف جميع البيانات المالية بنجاح'
+                : 'تم حذف جميع العقود والدفعات والمصروفات بنجاح';
             
             Notification::make()
                 ->title('تم المسح بنجاح')
-                ->body('تم حذف جميع العقود والدفعات والمصروفات بنجاح')
+                ->body($message)
                 ->success()
                 ->duration(5000)
                 ->send();
@@ -198,6 +291,30 @@ class SystemManagement extends Page implements HasForms
                 ->duration(10000)
                 ->send();
         }
+    }
+    
+    /**
+     * مسح البيانات المالية فقط
+     */
+    private function cleanFinancialData(): void
+    {
+        // مسح الدفعات والمصروفات فقط
+        CollectionPayment::query()->delete();  // دفعات المستأجرين
+        SupplyPayment::query()->delete();      // دفعات الملاك
+        Expense::query()->delete();            // المصروفات
+    }
+    
+    /**
+     * مسح جميع البيانات بالكامل
+     */
+    private function cleanAllDataCompletely(): void
+    {
+        // 1. مسح الجداول التابعة أولاً
+        $this->cleanFinancialData();
+        
+        // 2. مسح الجداول الرئيسية
+        UnitContract::query()->delete();       // عقود الوحدات
+        PropertyContract::query()->delete();   // عقود الملاك
     }
 
 }
