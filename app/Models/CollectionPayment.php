@@ -64,6 +64,11 @@ class CollectionPayment extends Model
                 $payment->payment_number = self::generatePaymentNumber();
             }
             
+            // قيمة افتراضية لحالة الدفعة
+            if (empty($payment->payment_status_id)) {
+                $payment->payment_status_id = 2;  // Due - تستحق التحصيل
+            }
+            
             // قيمة افتراضية للغرامة
             if (is_null($payment->late_fee)) {
                 $payment->late_fee = 0;

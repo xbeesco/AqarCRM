@@ -59,13 +59,8 @@ class UnitContract extends Model
         static::creating(function ($contract) {
             // Generate contract number if not set
             if (empty($contract->contract_number)) {
-                $year = date('Y');
-                $lastContract = static::whereYear('created_at', $year)
-                    ->orderBy('id', 'desc')
-                    ->first();
-                
-                $number = $lastContract ? intval(substr($lastContract->contract_number, -4)) + 1 : 1;
-                $contract->contract_number = sprintf('UC-%s-%04d', $year, $number);
+                // استخدام timestamp بالميلي ثانية لضمان عدم التكرار
+                $contract->contract_number = 'UC-' . round(microtime(true) * 1000);
             }
             
             // Calculate end_date if not set

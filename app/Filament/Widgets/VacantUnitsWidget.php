@@ -52,11 +52,6 @@ class VacantUnitsWidget extends BaseWidget
                     ->getStateUsing(fn ($record) => $record->rent_price * 12)
                     ->money('SAR'),
             ])
-            ->defaultGroup(
-                Group::make('property.name')
-                    ->label('العقار')
-                    ->collapsible()
-            )
             ->defaultSort('property_id', 'asc')
             ->filters([
                 Tables\Filters\SelectFilter::make('property_id')
