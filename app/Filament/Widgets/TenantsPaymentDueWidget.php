@@ -51,25 +51,25 @@ class TenantsPaymentDueWidget extends BaseWidget
                     ->searchable(),
 
                 Tables\Columns\TextColumn::make('amount')
-                    ->label('قيمة الدفعة')
-                    ->money('SAR'),
+                    ->label('القيمة')
+                    ->money('SAR')
+                    ->searchable(),
 
                 Tables\Columns\TextColumn::make('due_date_start')
-                    ->label('تاريخ الدفعة')
-                    ->date('Y-m-d')
-                    ->sortable(),
+                    ->label('التاريخ')
+                    ->date('d/m')
+                    ->searchable(),
 
                 Tables\Columns\TextColumn::make('tenant.phone')
-                    ->label('رقم الهاتف')
-                    ->searchable()
-                    ->default('-'),
+                    ->label('الهاتف')
+                    ->searchable(),
 
                 Tables\Columns\TextColumn::make('payment_status_label')
                     ->label('الحالة')
                     ->badge()
-                    ->color(fn ($record): string => $record->payment_status_color),
-
-
+                    ->color(fn ($record): string => 
+                        $record->payment_status_enum === PaymentStatus::OVERDUE ? 'danger' : 'gray'
+                    ),
             ])
             ->recordActions([
                 Action::make('postpone')
@@ -147,6 +147,7 @@ class TenantsPaymentDueWidget extends BaseWidget
 
             ])
             ->paginated([10, 25, 50])
+            ->poll('30s')
             ->emptyStateHeading('لا توجد دفعات مستحقة')
             ->emptyStateDescription('جميع المستحقات محصلة ')
             ->emptyStateIcon('heroicon-o-check-circle');

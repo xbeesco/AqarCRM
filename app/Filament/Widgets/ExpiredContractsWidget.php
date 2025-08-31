@@ -46,35 +46,29 @@ class ExpiredContractsWidget extends BaseWidget
                     
                 Tables\Columns\TextColumn::make('contract_number')
                     ->label('رقم العقد')
-                    ->searchable()
-                    ->copyable()
-                    ->copyMessage('تم نسخ رقم العقد')
-                    ->weight('bold'),
+                    ->searchable(),
                     
                 Tables\Columns\TextColumn::make('property.name')
-                    ->label('اسم العقار')
-                    ->searchable()
-                    ->badge()
-                    ->color('info'),
+                    ->label('العقار')
+                    ->searchable(),
                     
                 Tables\Columns\TextColumn::make('unit.name')
-                    ->label('اسم الوحدة')
-                    ->searchable()
-                    ->badge()
-                    ->color('primary'),
+                    ->label('الوحدة')
+                    ->searchable(),
                     
                 Tables\Columns\TextColumn::make('tenant.name')
-                    ->label('اسم المستأجر')
-                    ->searchable()
-                    ->description(fn ($record) => $record->tenant?->phone ?? '-'),
+                    ->label('المستأجر')
+                    ->searchable(),
+                    
+                Tables\Columns\TextColumn::make('tenant.phone')
+                    ->label('الهاتف')
+                    ->searchable(),
                     
                 Tables\Columns\TextColumn::make('end_date')
-                    ->label('تاريخ انتهاء العقد')
-                    ->date('Y-m-d')
-                    ->sortable()
+                    ->label('انتهى في')
+                    ->date('d/m/Y')
                     ->color('danger')
-                    ->weight('bold')
-                    ->icon('heroicon-o-calendar'),
+                    ->searchable(),
                    // مش عاوزه دي هسيبها لو اتطلبت 
                 // Tables\Columns\TextColumn::make('days_expired')
                 //     ->label('منتهي منذ')
@@ -119,7 +113,6 @@ class ExpiredContractsWidget extends BaseWidget
                     ->query(fn ($query) => $query->where('end_date', '<', $this->getToday()->subDays(60))),
             ])
             ->paginated([10, 25, 50])
-            ->striped()
             ->poll('30s')
             ->emptyStateHeading('لا توجد عقود منتهية')
             ->emptyStateDescription('جميع العقود سارية أو تم تجديدها')

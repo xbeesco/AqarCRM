@@ -45,75 +45,44 @@ class PostponedPaymentsWidget extends BaseWidget
                     ->rowIndex(),
                     
                 Tables\Columns\TextColumn::make('payment_number')
-                    ->label('رقم الدفعة')
-                    ->searchable(),
+                    ->label('الرقم'),
                     
                 Tables\Columns\TextColumn::make('tenant.name')
-                    ->label('المستأجر')
-                    ->searchable()
-                    ->description(fn ($record) => $record->tenant?->phone ?? '-'),
+                    ->label('المستأجر'),
                     
                 Tables\Columns\TextColumn::make('property.name')
-                    ->label('العقار')
-                    ->searchable()
-                    ->limit(20)
-                    ->tooltip(fn ($record) => $record->property?->name),
+                    ->label('العقار'),
                     
                 Tables\Columns\TextColumn::make('unit.name')
-                    ->label('رقم الوحدة')
-                    ->searchable()
-                    ->badge()
-                    ->color('info'),
+                    ->label('الوحدة'),
                     
                 Tables\Columns\TextColumn::make('total_amount')
                     ->label('المبلغ')
-                    ->money('SAR')
-                    ->alignCenter()
-                    ->weight('bold')
-                    ->color('danger'),
+                    ->money('SAR'),
                     
-                Tables\Columns\TextColumn::make('due_period')
-                    ->label('فترة التحصيل')
-                    ->getStateUsing(function ($record) {
-                        $start = Carbon::parse($record->due_date_start)->format('Y/m/d');
-                        $end = Carbon::parse($record->due_date_end)->format('Y/m/d');
-                        return "من {$start} إلى {$end}";
-                    })
-                    ->wrap(),
+                Tables\Columns\TextColumn::make('due_date_start')
+                    ->label('التاريخ')
+                    ->date('d/m'),
                     
                 Tables\Columns\TextColumn::make('delay_duration')
-                    ->label('مدة التأجيل')
+                    ->label('التأجيل')
                     ->getStateUsing(function ($record) {
                         if (!$record->delay_duration) {
-                            // احسب المدة من التاريخ باستخدام DateHelper
                             $days = Carbon::parse($record->due_date_end)->diffInDays(DateHelper::getCurrentDate());
                             return "{$days} يوم";
                         }
                         return "{$record->delay_duration} يوم";
                     })
                     ->badge()
-                    ->color(fn ($state) => intval($state) > 30 ? 'danger' : 'warning'),
+                    ->color(fn ($state) => intval($state) > 30 ? 'danger' : 'gray'),
                     
                 Tables\Columns\TextColumn::make('delay_reason')
-                    ->label('سبب التأجيل')
+                    ->label('السبب')
                     ->limit(30)
-                    ->tooltip(fn ($record) => $record->delay_reason)
-                    ->default('غير محدد')
-                    ->wrap(),
+                    ->tooltip(fn ($record) => $record->delay_reason),
                     
-                Tables\Columns\TextColumn::make('late_payment_notes')
-                    ->label('ملاحظات')
-                    ->limit(30)
-                    ->tooltip(fn ($record) => $record->late_payment_notes)
-                    ->default('-')
-                    ->wrap(),
-                    
-                Tables\Columns\TextColumn::make('payment_status_label')
-                    ->label('الحالة')
-                    ->getStateUsing(fn () => 'مؤجلة')
-                    ->badge()
-                    ->color('warning')
-                    ->icon('heroicon-o-clock'),
+                Tables\Columns\TextColumn::make('tenant.phone')
+                    ->label('الهاتف'),
             ])
             ->defaultSort('due_date_end', 'asc')
             ->filters([
@@ -162,9 +131,7 @@ class PostponedPaymentsWidget extends BaseWidget
            ])
             ->bulkActions([
             ])
-            ->paginated([5, 10, 25, 50])
-            ->striped()
-            ->poll('30s')
+            ->paginated([10, 25, 50])
             ->emptyStateHeading('لا توجد دفعات مؤجلة')
             ->emptyStateDescription('جميع الدفعات في حالة جيدة')
             ->emptyStateIcon('heroicon-o-check-circle');
