@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Carbon\Carbon;
 use App\Helpers\DateHelper;
 use App\Models\Setting;
+use App\Enums\PaymentStatus;
 
 class CollectionPayment extends Model
 {
@@ -302,6 +303,73 @@ class CollectionPayment extends Model
         return $query->whereNotNull('collection_date');
     }
 
+    // Attributes using Enum
+    /**
+     * الحصول على حالة الدفعة باستخدام Enum
+     */
+    public function getPaymentStatusEnumAttribute(): PaymentStatus
+    {
+        return PaymentStatus::determineFor($this);
+    }
+    
+    /**
+     * الحصول على اسم الحالة بالعربية
+     */
+    public function getPaymentStatusLabelAttribute(): string
+    {
+        return $this->payment_status_enum->label();
+    }
+    
+    /**
+     * الحصول على لون الحالة
+     */
+    public function getPaymentStatusColorAttribute(): string
+    {
+        return $this->payment_status_enum->color();
+    }
+    
+    /**
+     * هل يمكن تأجيل الدفعة؟
+     */
+    public function getCanBePostponedAttribute(): bool
+    {
+        return $this->collection_date === null && 
+               ($this->delay_duration === null || $this->delay_duration == 0);
+    }
+    
+    /**
+     * هل يمكن تأكيد استلام الدفعة؟
+     */
+    public function getCanBeCollectedAttribute(): bool
+    {
+        return $this->collection_date === null;
+    }
+    
+    /**
+     * تأجيل الدفعة
+     */
+    public function postpone(int $days, string $reason): void
+    {
+        $this->update([
+            'delay_duration' => $days,
+            'delay_reason' => $reason,
+            'collection_status' => PaymentStatus::POSTPONED->value,
+        ]);
+    }
+    
+    /**
+     * تأكيد استلام الدفعة
+     */
+    public function markAsCollected(): void
+    {
+        $currentDate = DateHelper::getCurrentDate();
+        $this->update([
+            'collection_date' => $currentDate,
+            'paid_date' => $currentDate,
+            'collection_status' => PaymentStatus::COLLECTED->value,
+        ]);
+    }
+    
     // Methods
     public static function generatePaymentNumber(): string
     {
