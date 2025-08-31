@@ -36,7 +36,7 @@ class PostponedPaymentsWidget extends BaseWidget
                     ->select(['id', 'payment_number', 'tenant_id', 'unit_id', 'property_id', 
                              'amount', 'total_amount', 'delay_reason', 'delay_duration',
                              'due_date_start', 'due_date_end', 'late_payment_notes',
-                             'collection_status', 'created_at'])
+                             'created_at'])
                     ->orderBy('due_date_end', 'asc')
             )
             ->columns([
@@ -108,9 +108,10 @@ class PostponedPaymentsWidget extends BaseWidget
                     ->default('-')
                     ->wrap(),
                     
-                Tables\Columns\BadgeColumn::make('collection_status')
+                Tables\Columns\TextColumn::make('payment_status_label')
                     ->label('الحالة')
                     ->getStateUsing(fn () => 'مؤجلة')
+                    ->badge()
                     ->color('warning')
                     ->icon('heroicon-o-clock'),
             ])
