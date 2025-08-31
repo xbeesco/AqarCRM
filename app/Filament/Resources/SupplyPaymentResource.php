@@ -176,28 +176,55 @@ class SupplyPaymentResource extends Resource
                 TextColumn::make('supply_status')
                     ->label('الحالة')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'pending' => 'warning',
-                        'worth_collecting' => 'info',
-                        'collected' => 'success',
-                        default => 'gray',
-                    })
-                    ->formatStateUsing(fn ($state) => match($state) {
-                        'pending' => 'قيد الانتظار',
-                        'worth_collecting' => 'تستحق التوريد',
-                        'collected' => 'تم التوريد',
-                        default => $state,
-                    }),
+                    ->color(fn ($record): string => 
+                        $record->delay_duration > 0 ? 'info' : match ($record->supply_status) {
+                            'pending' => 'warning',
+                            'worth_collecting' => 'info',
+                            'collected' => 'success',
+                            default => 'gray',
+                        }
+                    )
+                    ->formatStateUsing(fn ($record) => 
+                        $record->delay_duration > 0 
+                            ? 'مؤجل لمدة ' . $record->delay_duration . ' يوم'
+                            : match($record->supply_status) {
+                                'pending' => 'قيد الانتظار',
+                                'worth_collecting' => 'تستحق التوريد',
+                                'collected' => 'تم التوريد',
+                                default => $record->supply_status,
+                            }
+                    ),
 
                 TextColumn::make('due_date')
                     ->label('تاريخ الاستحقاق')
                     ->date('d/m/Y')
                     ->sortable(),
+                    
+                TextColumn::make('delay_reason')
+                    ->label('سبب التأجيل')
+                    ->placeholder('—')
+                    ->visible(fn () => false) // مخفي افتراضياً
+                    ->toggleable(), // يمكن إظهاره من إعدادات الجدول
 
                 TextColumn::make('paid_date')
                     ->label('تاريخ التوريد')
                     ->date('d/m/Y')
                     ->sortable(),
+                    
+                TextColumn::make('delay_duration')
+                    ->label('الملاحظات')
+                    ->formatStateUsing(function ($record) {
+                        if ($record->delay_duration && $record->delay_duration > 0) {
+                            $text = $record->delay_duration . ' يوم';
+                            if ($record->delay_reason) {
+                                $text .= ' - السبب: ' . $record->delay_reason;
+                            }
+                            return $text;
+                        }
+                        return $record->notes ?? '';
+                    })
+                    ->placeholder('')
+                    ->wrap(),
             ])
             ->filters([
                 SelectFilter::make('owner_id')
@@ -239,10 +266,87 @@ class SupplyPaymentResource extends Resource
                     ]),
             ])
             ->recordActions([
-                EditAction::make()
-                    ->label('تعديل')
-                    ->icon('heroicon-o-pencil-square'),
-
+                // زر التأجيل
+                \Filament\Actions\Action::make('postpone_payment')
+                    ->label('تأجيل')
+                    ->icon('heroicon-o-clock')
+                    ->color('warning')
+                    ->form([
+                        TextInput::make('delay_days')
+                            ->label('مدة التأجيل (بالأيام)')
+                            ->numeric()
+                            ->required()
+                            ->minValue(1)
+                            ->maxValue(90)
+                            ->default(7)
+                            ->suffix('يوم'),
+                            
+                        Textarea::make('delay_reason')
+                            ->label('سبب التأجيل')
+                            ->required()
+                            ->rows(3)
+                            ->placeholder('اذكر سبب التأجيل...')
+                    ])
+                    ->modalHeading('تأجيل التوريد')
+                    ->modalSubmitActionLabel('تأجيل')
+                    ->modalIcon('heroicon-o-clock')
+                    ->modalIconColor('warning')
+                    ->visible(fn ($record) => 
+                        $record && 
+                        $record->supply_status !== 'collected' &&
+                        (!$record->delay_duration || $record->delay_duration == 0)
+                    )
+                    ->action(function ($record, array $data) {
+                        $newDueDate = now()->addDays($data['delay_days']);
+                        
+                        // نفس طريقة دفعات التحصيل تماماً
+                        $record->update([
+                            'due_date' => $newDueDate,
+                            'delay_duration' => $data['delay_days'],
+                            'delay_reason' => $data['delay_reason'],
+                        ]);
+                        
+                        // تحديث مباشر للتأكد من الحفظ
+                        $record->refresh();
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('تم تأجيل التوريد')
+                            ->body("تم تأجيل التوريد لمدة {$data['delay_days']} يوم")
+                            ->warning()
+                            ->send();
+                    }),
+                    
+                // زر تأكيد التوريد
+                \Filament\Actions\Action::make('confirm_payment')
+                    ->label('تأكيد التوريد')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('تأكيد توريد المبلغ')
+                    ->modalDescription(fn ($record) => 
+                        "أقر أنا " . auth()->user()->name . " بتوريد مبلغ وقدره " . 
+                        number_format($record->net_amount, 2) . " ريال سعودي للمالك " .
+                        $record->owner?->name
+                    )
+                    ->modalSubmitActionLabel('تأكيد التوريد')
+                    ->modalIcon('heroicon-o-check-circle')
+                    ->modalIconColor('success')
+                    ->visible(fn ($record) => 
+                        $record && $record->supply_status !== 'collected'
+                    )
+                    ->action(function ($record) {
+                        $record->update([
+                            'supply_status' => 'collected',
+                            'paid_date' => now(),
+                            'collected_by' => auth()->id(),
+                        ]);
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('تم تأكيد التوريد')
+                            ->body('تم تسجيل توريد المبلغ للمالك بنجاح')
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->defaultSort('created_at', 'desc')
             ->defaultPaginationPageOption(25)

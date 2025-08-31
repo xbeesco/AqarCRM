@@ -21,6 +21,9 @@ class SupplyPayment extends Model
         'supply_status',
         'due_date',
         'paid_date',
+        'collected_by',
+        'delay_duration',
+        'delay_reason',
         'approval_status',
         'approved_by',
         'approved_at',
@@ -83,6 +86,11 @@ class SupplyPayment extends Model
     public function transaction(): MorphOne
     {
         return $this->morphOne(Transaction::class, 'transactionable');
+    }
+
+    public function collectedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'collected_by');
     }
 
     // Scopes

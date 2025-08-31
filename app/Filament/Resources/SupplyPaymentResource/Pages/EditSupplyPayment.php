@@ -14,7 +14,7 @@ class EditSupplyPayment extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            //
+            ViewAction::make(),
         ];
     }
     
@@ -26,5 +26,14 @@ class EditSupplyPayment extends EditRecord
     public function getMaxContentWidth(): ?string
     {
         return 'full'; // يجعل المحتوى يأخذ العرض الكامل
+    }
+    
+    // منع التعديل المباشر - إعادة التوجيه إلى صفحة العرض
+    public function mount(int | string $record): void
+    {
+        parent::mount($record);
+        
+        // إعادة التوجيه إلى صفحة العرض بدلاً من التعديل
+        $this->redirect($this->getResource()::getUrl('view', ['record' => $record]));
     }
 }
