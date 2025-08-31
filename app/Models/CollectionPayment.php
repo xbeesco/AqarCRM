@@ -34,6 +34,7 @@ class CollectionPayment extends Model
         'due_date_end',
         'paid_date',
         'collection_date',  // تاريخ التحصيل الفعلي
+        'collected_by',     // الموظف الذي حصّل الدفعة
         'delay_duration',   // عدد أيام التأجيل
         'delay_reason',
         'late_payment_notes',
@@ -124,6 +125,11 @@ class CollectionPayment extends Model
     public function transaction(): MorphOne
     {
         return $this->morphOne(Transaction::class, 'transactionable');
+    }
+
+    public function collectedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'collected_by');
     }
 
     // Scopes
