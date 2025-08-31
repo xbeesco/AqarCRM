@@ -14,7 +14,7 @@ class PropertyPrintController extends Controller
     {
         // حساب الإجماليات
         $collectionTotal = CollectionPayment::where('property_id', $property->id)
-            ->where('collection_status', 'collected')
+            ->collectedPayments()
             ->sum('total_amount');
             
         $supplyTotal = SupplyPayment::whereHas('propertyContract', function ($query) use ($property) {
@@ -25,7 +25,7 @@ class PropertyPrintController extends Controller
         
         // بيانات الجدول الأول
         $nextPayment = CollectionPayment::where('property_id', $property->id)
-            ->where('collection_status', 'due')
+            ->dueForCollection()
             ->orderBy('due_date_start')
             ->first();
             
@@ -35,7 +35,7 @@ class PropertyPrintController extends Controller
             'units_count' => $property->units()->count(),
             'property_status' => $property->status ?? 'متاح',
             'collected_rent' => CollectionPayment::where('property_id', $property->id)
-                ->where('collection_status', 'collected')
+                ->collectedPayments()
                 ->whereMonth('collection_date', now()->month)
                 ->sum('total_amount'),
             'next_collection' => $nextPayment?->total_amount ?? 0,
@@ -47,7 +47,7 @@ class PropertyPrintController extends Controller
         
         // إضافة عمليات التحصيل
         $collectionOperations = CollectionPayment::where('property_id', $property->id)
-            ->where('collection_status', 'collected')
+            ->collectedPayments()
             ->get();
             
         foreach ($collectionOperations as $collection) {
