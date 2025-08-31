@@ -21,6 +21,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Support\Facades\Hash;
+use Filament\Facades\Filament;
 
 class UserResource extends Resource
 {
@@ -33,6 +34,33 @@ class UserResource extends Resource
     protected static ?string $pluralModelLabel = 'المستخدمين';
     
     protected static bool $shouldRegisterNavigation = false;
+
+    // صلاحيات الوصول للـ Resource
+    public static function canViewAny(): bool
+    {
+        $userType = auth()->user()?->type;
+        return in_array($userType, ['super_admin', 'admin']);
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->type === 'super_admin';
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()?->type === 'super_admin';
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()?->type === 'super_admin';
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->type === 'super_admin';
+    }
 
     public static function form(Schema $schema): Schema
     {

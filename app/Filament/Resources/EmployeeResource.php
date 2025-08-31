@@ -86,7 +86,13 @@ class EmployeeResource extends Resource
                             ])
                             ->default(UserType::EMPLOYEE->value)
                             ->required()
-                            ->visible(fn () => auth()->user()->isSuperAdmin() || auth()->user()->isAdmin())
+                            ->visible(fn () => auth()->user()->type === 'super_admin')
+                            ->disabled(fn (string $operation, $record = null) => 
+                                $operation === 'edit' && 
+                                $record && 
+                                auth()->user()->type === 'admin' && 
+                                in_array($record->type, ['super_admin', 'admin'])
+                            )
                             ->columnSpan(12),
                             
                         TextInput::make('email')
@@ -162,9 +168,33 @@ class EmployeeResource extends Resource
             ->recordActions([
                 EditAction::make()
                     ->label('تعديل')
-                    ->icon('heroicon-o-pencil-square'),
+                    ->icon('heroicon-o-pencil-square')
+                    ->visible(fn ($record) => auth()->user()->can('update', $record))
+                    ->authorize(fn ($record) => auth()->user()->can('update', $record)),
             ])
-            ->defaultSort('created_at', 'desc');
+            ->toolbarActions([])
+            ->defaultSort('created_at', 'desc')
+            ->modifyQueryUsing(function (Builder $query) {
+                $user = auth()->user();
+                
+                // Super admin can see all
+                if ($user->type === 'super_admin') {
+                    return $query;
+                }
+                
+                // Admin can see all employees but no super admins
+                if ($user->type === 'admin') {
+                    return $query->where('type', '!=', 'super_admin');
+                }
+                
+                // Employees can only see themselves
+                if ($user->type === 'employee') {
+                    return $query->where('id', $user->id);
+                }
+                
+                // Others see nothing
+                return $query->whereRaw('1 = 0');
+            });
     }
 
     public static function getRelations(): array
@@ -183,6 +213,26 @@ class EmployeeResource extends Resource
         ];
     }
     
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->can('viewAny', static::getModel());
+    }
+    
+    public static function canCreate(): bool
+    {
+        return auth()->user()->can('create', static::getModel());
+    }
+    
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->can('update', $record);
+    }
+    
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->can('delete', $record);
+    }
+    
     public static function getGloballySearchableAttributes(): array
     {
         return ['name', 'email', 'phone', 'secondary_phone'];
@@ -195,6 +245,11 @@ class EmployeeResource extends Resource
     
     public static function getGlobalSearchResults(string $search): Collection
     {
+        // Check if user can perform global search
+        if (!auth()->user()->can('global-search')) {
+            return collect();
+        }
+        
         // تنظيف البحث وإزالة الهمزات
         $normalizedSearch = str_replace(
             ['أ', 'إ', 'آ', 'ء', 'ؤ', 'ئ'],
@@ -207,6 +262,16 @@ class EmployeeResource extends Resource
         $searchWithSpaces = str_replace(' ', '%', $normalizedSearch);
         
         $query = static::getModel()::query();
+        
+        // Apply same permission filters as table
+        $user = auth()->user();
+        if ($user->type === 'admin') {
+            $query->where('type', '!=', 'super_admin');
+        } elseif ($user->type === 'employee') {
+            $query->where('id', $user->id);
+        } elseif ($user->type !== 'super_admin') {
+            return collect();
+        }
         
         return $query->where(function (Builder $query) use ($normalizedSearch, $searchWithoutSpaces, $searchWithSpaces, $search) {
             // البحث العادي
