@@ -44,7 +44,6 @@ class Dashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
-            \App\Filament\Widgets\PostponedPaymentsWidget::class,
             \App\Filament\Widgets\VacantUnitsWidget::class,
             \App\Filament\Widgets\TenantsPaymentDueWidget::class,
             \App\Filament\Widgets\ExpiredContractsWidget::class,
