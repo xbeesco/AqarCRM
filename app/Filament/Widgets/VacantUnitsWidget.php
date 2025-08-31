@@ -36,12 +36,10 @@ class VacantUnitsWidget extends BaseWidget
                     ->rowIndex(),
                     
                 Tables\Columns\TextColumn::make('property.name')
-                    ->label('العقار')
-                    ->searchable(),
+                    ->label('العقار'),
                     
                 Tables\Columns\TextColumn::make('name')
-                    ->label('الوحدة')
-                    ->searchable(),
+                    ->label('الوحدة'),
                     
                 Tables\Columns\TextColumn::make('unitType.name')
                     ->label('النوع'),

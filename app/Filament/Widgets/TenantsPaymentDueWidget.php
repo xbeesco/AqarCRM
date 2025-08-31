@@ -39,30 +39,24 @@ class TenantsPaymentDueWidget extends BaseWidget
                     ->rowIndex(),
 
                 Tables\Columns\TextColumn::make('property.name')
-                    ->label('العقار')
-                    ->searchable(),
+                    ->label('العقار'),
 
                 Tables\Columns\TextColumn::make('tenant.name')
-                    ->label('المستأجر')
-                    ->searchable(),
+                    ->label('المستأجر'),
 
                 Tables\Columns\TextColumn::make('unit.name')
-                    ->label('الوحدة')
-                    ->searchable(),
+                    ->label('الوحدة'),
 
                 Tables\Columns\TextColumn::make('amount')
                     ->label('القيمة')
-                    ->money('SAR')
-                    ->searchable(),
+                    ->money('SAR'),
 
                 Tables\Columns\TextColumn::make('due_date_start')
                     ->label('التاريخ')
-                    ->date('d/m')
-                    ->searchable(),
+                    ->date('d/m'),
 
                 Tables\Columns\TextColumn::make('tenant.phone')
-                    ->label('الهاتف')
-                    ->searchable(),
+                    ->label('الهاتف'),
 
                 Tables\Columns\TextColumn::make('payment_status_label')
                     ->label('الحالة')

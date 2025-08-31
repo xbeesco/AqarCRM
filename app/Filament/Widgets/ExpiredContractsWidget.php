@@ -45,30 +45,24 @@ class ExpiredContractsWidget extends BaseWidget
                     ->rowIndex(),
                     
                 Tables\Columns\TextColumn::make('contract_number')
-                    ->label('رقم العقد')
-                    ->searchable(),
+                    ->label('رقم العقد'),
                     
                 Tables\Columns\TextColumn::make('property.name')
-                    ->label('العقار')
-                    ->searchable(),
+                    ->label('العقار'),
                     
                 Tables\Columns\TextColumn::make('unit.name')
-                    ->label('الوحدة')
-                    ->searchable(),
+                    ->label('الوحدة'),
                     
                 Tables\Columns\TextColumn::make('tenant.name')
-                    ->label('المستأجر')
-                    ->searchable(),
+                    ->label('المستأجر'),
                     
                 Tables\Columns\TextColumn::make('tenant.phone')
-                    ->label('الهاتف')
-                    ->searchable(),
+                    ->label('الهاتف'),
                     
                 Tables\Columns\TextColumn::make('end_date')
                     ->label('انتهى في')
                     ->date('d/m/Y')
-                    ->color('danger')
-                    ->searchable(),
+                    ->color('danger'),
                    // مش عاوزه دي هسيبها لو اتطلبت 
                 // Tables\Columns\TextColumn::make('days_expired')
                 //     ->label('منتهي منذ')
