@@ -27,7 +27,7 @@ class PrintProperty extends Page
     {
         // حساب الإجماليات
         $collectionTotal = CollectionPayment::where('property_id', $this->record->id)
-            ->where('collection_status', 'collected')
+            ->collectedPayments()
             ->sum('total_amount');
             
         $supplyTotal = SupplyPayment::whereHas('propertyContract', function ($query) {
@@ -38,7 +38,7 @@ class PrintProperty extends Page
         
         // بيانات الجدول الأول
         $nextPayment = CollectionPayment::where('property_id', $this->record->id)
-            ->where('collection_status', 'due')
+            ->dueForCollection()
             ->orderBy('due_date_start')
             ->first();
             
@@ -48,7 +48,7 @@ class PrintProperty extends Page
             'units_count' => $this->record->units()->count(),
             'property_status' => $this->record->status ?? 'متاح',
             'collected_rent' => CollectionPayment::where('property_id', $this->record->id)
-                ->where('collection_status', 'collected')
+                ->collectedPayments()
                 ->whereMonth('collection_date', now()->month)
                 ->sum('total_amount'),
             'next_collection' => $nextPayment?->total_amount ?? 0,
@@ -60,7 +60,7 @@ class PrintProperty extends Page
         
         // إضافة عمليات التحصيل
         $collectionOperations = CollectionPayment::where('property_id', $this->record->id)
-            ->where('collection_status', 'collected')
+            ->collectedPayments()
             ->get();
             
         foreach ($collectionOperations as $collection) {
