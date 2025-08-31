@@ -35,7 +35,6 @@ class StatsOverviewWidget extends BaseWidget
             
         // حساب ما تم تحصيله اليوم
         $todayCollected = CollectionPayment::whereDate('collection_date', $today)
-            ->where('collection_status', 'collected')
             ->sum('amount');
             
         // حساب ما تم توريده اليوم

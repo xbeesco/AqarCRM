@@ -25,7 +25,6 @@ class CollectionPayment extends Model
         'unit_id',
         'property_id',
         'tenant_id',
-        'collection_status', // حالة التحصيل
         'payment_status_id',
         'payment_method_id',
         'amount',
@@ -34,8 +33,8 @@ class CollectionPayment extends Model
         'due_date_start',
         'due_date_end',
         'paid_date',
-        'collection_date',  // تاريخ التحصيل
-        'delay_duration',
+        'collection_date',  // تاريخ التحصيل الفعلي
+        'delay_duration',   // عدد أيام التأجيل
         'delay_reason',
         'late_payment_notes',
         'payment_reference',
@@ -53,38 +52,6 @@ class CollectionPayment extends Model
         'collection_date' => 'date',
         'delay_duration' => 'integer',
     ];
-    
-    // حالات التحصيل
-    const STATUS_COLLECTED = 'collected';      // تم التحصيل
-    const STATUS_DUE = 'due';                  // تستحق التحصيل
-    const STATUS_POSTPONED = 'postponed';      // المؤجلة
-    const STATUS_OVERDUE = 'overdue';          // تجاوزت المدة
-    
-    public static function getStatusOptions()
-    {
-        return [
-            self::STATUS_COLLECTED => 'تم التحصيل',
-            self::STATUS_DUE => 'تستحق التحصيل',
-            self::STATUS_POSTPONED => 'المؤجلة',
-            self::STATUS_OVERDUE => 'تجاوزت المدة',
-        ];
-    }
-    
-    public function getStatusColorAttribute()
-    {
-        return match($this->collection_status) {
-            self::STATUS_COLLECTED => 'success',
-            self::STATUS_DUE => 'warning',
-            self::STATUS_POSTPONED => 'info',
-            self::STATUS_OVERDUE => 'danger',
-            default => 'gray',
-        };
-    }
-    
-    public function getStatusLabelAttribute()
-    {
-        return self::getStatusOptions()[$this->collection_status] ?? $this->collection_status;
-    }
 
     protected static function boot()
     {
@@ -94,29 +61,6 @@ class CollectionPayment extends Model
             // توليد رقم الدفعة تلقائياً
             if (empty($payment->payment_number)) {
                 $payment->payment_number = self::generatePaymentNumber();
-            }
-            
-            // ضبط payment_status_id بناءً على collection_status
-            if (empty($payment->payment_status_id)) {
-                $payment->payment_status_id = match($payment->collection_status) {
-                    self::STATUS_COLLECTED => 1,   // تم التحصيل
-                    self::STATUS_DUE => 2,          // تستحق التحصيل
-                    self::STATUS_POSTPONED => 3,    // المؤجلة
-                    self::STATUS_OVERDUE => 4,      // تجاوزت المدة
-                    default => 2,
-                };
-            }
-            
-            // ملء التواريخ الافتراضية حسب نوع الحالة
-            if ($payment->collection_status === self::STATUS_POSTPONED || 
-                $payment->collection_status === self::STATUS_OVERDUE) {
-                // للحالات المؤجلة أو المتأخرة، نضع تواريخ افتراضية إذا لم تكن موجودة
-                if (empty($payment->due_date_start)) {
-                    $payment->due_date_start = DateHelper::getCurrentDate()->startOfMonth();
-                }
-                if (empty($payment->due_date_end)) {
-                    $payment->due_date_end = DateHelper::getCurrentDate()->endOfMonth();
-                }
             }
             
             // قيمة افتراضية للغرامة
@@ -136,16 +80,6 @@ class CollectionPayment extends Model
         });
 
         static::updating(function ($payment) {
-            // ضبط payment_status_id بناءً على collection_status
-            $payment->payment_status_id = match($payment->collection_status) {
-                self::STATUS_COLLECTED => 1,   // تم التحصيل
-                self::STATUS_DUE => 2,          // تستحق التحصيل
-                self::STATUS_POSTPONED => 3,    // المؤجلة
-                self::STATUS_OVERDUE => 4,      // تجاوزت المدة
-                default => 2,
-            };
-            
-            
             // إعادة حساب المجموع الكلي
             $payment->total_amount = ($payment->amount ?? 0) + ($payment->late_fee ?? 0);
             
@@ -216,25 +150,26 @@ class CollectionPayment extends Model
         return $query->where('month_year', $monthYear);
     }
     
-    // Scopes للدفعات المؤجلة
+    // Scopes القديمة محدثة لتستخدم البيانات الفعلية بدلاً من collection_status
     public function scopePostponed($query)
     {
-        return $query->where('collection_status', self::STATUS_POSTPONED);
+        // نفس scopePostponedPayments - دفعات لها delay_duration
+        return $this->scopePostponedPayments($query);
     }
     
     public function scopePostponedWithDetails($query)
     {
-        return $query->postponed()
+        return $query->postponedPayments()
                      ->with(['tenant:id,name,phone', 'unit:id,name', 'property:id,name'])
                      ->select(['id', 'payment_number', 'tenant_id', 'unit_id', 'property_id', 
                               'amount', 'total_amount', 'delay_reason', 'delay_duration',
                               'due_date_start', 'due_date_end', 'late_payment_notes',
-                              'collection_status', 'created_at']);
+                              'created_at']);
     }
     
     public function scopeCriticalPostponed($query)
     {
-        return $query->postponed()
+        return $query->postponedPayments()
                      ->where(function($q) {
                          $q->where('delay_duration', '>', 30)
                            ->orWhere('due_date_end', '<', DateHelper::getCurrentDate()->subDays(30));
@@ -243,7 +178,7 @@ class CollectionPayment extends Model
     
     public function scopeRecentPostponed($query, $days = 7)
     {
-        return $query->postponed()
+        return $query->postponedPayments()
                      ->where('created_at', '>=', DateHelper::getCurrentDate()->subDays($days));
     }
     
@@ -302,14 +237,92 @@ class CollectionPayment extends Model
     {
         return $query->whereNotNull('collection_date');
     }
+    
+    /**
+     * Scope للدفعات القادمة (لم يحن موعدها بعد)
+     */
+    public function scopeUpcomingPayments($query)
+    {
+        $today = DateHelper::getCurrentDate()->startOfDay();
+        return $query->whereNull('collection_date')
+                    ->where('due_date_start', '>', $today);
+    }
+    
+    /**
+     * Scope لفلترة حسب حالة معينة
+     */
+    public function scopeByStatus($query, PaymentStatus $status)
+    {
+        return match($status) {
+            PaymentStatus::COLLECTED => $query->collectedPayments(),
+            PaymentStatus::POSTPONED => $query->postponedPayments(),
+            PaymentStatus::OVERDUE => $query->overduePayments(),
+            PaymentStatus::DUE => $query->dueForCollection(),
+            PaymentStatus::UPCOMING => $query->upcomingPayments(),
+        };
+    }
+    
+    /**
+     * Scope لفلترة حسب حالات متعددة
+     */
+    public function scopeByStatuses($query, array $statuses)
+    {
+        return $query->where(function($q) use ($statuses) {
+            foreach ($statuses as $status) {
+                if ($status instanceof PaymentStatus) {
+                    $q->orWhere(function($subQuery) use ($status) {
+                        $this->scopeByStatus($subQuery, $status);
+                    });
+                } elseif (is_string($status)) {
+                    $enumStatus = PaymentStatus::from($status);
+                    $q->orWhere(function($subQuery) use ($enumStatus) {
+                        $this->scopeByStatus($subQuery, $enumStatus);
+                    });
+                }
+            }
+        });
+    }
 
     // Attributes using Enum
+    /**
+     * تحديد حالة الدفعة بناءً على البيانات الفعلية
+     */
+    public function determinePaymentStatus(): PaymentStatus
+    {
+        // إذا تم التحصيل
+        if ($this->collection_date) {
+            return PaymentStatus::COLLECTED;
+        }
+        
+        // إذا كانت مؤجلة
+        if ($this->delay_duration && $this->delay_duration > 0) {
+            return PaymentStatus::POSTPONED;
+        }
+        
+        $today = DateHelper::getCurrentDate()->startOfDay();
+        $paymentsDueDays = Setting::get('payment_due_days', 7);
+        $overdueDate = $today->copy()->subDays($paymentsDueDays);
+        
+        // إذا كانت متأخرة (تجاوزت مدة السماح)
+        if ($this->due_date_start < $overdueDate) {
+            return PaymentStatus::OVERDUE;
+        }
+        
+        // إذا كانت مستحقة (وصل تاريخها لكن لم تتجاوز مدة السماح)
+        if ($this->due_date_start <= $today) {
+            return PaymentStatus::DUE;
+        }
+        
+        // إذا كانت قادمة (لم يصل تاريخها بعد)
+        return PaymentStatus::UPCOMING;
+    }
+    
     /**
      * الحصول على حالة الدفعة باستخدام Enum
      */
     public function getPaymentStatusEnumAttribute(): PaymentStatus
     {
-        return PaymentStatus::determineFor($this);
+        return $this->determinePaymentStatus();
     }
     
     /**
@@ -353,7 +366,6 @@ class CollectionPayment extends Model
         $this->update([
             'delay_duration' => $days,
             'delay_reason' => $reason,
-            'collection_status' => PaymentStatus::POSTPONED->value,
         ]);
     }
     
@@ -366,7 +378,6 @@ class CollectionPayment extends Model
         $this->update([
             'collection_date' => $currentDate,
             'paid_date' => $currentDate,
-            'collection_status' => PaymentStatus::COLLECTED->value,
         ]);
     }
     

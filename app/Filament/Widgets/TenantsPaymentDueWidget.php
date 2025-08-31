@@ -141,13 +141,8 @@ class TenantsPaymentDueWidget extends BaseWidget
                             return $query;
                         }
                         
-                        return $query->where(function($q) use ($data) {
-                            foreach ($data['values'] as $statusValue) {
-                                // تحويل القيمة إلى Enum
-                                $status = PaymentStatus::from($statusValue);
-                                $status->applyToQuery($q);
-                            }
-                        });
+                        // استخدام scope الموديل الجديد byStatuses
+                        return $query->byStatuses($data['values']);
                     }),
 
             ])
