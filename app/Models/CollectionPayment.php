@@ -7,14 +7,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Carbon\Carbon;
 use App\Helpers\DateHelper;
+use App\Models\Setting;
 
 class CollectionPayment extends Model
 {
-    // منع الحذف نهائياً
     protected static function booted()
     {
         static::deleting(function ($payment) {
-            // منع الحذف دائماً
             return false;
         });
     }
@@ -245,6 +244,62 @@ class CollectionPayment extends Model
     {
         return $query->postponed()
                      ->where('created_at', '>=', DateHelper::getCurrentDate()->subDays($days));
+    }
+    
+    // New Scopes for actual payment status (not relying on collection_status field)
+    
+    /**
+     * Scope للدفعات المستحقة للتحصيل
+     * دفعات وصل تاريخ استحقاقها ولم تُحصّل ولا يوجد تأجيل
+     */
+    public function scopeDueForCollection($query)
+    {
+        $today = DateHelper::getCurrentDate()->startOfDay();
+        return $query->where('due_date_start', '<=', $today)
+                    ->whereNull('collection_date')
+                    ->where(function($q) {
+                        $q->whereNull('delay_duration')
+                          ->orWhere('delay_duration', 0);
+                    });
+    }
+    
+    /**
+     * Scope للدفعات المؤجلة
+     * دفعات وصل تاريخ استحقاقها ولكن يوجد عدد أيام تأجيل
+     */
+    public function scopePostponedPayments($query)
+    {
+        $today = DateHelper::getCurrentDate()->startOfDay();
+        return $query->where('due_date_start', '<=', $today)
+                    ->whereNull('collection_date')
+                    ->whereNotNull('delay_duration')
+                    ->where('delay_duration', '>', 0);
+    }
+    
+    /**
+     * Scope للدفعات المتأخرة
+     * دفعات تجاوزت مدة السماح المحددة في إعدادات النظام وليست مؤجلة
+     */
+    public function scopeOverduePayments($query)
+    {
+        $paymentDueDays = Setting::get('payment_due_days', 7);
+        $today = DateHelper::getCurrentDate()->startOfDay();
+        $overdueDate = $today->copy()->subDays($paymentDueDays);
+        
+        return $query->where('due_date_start', '<', $overdueDate)
+                    ->whereNull('collection_date')
+                    ->where(function($q) {
+                        $q->whereNull('delay_duration')
+                          ->orWhere('delay_duration', 0);
+                    });
+    }
+    
+    /**
+     * Scope للدفعات المحصلة
+     */
+    public function scopeCollectedPayments($query)
+    {
+        return $query->whereNotNull('collection_date');
     }
 
     // Methods

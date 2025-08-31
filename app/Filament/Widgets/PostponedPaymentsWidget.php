@@ -31,7 +31,12 @@ class PostponedPaymentsWidget extends BaseWidget
     {
         return $table
             ->query(
-                CollectionPayment::postponedWithDetails()
+                CollectionPayment::postponedPayments()
+                    ->with(['tenant:id,name,phone', 'unit:id,name', 'property:id,name'])
+                    ->select(['id', 'payment_number', 'tenant_id', 'unit_id', 'property_id', 
+                             'amount', 'total_amount', 'delay_reason', 'delay_duration',
+                             'due_date_start', 'due_date_end', 'late_payment_notes',
+                             'collection_status', 'created_at'])
                     ->orderBy('due_date_end', 'asc')
             )
             ->columns([

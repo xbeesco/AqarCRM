@@ -17,6 +17,9 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
+use App\Helpers\DateHelper;
 
 class CollectionPaymentResource extends Resource
 {
@@ -191,21 +194,48 @@ class CollectionPaymentResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('collection_status')
+                TextColumn::make('payment_status')
                     ->label('الحالة')
                     ->badge()
-                    ->searchable()
-                    ->formatStateUsing(fn ($state) => CollectionPayment::getStatusOptions()[$state] ?? $state)
+                    ->getStateUsing(function ($record) {
+                        // إذا تم التحصيل
+                        if ($record->collection_date) {
+                            return 'محصل';
+                        }
+                        
+                        // إذا يوجد عدد أيام تأجيل
+                        if ($record->delay_duration && $record->delay_duration > 0) {
+                            return 'مؤجل';
+                        }
+                        
+                        // فحص التأخر
+                        $paymentDueDays = \App\Models\Setting::get('payment_due_days', 7);
+                        $today = \App\Helpers\DateHelper::getCurrentDate()->startOfDay();
+                        $overdueDate = $today->copy()->subDays($paymentDueDays);
+                        
+                        if ($record->due_date_start < $overdueDate) {
+                            return 'متأخر';
+                        }
+                        
+                        // إذا وصل تاريخ الاستحقاق
+                        if ($record->due_date_start <= $today) {
+                            return 'مستحق';
+                        }
+                        
+                        // لم يحن ميعاده بعد
+                        return 'قادم';
+                    })
                     ->color(fn (string $state): string => match ($state) {
-                        CollectionPayment::STATUS_COLLECTED => 'success',
-                        CollectionPayment::STATUS_DUE => 'warning',
-                        CollectionPayment::STATUS_POSTPONED => 'info',
-                        CollectionPayment::STATUS_OVERDUE => 'danger',
+                        'محصل' => 'success',
+                        'مستحق' => 'warning',
+                        'مؤجل' => 'info',
+                        'متأخر' => 'danger',
+                        'قادم' => 'gray',
                         default => 'gray',
                     }),
 
                 TextColumn::make('due_date_start')
-                    ->label('بداية الاستحقاق')
+                    ->label('تاريخ الاستحقاق')
                     ->date('d/m/Y')
                     ->searchable()
                     ->sortable(),
@@ -282,11 +312,79 @@ class CollectionPaymentResource extends Resource
                     ->hidden(), // مخفي افتراضياً، يظهر فقط عند الحاجة
             ])
             ->recordActions([
-                                EditAction::make()
-                    ->label('تعديل')
-                    ->icon('heroicon-o-pencil-square'),
-
-            ])
+                Action::make('postpone_payment')
+                    ->label('تأجيل')
+                    ->icon('heroicon-o-clock')
+                    ->color('warning')
+                    ->form([
+                        TextInput::make('delay_duration')
+                            ->label('مدة التأجيل (بالأيام)')
+                            ->numeric()
+                            ->required()
+                            ->minValue(1)
+                            ->maxValue(90)
+                            ->default(7)
+                            ->suffix('يوم'),
+                            
+                        Textarea::make('delay_reason')
+                            ->label('سبب التأجيل')
+                            ->required()
+                            ->rows(3)
+                            ->placeholder('اذكر سبب التأجيل...')
+                    ])
+                    ->modalHeading('تأجيل الدفعة')
+                    ->modalSubmitActionLabel('تأجيل')
+                    ->modalIcon('heroicon-o-clock')
+                    ->modalIconColor('warning')
+                    ->visible(fn (CollectionPayment $record) => 
+                        !$record->collection_date && 
+                        (!$record->delay_duration || $record->delay_duration == 0)
+                    )
+                    ->action(function (CollectionPayment $record, array $data) {
+                        $record->update([
+                            'delay_duration' => $data['delay_duration'],
+                            'delay_reason' => $data['delay_reason'],
+                            'collection_status' => CollectionPayment::STATUS_POSTPONED,
+                        ]);
+                        
+                        Notification::make()
+                            ->title('تم تأجيل الدفعة')
+                            ->body("تم تأجيل الدفعة لمدة {$data['delay_duration']} يوم")
+                            ->warning()
+                            ->send();
+                    }),
+                    
+            Action::make('confirm_payment')
+                    ->label('تأكيد الاستلام')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('تأكيد استلام الدفعة')
+                    ->modalDescription(fn (CollectionPayment $record) => 
+                        "أقر أنا " . auth()->user()->name . " باستلام مبلغ وقدره " . 
+                        number_format($record->amount, 2) . " ريال سعودي"
+                    )
+                    ->modalSubmitActionLabel('تأكيد الاستلام')
+                    ->modalIcon('heroicon-o-check-circle')
+                    ->modalIconColor('success')
+                    ->visible(fn (CollectionPayment $record) => 
+                        !$record->collection_date
+                    )
+                    ->action(function (CollectionPayment $record) {
+                        $record->update([
+                            'collection_date' => DateHelper::getCurrentDate()->toDateString(),
+                            'collection_status' => CollectionPayment::STATUS_COLLECTED,
+                        ]);
+                        
+                        Notification::make()
+                            ->title('تم تأكيد الاستلام')
+                            ->body('تم تسجيل استلام الدفعة بنجاح')
+                            ->success()
+                            ->send();
+                    }),
+                    
+                
+                    ])
             ->toolbarActions([
                 // Bulk actions here
             ])

@@ -26,10 +26,7 @@ class StatsOverviewWidget extends BaseWidget
         $endOfMonth = $currentDate->copy()->endOfMonth();
         
         // حساب المفروض تحصيله اليوم
-        $todayCollectionDue = CollectionPayment::whereDate('due_date_start', '<=', $today)
-            ->whereDate('due_date_end', '>=', $today)
-            ->whereIn('collection_status', ['due', 'postponed'])
-            ->sum('amount');
+        $todayCollectionDue = CollectionPayment::dueForCollection()->sum('amount');
             
         // حساب المفروض توريده اليوم
         $todaySupplyDue = SupplyPayment::whereDate('due_date', $today)
@@ -47,9 +44,7 @@ class StatsOverviewWidget extends BaseWidget
             ->sum('net_amount');
             
         // عدد المستأجرين المفروض يدفعوا اليوم
-        $tenantsWithPaymentDue = CollectionPayment::whereDate('due_date_start', '<=', $today)
-            ->whereDate('due_date_end', '>=', $today)
-            ->whereIn('collection_status', ['due', 'postponed'])
+        $tenantsWithPaymentDue = CollectionPayment::dueForCollection()
             ->distinct('tenant_id')
             ->count('tenant_id');
             
