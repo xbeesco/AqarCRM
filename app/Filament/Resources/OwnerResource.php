@@ -22,6 +22,7 @@ use App\Models\CollectionPayment;
 use App\Models\SupplyPayment;
 use App\Models\Property;
 use Carbon\Carbon;
+use App\Enums\PaymentStatus;
 class OwnerResource extends Resource
 {
     protected static ?string $model = Owner::class;
@@ -299,7 +300,7 @@ class OwnerResource extends Resource
                 ->from('properties')
                 ->where('owner_id', $owner->id);
         })
-        ->where('collection_status', 'collected')
+        ->collectedPayments()
         ->whereBetween('paid_date', [$dateFrom, $dateTo])
         ->sum('total_amount');
         

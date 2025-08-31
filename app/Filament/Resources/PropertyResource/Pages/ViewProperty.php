@@ -11,6 +11,7 @@ use App\Models\SupplyPayment;
 use App\Models\UnitContract;
 use App\Models\PropertyRepair;
 use App\Models\Expense;
+use App\Enums\PaymentStatus;
 
 class ViewProperty extends ViewRecord
 {
@@ -42,7 +43,7 @@ class ViewProperty extends ViewRecord
     {
         // حساب الإجماليات
         $collectionTotal = CollectionPayment::where('property_id', $this->record->id)
-            ->where('collection_status', 'collected')
+            ->collectedPayments()
             ->sum('total_amount');
             
         $supplyTotal = SupplyPayment::whereHas('propertyContract', function ($query) {
@@ -53,7 +54,7 @@ class ViewProperty extends ViewRecord
         
         // بيانات الجدول الأول
         $nextPayment = CollectionPayment::where('property_id', $this->record->id)
-            ->where('collection_status', 'due')
+            ->dueForCollection()
             ->orderBy('due_date_start')
             ->first();
             
@@ -63,7 +64,7 @@ class ViewProperty extends ViewRecord
             'units_count' => $this->record->units()->count(),
             'property_status' => $this->record->status ?? 'متاح',
             'collected_rent' => CollectionPayment::where('property_id', $this->record->id)
-                ->where('collection_status', 'collected')
+                ->collectedPayments()
                 ->whereMonth('collection_date', now()->month)
                 ->sum('total_amount'),
             'next_collection' => $nextPayment?->total_amount ?? 0,
@@ -75,7 +76,7 @@ class ViewProperty extends ViewRecord
         
         // إضافة عمليات التحصيل
         $collectionOperations = CollectionPayment::where('property_id', $this->record->id)
-            ->where('collection_status', 'collected')
+            ->collectedPayments()
             ->get();
             
         foreach ($collectionOperations as $collection) {

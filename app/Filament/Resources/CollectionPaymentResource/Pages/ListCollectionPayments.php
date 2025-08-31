@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use App\Exports\CollectionPaymentsExport;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Enums\PaymentStatus;
 
 class ListCollectionPayments extends ListRecords
 {
@@ -71,17 +72,20 @@ class ListCollectionPayments extends ListRecords
                     ->orWhere('delay_reason', 'LIKE', "%{$search}%")
                     ->orWhere('late_payment_notes', 'LIKE', "%{$search}%");
                 
-                // البحث في الحالة
+                // البحث في الحالة باستخدام الـ scopes الجديدة
                 $statusMap = [
-                    'محصل' => 'collected',
-                    'مستحق' => 'due', 
-                    'مؤجل' => 'postponed',
-                    'متأخر' => 'overdue',
+                    'محصل' => PaymentStatus::COLLECTED,
+                    'مستحق' => PaymentStatus::DUE, 
+                    'مؤجل' => PaymentStatus::POSTPONED,
+                    'متأخر' => PaymentStatus::OVERDUE,
+                    'قادم' => PaymentStatus::UPCOMING,
                 ];
                 
-                foreach ($statusMap as $arabic => $english) {
+                foreach ($statusMap as $arabic => $status) {
                     if (str_contains(mb_strtolower($arabic), mb_strtolower($search))) {
-                        $query->orWhere('collection_status', $english);
+                        $query->orWhere(function($subQuery) use ($status) {
+                            $subQuery->byStatus($status);
+                        });
                     }
                 }
                 

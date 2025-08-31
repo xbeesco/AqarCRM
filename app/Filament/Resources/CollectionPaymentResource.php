@@ -20,6 +20,7 @@ use Filament\Tables\Table;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use App\Helpers\DateHelper;
+use App\Enums\PaymentStatus;
 
 class CollectionPaymentResource extends Resource
 {
@@ -84,76 +85,39 @@ class CollectionPaymentResource extends Resource
                             ->columnSpan(6),
                         
                         DatePicker::make('due_date_start')
-                            ->label('بداية التاريخ')
-                            ->visible(fn ($get) => in_array($get('collection_status'), [
-                                CollectionPayment::STATUS_COLLECTED,
-                                CollectionPayment::STATUS_DUE,
-                            ]))
-                            ->required(fn ($get) => in_array($get('collection_status'), [
-                                CollectionPayment::STATUS_COLLECTED,
-                                CollectionPayment::STATUS_DUE,
-                            ]))
+                            ->label('تاريخ بداية الاستحقاق')
+                            ->required()
                             ->columnSpan(6)
                             ->default(now()->startOfMonth()),
 
                         DatePicker::make('due_date_end')
-                            ->label('إلى التاريخ')
-                            ->visible(fn ($get) => in_array($get('collection_status'), [
-                                CollectionPayment::STATUS_COLLECTED,
-                                CollectionPayment::STATUS_DUE,
-                            ]))
-                            ->required(fn ($get) => in_array($get('collection_status'), [
-                                CollectionPayment::STATUS_COLLECTED,
-                                CollectionPayment::STATUS_DUE,
-                            ]))
+                            ->label('تاريخ نهاية الاستحقاق')
+                            ->required()
                             ->columnSpan(6)
                             ->default(now()->endOfMonth()),
-  
-                        Select::make('collection_status')
-                            ->label('حالة التحصيل')
-                            ->required()
-                            ->options(CollectionPayment::getStatusOptions())
-                            ->default(CollectionPayment::STATUS_DUE)
-                            ->live() // جعلها تفاعلية
-                            ->afterStateUpdated(function ($state, callable $set) {
-                                // تنظيف الحقول عند تغيير الحالة
-                                $set('due_date_start', null);
-                                $set('due_date_end', null);
-                                $set('collection_date', null);
-                                $set('delay_reason', null);
-                                $set('delay_duration', null);
-                                $set('late_payment_notes', null);
-                            })
-                            ->columnSpan(6),
-
 
                         DatePicker::make('collection_date')
                             ->label('تاريخ التحصيل')
-                            ->visible(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_COLLECTED)
-                            ->required(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_COLLECTED)
-                            ->default(now())
-                            ->columnSpan(6),
+                            ->columnSpan(6)
+                            ->helperText('اتركه فارغاً إذا لم يتم التحصيل بعد'),
 
                         TextInput::make('delay_duration')
                             ->label('مدة التأجيل بالأيام')
                             ->numeric()
-                            ->minValue(1)
-                            ->visible(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_POSTPONED)
-                            ->required(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_POSTPONED)
+                            ->minValue(0)
                             ->suffix('يوم')
-                            ->columnSpan(2),
+                            ->columnSpan(3)
+                            ->helperText('0 أو فارغ = لا يوجد تأجيل'),
 
                         TextInput::make('delay_reason')
                             ->label('سبب التأجيل')
-                            ->visible(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_POSTPONED)
-                            ->required(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_POSTPONED)
-                            ->columnSpan(4),
+                            ->columnSpan(3)
+                            ->visible(fn ($get) => $get('delay_duration') > 0),
 
-                        TextInput::make('late_payment_notes')
-                            ->label('ملاحظات في حالة تجاوز مدة الدفعة')
-                            ->visible(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_OVERDUE)
-                            ->required(fn ($get) => $get('collection_status') === CollectionPayment::STATUS_OVERDUE)
-                            ->columnSpan(6),
+                        Textarea::make('late_payment_notes')
+                            ->label('ملاحظات')
+                            ->columnSpan(6)
+                            ->rows(2),
 
                         // Hidden fields للحفظ
                         \Filament\Forms\Components\Hidden::make('unit_id'),
@@ -194,45 +158,11 @@ class CollectionPaymentResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('payment_status')
+                TextColumn::make('payment_status_label')
                     ->label('الحالة')
                     ->badge()
-                    ->getStateUsing(function ($record) {
-                        // إذا تم التحصيل
-                        if ($record->collection_date) {
-                            return 'محصل';
-                        }
-                        
-                        // إذا يوجد عدد أيام تأجيل
-                        if ($record->delay_duration && $record->delay_duration > 0) {
-                            return 'مؤجل';
-                        }
-                        
-                        // فحص التأخر
-                        $paymentDueDays = \App\Models\Setting::get('payment_due_days', 7);
-                        $today = \App\Helpers\DateHelper::getCurrentDate()->startOfDay();
-                        $overdueDate = $today->copy()->subDays($paymentDueDays);
-                        
-                        if ($record->due_date_start < $overdueDate) {
-                            return 'متأخر';
-                        }
-                        
-                        // إذا وصل تاريخ الاستحقاق
-                        if ($record->due_date_start <= $today) {
-                            return 'مستحق';
-                        }
-                        
-                        // لم يحن ميعاده بعد
-                        return 'قادم';
-                    })
-                    ->color(fn (string $state): string => match ($state) {
-                        'محصل' => 'success',
-                        'مستحق' => 'warning',
-                        'مؤجل' => 'info',
-                        'متأخر' => 'danger',
-                        'قادم' => 'gray',
-                        default => 'gray',
-                    }),
+                    ->getStateUsing(fn ($record) => $record->payment_status_label)
+                    ->color(fn ($record): string => $record->payment_status_color),
 
                 TextColumn::make('due_date_start')
                     ->label('تاريخ الاستحقاق')
@@ -300,9 +230,16 @@ class CollectionPaymentResource extends Resource
                     ->searchable()
                     ->preload(),
 
-                SelectFilter::make('collection_status')
-                    ->label('حالة التحصيل')
-                    ->options(CollectionPayment::getStatusOptions()),
+                SelectFilter::make('payment_status')
+                    ->label('حالة الدفعة')
+                    ->options(PaymentStatus::options())
+                    ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
+                        if (!empty($data['value'])) {
+                            $status = PaymentStatus::from($data['value']);
+                            return $query->byStatus($status);
+                        }
+                        return $query;
+                    }),
                     
                 SelectFilter::make('unit_contract_id')
                     ->label('العقد')
@@ -341,11 +278,7 @@ class CollectionPaymentResource extends Resource
                         (!$record->delay_duration || $record->delay_duration == 0)
                     )
                     ->action(function (CollectionPayment $record, array $data) {
-                        $record->update([
-                            'delay_duration' => $data['delay_duration'],
-                            'delay_reason' => $data['delay_reason'],
-                            'collection_status' => CollectionPayment::STATUS_POSTPONED,
-                        ]);
+                        $record->postpone($data['delay_duration'], $data['delay_reason']);
                         
                         Notification::make()
                             ->title('تم تأجيل الدفعة')
@@ -371,10 +304,7 @@ class CollectionPaymentResource extends Resource
                         !$record->collection_date
                     )
                     ->action(function (CollectionPayment $record) {
-                        $record->update([
-                            'collection_date' => DateHelper::getCurrentDate()->toDateString(),
-                            'collection_status' => CollectionPayment::STATUS_COLLECTED,
-                        ]);
+                        $record->markAsCollected();
                         
                         Notification::make()
                             ->title('تم تأكيد الاستلام')
@@ -392,7 +322,6 @@ class CollectionPaymentResource extends Resource
             ->searchable([
                 'payment_number',
                 'amount',
-                'collection_status',
                 'delay_reason',
                 'late_payment_notes',
                 'tenant.name',
@@ -465,11 +394,19 @@ class CollectionPaymentResource extends Resource
                     ->orWhere('receipt_number', 'LIKE', "%{$search}%")
                     ->orWhere('month_year', 'LIKE', "%{$search}%");
 
-                // البحث في حالة التحصيل - مهم جداً
-                $statusSearch = CollectionPayment::getStatusOptions();
+                // البحث في حالة الدفعة - مهم جداً
+                $statusSearch = PaymentStatus::options();
                 foreach ($statusSearch as $key => $label) {
                     if (stripos($label, $normalizedSearch) !== false || stripos($label, $search) !== false) {
-                        $query->orWhere('collection_status', $key);
+                        // استخدم الـ scope المناسب بدلاً من البحث في حقل
+                        try {
+                            $status = PaymentStatus::from($key);
+                            $query->orWhere(function($statusQuery) use ($status) {
+                                (new CollectionPayment())->scopeByStatus($statusQuery, $status);
+                            });
+                        } catch (\ValueError $e) {
+                            // تجاهل القيم غير الصالحة
+                        }
                     }
                 }
 
@@ -561,7 +498,7 @@ class CollectionPaymentResource extends Resource
                         'الوحدة' => $unit,
                         'العقار' => $property,
                         'المبلغ' => number_format($record->amount, 2).' SAR',
-                        'الحالة' => $record->status_label,
+                        'الحالة' => $record->payment_status_label,
                     ]
                 );
             });
