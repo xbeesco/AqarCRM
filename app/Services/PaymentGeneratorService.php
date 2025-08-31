@@ -63,7 +63,7 @@ class PaymentGeneratorService
                     'unit_id' => $contract->unit_id,
                     'property_id' => $contract->property_id,
                     'tenant_id' => $contract->tenant_id,
-                    'collection_status' => 'due',
+                    // تم إزالة collection_status - الحالة تُحسب ديناميكياً
                     'amount' => $baseAmount,
                     'late_fee' => 0,
                     'total_amount' => $baseAmount,
