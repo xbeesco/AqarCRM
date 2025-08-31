@@ -143,7 +143,7 @@ class Tenant extends User
      */
     public function getTotalAmountPaidAttribute()
     {
-        return $this->paymentHistory()->where('collection_status', 'collected')->sum('total_amount');
+        return $this->paymentHistory()->collectedPayments()->sum('total_amount');
     }
 
     /**
@@ -152,7 +152,7 @@ class Tenant extends User
     public function getOutstandingBalanceAttribute()
     {
         return $this->paymentHistory()
-            ->whereIn('collection_status', ['due', 'overdue'])
+            ->byStatuses(['due', 'overdue'])
             ->sum('total_amount');
     }
 
@@ -162,8 +162,7 @@ class Tenant extends User
     public function isInGoodStanding()
     {
         $outstandingPayments = $this->paymentHistory()
-                                   ->where('collection_status', 'overdue')
-                                   ->where('due_date_end', '<', now())
+                                   ->overduePayments()
                                    ->count();
 
         return $outstandingPayments === 0;
