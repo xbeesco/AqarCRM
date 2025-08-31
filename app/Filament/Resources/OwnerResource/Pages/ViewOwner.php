@@ -105,16 +105,16 @@ class ViewOwner extends ViewRecord
         foreach ($properties as $property) {
             // حساب إجمالي الدخل من التحصيل المحصل
             $propertyIncome = CollectionPayment::where('property_id', $property->id)
-                ->where('collection_status', 'collected')
+                ->collectedPayments()
                 ->sum('total_amount');
                 
             // حساب المدفوع والمتأخر
             $propertyPaid = CollectionPayment::where('property_id', $property->id)
-                ->where('collection_status', 'collected')
+                ->collectedPayments()
                 ->sum('total_amount');
                 
             $propertyOverdue = CollectionPayment::where('property_id', $property->id)
-                ->where('collection_status', 'overdue')
+                ->overduePayments()
                 ->sum('total_amount');
             
             // نسبة الإدارة (افتراضياً 5%)
@@ -198,10 +198,10 @@ class ViewOwner extends ViewRecord
                     
                     // حساب المدفوع والمتأخر للعقد
                     $contractPaid = $contract->payments()
-                        ->where('collection_status', 'collected')
+                        ->collectedPayments()
                         ->sum('total_amount');
                     $contractOverdue = $contract->payments()
-                        ->where('collection_status', 'overdue')
+                        ->overduePayments()
                         ->sum('total_amount');
                     
                     $tenantsReport[] = [
