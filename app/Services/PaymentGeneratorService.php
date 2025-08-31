@@ -233,8 +233,23 @@ class PaymentGeneratorService
      */
     public function generateSupplyPaymentsForContract(PropertyContract $contract): int
     {
+        // التحقق من وجود دفعات مولدة مسبقاً
+        if ($contract->supplyPayments()->exists()) {
+            $count = $contract->supplyPayments()->count();
+            throw new \Exception("لا يمكن توليد دفعات جديدة - يوجد {$count} دفعة مولدة مسبقاً لهذا العقد");
+        }
+        
         // التحقق الشامل من صلاحية توليد الدفعات
         if (!$contract->canGeneratePayments()) {
+            // تحديد سبب المشكلة بدقة
+            if (!is_numeric($contract->payments_count) || $contract->payments_count <= 0) {
+                throw new \Exception('عدد الدفعات غير صحيح - تحقق من بيانات العقد');
+            }
+            
+            if (!$contract->isValidDurationForFrequency()) {
+                throw new \Exception('مدة العقد لا تتوافق مع تكرار الدفع المحدد');
+            }
+            
             throw new \Exception('لا يمكن توليد دفعات لهذا العقد - تحقق من صحة البيانات');
         }
         
