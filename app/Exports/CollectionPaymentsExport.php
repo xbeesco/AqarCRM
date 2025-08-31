@@ -32,7 +32,8 @@ class CollectionPaymentsExport implements FromCollection, ShouldAutoSize, WithHe
 
     public function map($payment): array
     {
-        $status = CollectionPayment::getStatusOptions()[$payment->collection_status] ?? $payment->collection_status;
+        // استخدام payment_status_label بدلاً من collection_status
+        $status = $payment->payment_status_label;
 
         return [
             $payment->tenant?->name ?? 'غير محدد',
