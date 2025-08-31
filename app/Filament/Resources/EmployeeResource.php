@@ -37,6 +37,40 @@ class EmployeeResource extends Resource
 
     protected static ?string $pluralModelLabel = 'الموظفين';
 
+    // صلاحيات الوصول للـ Resource
+    public static function canViewAny(): bool
+    {
+        $userType = auth()->user()?->type;
+        // فقط super_admin و admin و manager يمكنهم رؤية الموظفين
+        return in_array($userType, ['super_admin', 'admin', 'manager']);
+    }
+
+    public static function canCreate(): bool
+    {
+        $userType = auth()->user()?->type;
+        // فقط super_admin و admin يمكنهم إضافة موظفين
+        return in_array($userType, ['super_admin', 'admin']);
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        $userType = auth()->user()?->type;
+        // فقط super_admin و admin يمكنهم تعديل الموظفين
+        return in_array($userType, ['super_admin', 'admin']);
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        // فقط super_admin يمكنه حذف الموظفين
+        return auth()->user()?->type === 'super_admin';
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        // فقط super_admin يمكنه الحذف الجماعي
+        return auth()->user()?->type === 'super_admin';
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
@@ -211,26 +245,6 @@ class EmployeeResource extends Resource
             'create' => Pages\CreateEmployee::route('/create'),
             'edit' => Pages\EditEmployee::route('/{record}/edit'),
         ];
-    }
-    
-    public static function canViewAny(): bool
-    {
-        return auth()->user()->can('viewAny', static::getModel());
-    }
-    
-    public static function canCreate(): bool
-    {
-        return auth()->user()->can('create', static::getModel());
-    }
-    
-    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
-    {
-        return auth()->user()->can('update', $record);
-    }
-    
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
-    {
-        return auth()->user()->can('delete', $record);
     }
     
     public static function getGloballySearchableAttributes(): array

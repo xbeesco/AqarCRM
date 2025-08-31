@@ -39,6 +39,40 @@ class TenantResource extends Resource
     
     protected static ?string $recordTitleAttribute = 'name';
 
+    // صلاحيات الوصول للـ Resource
+    public static function canViewAny(): bool
+    {
+        $userType = auth()->user()?->type;
+        // الكل يمكنه رؤية المستأجرين ماعدا owner و tenant
+        return !in_array($userType, ['owner', 'tenant']);
+    }
+
+    public static function canCreate(): bool
+    {
+        $userType = auth()->user()?->type;
+        // super_admin و admin و manager يمكنهم إضافة مستأجرين
+        return in_array($userType, ['super_admin', 'admin', 'manager']);
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        $userType = auth()->user()?->type;
+        // super_admin و admin و manager يمكنهم تعديل المستأجرين
+        return in_array($userType, ['super_admin', 'admin', 'manager']);
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        // فقط super_admin يمكنه حذف المستأجرين
+        return auth()->user()?->type === 'super_admin';
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        // فقط super_admin يمكنه الحذف الجماعي
+        return auth()->user()?->type === 'super_admin';
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
