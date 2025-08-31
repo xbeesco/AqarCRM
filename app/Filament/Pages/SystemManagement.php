@@ -59,8 +59,8 @@ class SystemManagement extends Page implements HasSchemas
 
         // Load settings from database or use defaults
         $this->form->fill([
+            'payment_due_days' => Setting::get('payment_due_days', 7),
             'allowed_delay_days' => Setting::get('allowed_delay_days', 5),
-            'payment_due_days' => Setting::get('payment_due_days', 5),
             'test_date' => Setting::get('test_date', null),
         ]);
         
@@ -78,21 +78,24 @@ class SystemManagement extends Page implements HasSchemas
                 Section::make('إعدادات النظام')
                     ->columns(2)
                     ->schema([
-                        TextInput::make('allowed_delay_days')
-                            ->label('مدة التأخير المسموحة (بالأيام)')
+                        TextInput::make('payment_due_days')
+                            ->label('فترة السماح بعد تاريخ الاستحقاق')
+                            ->helperText('عدد الأيام المسموح بها للتأخير قبل اعتبار الدفعة متأخرة (مثال: 7 أيام من بداية الشهر)')
                             ->numeric()
-                            ->default(5)
+                            ->default(7)
                             ->minValue(0)
                             ->maxValue(30)
                             ->suffix('أيام'),
                             
-                        TextInput::make('payment_due_days')
-                            ->label('أيام الاستحقاق بعد نهاية الفترة')
+                        TextInput::make('allowed_delay_days')
+                            ->label('أيام إضافية قبل الإجراءات')
+                            ->helperText('أيام إضافية بعد انتهاء فترة السماح قبل اتخاذ إجراءات (غير مستخدم حالياً)')
                             ->numeric()
                             ->default(5)
                             ->minValue(0)
                             ->maxValue(30)
-                            ->suffix('أيام'),
+                            ->suffix('أيام')
+                            ->disabled(),
                             
                         DatePicker::make('test_date')
                             ->label('يوم الاختبار المطلوب')
