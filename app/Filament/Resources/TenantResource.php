@@ -234,28 +234,28 @@ class TenantResource extends Resource
         
         // إجمالي المدفوعات
         $totalPayments = $tenant->paymentHistory()
-            ->where('collection_status', 'collected')
+            ->collectedPayments()
             ->sum('total_amount');
         
         // المستحقات غير المدفوعة
         $outstandingPayments = $tenant->paymentHistory()
-            ->whereIn('collection_status', ['due', 'overdue'])
+            ->byStatuses(['due', 'overdue'])
             ->sum('total_amount');
         
         // عدد المدفوعات المتأخرة
         $overdueCount = $tenant->paymentHistory()
-            ->where('collection_status', 'overdue')
+            ->overduePayments()
             ->count();
         
         // تاريخ آخر دفعة
         $lastPayment = $tenant->paymentHistory()
-            ->where('collection_status', 'collected')
+            ->collectedPayments()
             ->latest('paid_date')
             ->first();
         
         // تاريخ الدفعة القادمة
         $nextPayment = $tenant->paymentHistory()
-            ->where('collection_status', 'due')
+            ->dueForCollection()
             ->oldest('due_date_start')
             ->first();
         
@@ -277,11 +277,11 @@ class TenantResource extends Resource
         
         // حساب نسبة الالتزام بالدفع
         $totalDuePayments = $tenant->paymentHistory()
-            ->whereIn('collection_status', ['collected', 'due', 'overdue'])
+            ->byStatuses(['collected', 'due', 'overdue'])
             ->count();
         
         $paidOnTimePayments = $tenant->paymentHistory()
-            ->where('collection_status', 'collected')
+            ->collectedPayments()
             ->whereColumn('paid_date', '<=', 'due_date_end')
             ->count();
         
