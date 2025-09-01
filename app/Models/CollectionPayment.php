@@ -25,7 +25,7 @@ class CollectionPayment extends Model
         'unit_id',
         'property_id',
         'tenant_id',
-        'payment_status_id',
+        // تم حذف payment_status - سنحسبها ديناميكياً
         'payment_method_id',
         'amount',
         'late_fee',
@@ -52,6 +52,7 @@ class CollectionPayment extends Model
         'paid_date' => 'date',
         'collection_date' => 'date',
         'delay_duration' => 'integer',
+        // تم حذف cast payment_status - لا نحفظها في قاعدة البيانات
     ];
 
     protected static function boot()
@@ -64,10 +65,7 @@ class CollectionPayment extends Model
                 $payment->payment_number = self::generatePaymentNumber();
             }
             
-            // قيمة افتراضية لحالة الدفعة
-            if (empty($payment->payment_status_id)) {
-                $payment->payment_status_id = 2;  // Due - تستحق التحصيل
-            }
+            // تم حذف تعيين payment_status - سنحسبها ديناميكياً
             
             // قيمة افتراضية للغرامة
             if (is_null($payment->late_fee)) {
@@ -117,10 +115,7 @@ class CollectionPayment extends Model
         return $this->belongsTo(User::class, 'tenant_id');
     }
 
-    public function paymentStatus(): BelongsTo
-    {
-        return $this->belongsTo(PaymentStatus::class);
-    }
+    // تم حذف علاقة paymentStatus لأننا نستخدم Enum الآن
 
     public function paymentMethod(): BelongsTo
     {
@@ -137,6 +132,27 @@ class CollectionPayment extends Model
         return $this->belongsTo(User::class, 'collected_by');
     }
 
+    // Accessors للحصول على معلومات الحالة من Enum (محسوبة ديناميكياً)
+    public function getPaymentStatusAttribute(): PaymentStatus
+    {
+        return $this->determinePaymentStatus();
+    }
+    
+    public function getPaymentStatusLabelAttribute(): string
+    {
+        return $this->payment_status->label();
+    }
+
+    public function getPaymentStatusColorAttribute(): string
+    {
+        return $this->payment_status->color();
+    }
+
+    public function getPaymentStatusIconAttribute(): string
+    {
+        return $this->payment_status->icon();
+    }
+
     // Scopes
     public function scopeByProperty($query, $propertyId)
     {
@@ -148,25 +164,14 @@ class CollectionPayment extends Model
         return $query->where('tenant_id', $tenantId);
     }
 
-    public function scopeOverdue($query)
-    {
-        return $query->where('due_date_end', '<', DateHelper::getCurrentDate())
-                    ->whereHas('paymentStatus', function($q) {
-                        $q->where('is_paid_status', false);
-                    });
-    }
+    // تم دمج scopeOverdue مع scopeOverduePayments - استخدم scopeOverduePayments
 
     public function scopeByMonth($query, $monthYear)
     {
         return $query->where('month_year', $monthYear);
     }
     
-    // Scopes القديمة محدثة لتستخدم البيانات الفعلية بدلاً من collection_status
-    public function scopePostponed($query)
-    {
-        // نفس scopePostponedPayments - دفعات لها delay_duration
-        return $this->scopePostponedPayments($query);
-    }
+    // تم حذف scopePostponed المكرر - استخدم scopePostponedPayments بدلاً منه
     
     public function scopePostponedWithDetails($query)
     {
@@ -260,36 +265,30 @@ class CollectionPayment extends Model
     }
     
     /**
-     * Scope لفلترة حسب حالة معينة
+     * Scope لفلترة حسب حالة معينة (باستخدام الحساب الديناميكي)
      */
     public function scopeByStatus($query, PaymentStatus $status)
     {
         return match($status) {
-            PaymentStatus::COLLECTED => $query->collectedPayments(),
-            PaymentStatus::POSTPONED => $query->postponedPayments(),
-            PaymentStatus::OVERDUE => $query->overduePayments(),
-            PaymentStatus::DUE => $query->dueForCollection(),
-            PaymentStatus::UPCOMING => $query->upcomingPayments(),
+            PaymentStatus::COLLECTED => $this->scopeCollectedPayments($query),
+            PaymentStatus::POSTPONED => $this->scopePostponedPayments($query),
+            PaymentStatus::OVERDUE => $this->scopeOverduePayments($query),
+            PaymentStatus::DUE => $this->scopeDueForCollection($query),
+            PaymentStatus::UPCOMING => $this->scopeUpcomingPayments($query),
         };
     }
     
     /**
-     * Scope لفلترة حسب حالات متعددة
+     * Scope لفلترة حسب حالات متعددة (باستخدام الحساب الديناميكي)
      */
     public function scopeByStatuses($query, array $statuses)
     {
         return $query->where(function($q) use ($statuses) {
             foreach ($statuses as $status) {
-                if ($status instanceof PaymentStatus) {
-                    $q->orWhere(function($subQuery) use ($status) {
-                        $this->scopeByStatus($subQuery, $status);
-                    });
-                } elseif (is_string($status)) {
-                    $enumStatus = PaymentStatus::from($status);
-                    $q->orWhere(function($subQuery) use ($enumStatus) {
-                        $this->scopeByStatus($subQuery, $enumStatus);
-                    });
-                }
+                $statusEnum = $status instanceof PaymentStatus ? $status : PaymentStatus::from($status);
+                $q->orWhere(function($subQuery) use ($statusEnum) {
+                    $this->scopeByStatus($subQuery, $statusEnum);
+                });
             }
         });
     }
@@ -336,22 +335,9 @@ class CollectionPayment extends Model
         return $this->determinePaymentStatus();
     }
     
-    /**
-     * الحصول على اسم الحالة بالعربية
-     */
-    public function getPaymentStatusLabelAttribute(): string
-    {
-        return $this->payment_status_enum->label();
-    }
-    
-    /**
-     * الحصول على لون الحالة
-     */
-    public function getPaymentStatusColorAttribute(): string
-    {
-        return $this->payment_status_enum->color();
-    }
-    
+    // تم حذف getPaymentStatusLabelAttribute و getPaymentStatusColorAttribute المكررين
+    // موجودين بالفعل في الأعلى (السطر 139 و 144)
+        
     /**
      * هل يمكن تأجيل الدفعة؟
      */
