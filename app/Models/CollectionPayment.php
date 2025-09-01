@@ -464,4 +464,26 @@ class CollectionPayment extends Model
             ]
         ]);
     }
+    // ==========================================
+    // Scopes إضافية جديدة لدعم ميزة إعادة الجدولة
+    // Additional Scopes for Rescheduling Feature
+    // ==========================================
+    
+    /**
+     * Scope للدفعات المحصلة (بناءً على collection_date)
+     * Scope for paid/collected payments
+     */
+    public function scopePaid($query)
+    {
+        return $query->whereNotNull('collection_date');
+    }
+    
+    /**
+     * Scope للدفعات غير المحصلة (بناءً على collection_date)
+     * Scope for unpaid payments
+     */
+    public function scopeUnpaid($query)
+    {
+        return $query->whereNull('collection_date');
+    }
 }

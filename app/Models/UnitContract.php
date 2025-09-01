@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Carbon\Carbon;
 
 class UnitContract extends Model
 {
@@ -314,5 +315,115 @@ class UnitContract extends Model
                $this->monthly_rent > 0 &&
                $this->start_date &&
                $this->end_date;
+    }
+    
+    /**
+     * Get paid payments.
+     */
+    public function getPaidPayments()
+    {
+        return $this->payments()
+            ->paid()  // استخدام الـ scope الجديد
+            ->orderBy('due_date_start')
+            ->get();
+    }
+    
+    /**
+     * Get unpaid payments.
+     */
+    public function getUnpaidPayments()
+    {
+        return $this->payments()
+            ->unpaid()  // استخدام الـ scope الجديد
+            ->orderBy('due_date_start')
+            ->get();
+    }
+    
+    /**
+     * Get last paid date.
+     */
+    public function getLastPaidDate(): ?Carbon
+    {
+        $lastPaidPayment = $this->payments()
+            ->paid()  // استخدام الـ scope الجديد
+            ->orderBy('due_date_end', 'desc')
+            ->first();
+            
+        return $lastPaidPayment ? Carbon::parse($lastPaidPayment->due_date_end) : null;
+    }
+    
+    /**
+     * Check if contract can be rescheduled.
+     */
+    public function canReschedule(): bool
+    {
+        // يمكن إعادة الجدولة إذا:
+        // 1. العقد نشط أو مسودة
+        if (!in_array($this->contract_status, ['active', 'draft'])) {
+            return false;
+        }
+        
+        // 2. يوجد دفعات (سواء مدفوعة أو غير مدفوعة)
+        if (!$this->payments()->exists()) {
+            return false;
+        }
+        
+        // 3. ليست كل الدفعات مدفوعة (أو يمكن إضافة دفعات جديدة حتى لو كلها مدفوعة)
+        // نسمح بإعادة الجدولة حتى لو كل الدفعات مدفوعة لإضافة فترة جديدة
+        
+        return true;
+    }
+    
+    /**
+     * Get count of paid months.
+     */
+    public function getPaidMonthsCount(): int
+    {
+        $paidPayments = $this->getPaidPayments();
+        
+        if ($paidPayments->isEmpty()) {
+            return 0;
+        }
+        
+        $totalDays = 0;
+        foreach ($paidPayments as $payment) {
+            $start = Carbon::parse($payment->due_date_start);
+            $end = Carbon::parse($payment->due_date_end);
+            $totalDays += $start->diffInDays($end) + 1;
+        }
+        
+        // تحويل الأيام إلى أشهر (تقريبياً 30 يوم للشهر)
+        return intval($totalDays / 30);
+    }
+    
+    /**
+     * Get remaining months that can be modified.
+     */
+    public function getRemainingMonths(): int
+    {
+        $totalMonths = $this->duration_months ?? 0;
+        $paidMonths = $this->getPaidMonthsCount();
+        
+        return max(0, $totalMonths - $paidMonths);
+    }
+    
+    /**
+     * Get count of paid payments.
+     */
+    public function getPaidPaymentsCount(): int
+    {
+        return $this->payments()
+            ->paid()  // استخدام الـ scope الجديد
+            ->count();
+    }
+    
+    /**
+     * Get count of unpaid payments.
+     */
+    public function getUnpaidPaymentsCount(): int
+    {
+        return $this->payments()
+            ->unpaid()  // استخدام الـ scope الجديد
+            ->count();
     }
 }

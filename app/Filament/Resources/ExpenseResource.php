@@ -281,7 +281,11 @@ class ExpenseResource extends Resource
                                     TextInput::make('type')
                                         ->label('نوع الوثيقة')
                                         ->placeholder('تسوية ضريبية, فاتورة الكهرباء, إلخ...'),
-                                    
+                                    TextInput::make('amount')
+                                        ->label('المبلغ')
+                                        ->numeric()
+                                        ->prefix('ريال'),
+
                                     TextInput::make('entity')
                                         ->label('الجهة الحكومية'),
                                                                         

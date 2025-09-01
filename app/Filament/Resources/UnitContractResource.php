@@ -368,6 +368,12 @@ class UnitContractResource extends Resource
                                 ->send();
                         }
                     }),
+                Action::make('reschedulePayments')
+                    ->label('جدولة الدفعات')
+                    ->icon('heroicon-o-calendar')
+                    ->color('warning')
+                    ->url(fn ($record) => $record ? route('filament.admin.resources.unit-contracts.reschedule', $record) : '#')
+                    ->visible(fn ($record) => $record && $record->canReschedule() && auth()->user()?->type === 'super_admin'),
                 EditAction::make()
                     ->label('تعديل')
                     ->icon('heroicon-o-pencil-square')->visible(fn () => auth()->user()?->type === 'super_admin'),
@@ -389,6 +395,7 @@ class UnitContractResource extends Resource
             'create' => Pages\CreateUnitContract::route('/create'),
             'view' => Pages\ViewUnitContracts::route('/{record}'),
             'edit' => Pages\EditUnitContract::route('/{record}/edit'), // Only accessible by super_admin
+            'reschedule' => Pages\ReschedulePayments::route('/{record}/reschedule'), // Only accessible by super_admin
         ];
     }
     
