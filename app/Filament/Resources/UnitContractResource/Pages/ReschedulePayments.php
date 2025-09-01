@@ -7,9 +7,9 @@ use App\Models\UnitContract;
 use App\Services\PaymentGeneratorService;
 use App\Services\PropertyContractService;
 use Filament\Resources\Pages\Page;
-use Filament\Forms\Form;
-use Filament\Forms\Components\Section;
-use Filament\Forms\Components\Grid;
+use Filament\Schemas\Schema;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Grid;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Placeholder;
@@ -67,9 +67,9 @@ class ReschedulePayments extends Page implements HasForms
         return "إعادة جدولة دفعات العقد: {$this->record->contract_number}";
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
                 Section::make(null)
                     ->columnspan(2)
