@@ -130,6 +130,7 @@ class CollectionPaymentResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->defaultSort('due_date_start', 'asc')
             ->modifyQueryUsing(function (\Illuminate\Database\Eloquent\Builder $query) {
                 $query->with(['tenant', 'unit', 'property', 'unitContract']);
             })

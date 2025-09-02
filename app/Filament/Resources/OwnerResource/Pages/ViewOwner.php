@@ -117,15 +117,16 @@ class ViewOwner extends ViewRecord
                 ->overduePayments()
                 ->sum('total_amount');
             
-            // نسبة الإدارة (افتراضياً 5%)
-            $adminPercentage = 5;
+            // نسبة الإدارة من عقد العقار
+            $propertyContract = \App\Models\PropertyContract::where('property_id', $property->id)
+                ->where('contract_status', 'active')
+                ->first();
+            
+            $adminPercentage = $propertyContract ? $propertyContract->commission_rate : 0;
             $adminFee = $propertyIncome * ($adminPercentage / 100);
             
             $propertiesReport[] = [
                 'property_name' => $property->name,
-                'location' => $property->location?->name ?? '-',
-                'is_residential' => $property->propertyType?->name === 'سكني' ? 'نعم' : 'لا',
-                'is_commercial' => $property->propertyType?->name === 'تجاري' ? 'نعم' : 'لا',
                 'property_category' => $property->propertyType?->name ?? '-',
                 'collection_payments' => CollectionPayment::where('property_id', $property->id)->count(),
                 'total_income' => $propertyIncome,
@@ -145,48 +146,6 @@ class ViewOwner extends ViewRecord
             $totalOverdue += $propertyOverdue;
         }
         
-        // بيانات الجدول الثاني - تقرير مالك العقار التفصيلي
-        $ownerDetailedReport = [];
-        $totalMaintenance = 0;
-        $totalGeneralMaintenance = 0;
-        $totalGovernmentObligations = 0;
-        $totalNetIncome = 0;
-        
-        foreach ($properties as $property) {
-            // حساب الصيانة والالتزامات لهذا العقار
-            $maintenanceSpecial = PropertyRepair::where('property_id', $property->id)
-                ->sum('total_cost');
-                
-            // حساب الالتزامات الحكومية (مؤقتاً نضع قيمة افتراضية)
-            $governmentObligations = 0;
-            
-            // جلب آخر دفعة للعقار
-            $payment = CollectionPayment::where('property_id', $property->id)
-                ->latest()
-                ->first();
-            
-            if ($payment) {
-                $adminFee = $payment->total_amount * 0.05;
-                $netIncome = $payment->total_amount - $adminFee - $maintenanceSpecial - $governmentObligations;
-                
-                $ownerDetailedReport[] = [
-                    'property_name' => $property->name,
-                    'units_count' => $property->units->count(),
-                    'unit_type' => $property->units->first()?->unitType?->name ?? '-',
-                    'payment_date_from' => $payment->due_date_start ?? '-',
-                    'payment_date_to' => $payment->due_date_end ?? '-',
-                    'payment_amount' => $payment->total_amount,
-                    'admin_fee' => $adminFee,
-                    'maintenance_special' => $maintenanceSpecial,
-                    'government_obligations' => $governmentObligations,
-                    'net_income' => $netIncome,
-                ];
-                
-                $totalMaintenance += $maintenanceSpecial;
-                $totalGovernmentObligations += $governmentObligations;
-                $totalNetIncome += $netIncome;
-            }
-        }
         
         // بيانات الجدول الثالث - معلومات المستأجرين والعقود النشطة
         $tenantsReport = [];
@@ -222,9 +181,6 @@ class ViewOwner extends ViewRecord
             }
         }
         
-        // حساب الصيانة العامة
-        $totalGeneralMaintenance = PropertyRepair::whereIn('property_id', $properties->pluck('id'))
-            ->sum('total_cost');
             
         // حساب الإيرادات الشهرية والسنوية
         $monthlyRevenue = $properties->sum(function($property) {
@@ -252,15 +208,7 @@ class ViewOwner extends ViewRecord
                 'total_income' => $totalIncome,
                 'total_admin_fee' => $totalAdminFee,
             ],
-            'ownerDetailedReport' => $ownerDetailedReport,
             'tenantsReport' => $tenantsReport,
-            'detailedTotals' => [
-                'maintenance_special' => $totalMaintenance,
-                'government_obligations' => $totalGovernmentObligations,
-                'general_maintenance' => $totalGeneralMaintenance,
-                'general_obligations' => $totalMaintenance + $totalGovernmentObligations,
-                'grand_total' => $totalNetIncome,
-            ],
         ];
     }
 }

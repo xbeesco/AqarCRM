@@ -92,6 +92,133 @@ class SupplyPayment extends Model
     {
         return $this->belongsTo(User::class, 'collected_by');
     }
+    
+    // علاقات وهمية للاستخدام في صفحة العرض
+    public function collectionPayments()
+    {
+        // علاقة وهمية - البيانات الفعلية تأتي من getCollectionPaymentsDetails()
+        return $this->hasMany(\App\Models\CollectionPayment::class, 'property_id', 'property_id');
+    }
+    
+    public function expenses()
+    {
+        // علاقة وهمية - البيانات الفعلية تأتي من getExpensesDetails()
+        return $this->hasMany(\App\Models\Expense::class, 'subject_id', 'property_id');
+    }
+    
+    /**
+     * حساب قيمة دفعة التوريد بناءً على المدى الزمني
+     * يحسب إجمالي المبالغ المحصلة خلال الفترة مع خصم العمولة والمصروفات
+     */
+    public function calculateAmountsFromPeriod(): array
+    {
+        // استخراج المدى الزمني من invoice_details (يتضمن فترة السماح بالفعل)
+        $invoiceDetails = $this->invoice_details ?? [];
+        $periodStart = $invoiceDetails['period_start'] ?? $this->month_year . '-01';
+        $periodEnd = $invoiceDetails['period_end'] ?? date('Y-m-t', strtotime($periodStart));
+        
+        // 1. حساب إجمالي المبالغ المحصلة خلال الفترة
+        $collectedAmount = \App\Models\CollectionPayment::where('property_id', $this->propertyContract->property_id)
+            ->whereNotNull('paid_date')
+            ->whereBetween('paid_date', [$periodStart, $periodEnd])
+            ->sum('total_amount');
+        
+        // 2. حساب العمولة
+        $commissionAmount = round($collectedAmount * ($this->commission_rate / 100), 2);
+        
+        // 3. حساب المصروفات خلال الفترة (للعقار والوحدات التابعة له)
+        // جلب معرفات الوحدات التابعة للعقار
+        $unitIds = \App\Models\Unit::where('property_id', $this->propertyContract->property_id)
+            ->pluck('id')
+            ->toArray();
+        
+        // حساب مصروفات العقار
+        $propertyExpenses = \App\Models\Expense::where('subject_type', \App\Models\Property::class)
+            ->where('subject_id', $this->propertyContract->property_id)
+            ->whereBetween('date', [$periodStart, $periodEnd])
+            ->sum('cost');
+        
+        // حساب مصروفات الوحدات
+        $unitExpenses = 0;
+        if (!empty($unitIds)) {
+            $unitExpenses = \App\Models\Expense::where('subject_type', \App\Models\Unit::class)
+                ->whereIn('subject_id', $unitIds)
+                ->whereBetween('date', [$periodStart, $periodEnd])
+                ->sum('cost');
+        }
+        
+        $expenses = $propertyExpenses + $unitExpenses;
+        
+        // 4. حساب المبلغ الصافي
+        $netAmount = $collectedAmount - $commissionAmount - $expenses;
+        
+        // 5. عدد الدفعات المحصلة
+        $collectionsCount = \App\Models\CollectionPayment::where('property_id', $this->propertyContract->property_id)
+            ->whereNotNull('paid_date')
+            ->whereBetween('paid_date', [$periodStart, $periodEnd])
+            ->count();
+        
+        return [
+            'gross_amount' => $collectedAmount,
+            'commission_amount' => $commissionAmount,
+            'maintenance_deduction' => $expenses,
+            'net_amount' => $netAmount,
+            'period_start' => $periodStart,
+            'period_end' => $periodEnd,
+            'collections_count' => $collectionsCount
+        ];
+    }
+    
+    /**
+     * الحصول على دفعات التحصيل التفصيلية للفترة
+     */
+    public function getCollectionPaymentsDetails(): \Illuminate\Database\Eloquent\Collection
+    {
+        $invoiceDetails = $this->invoice_details ?? [];
+        $periodStart = $invoiceDetails['period_start'] ?? $this->month_year . '-01';
+        $periodEnd = $invoiceDetails['period_end'] ?? date('Y-m-t', strtotime($periodStart));
+        
+        return \App\Models\CollectionPayment::with(['tenant', 'unit'])
+            ->where('property_id', $this->propertyContract->property_id)
+            ->whereNotNull('paid_date')
+            ->whereBetween('paid_date', [$periodStart, $periodEnd])
+            ->orderBy('paid_date', 'desc')
+            ->get();
+    }
+    
+    /**
+     * الحصول على المصروفات التفصيلية للفترة
+     */
+    public function getExpensesDetails(): \Illuminate\Database\Eloquent\Collection
+    {
+        $invoiceDetails = $this->invoice_details ?? [];
+        $periodStart = $invoiceDetails['period_start'] ?? $this->month_year . '-01';
+        $periodEnd = $invoiceDetails['period_end'] ?? date('Y-m-t', strtotime($periodStart));
+        
+        // جلب معرفات الوحدات التابعة للعقار
+        $unitIds = \App\Models\Unit::where('property_id', $this->propertyContract->property_id)
+            ->pluck('id')
+            ->toArray();
+        
+        // جلب النفقات للعقار والوحدات معاً
+        return \App\Models\Expense::where(function($query) use ($unitIds) {
+                // نفقات العقار
+                $query->where(function($q) {
+                    $q->where('subject_type', \App\Models\Property::class)
+                      ->where('subject_id', $this->propertyContract->property_id);
+                })
+                // أو نفقات الوحدات
+                ->orWhere(function($q) use ($unitIds) {
+                    if (!empty($unitIds)) {
+                        $q->where('subject_type', \App\Models\Unit::class)
+                          ->whereIn('subject_id', $unitIds);
+                    }
+                });
+            })
+            ->whereBetween('date', [$periodStart, $periodEnd])
+            ->orderBy('date', 'desc')
+            ->get();
+    }
 
     // Scopes
     public function scopeByOwner($query, $ownerId)

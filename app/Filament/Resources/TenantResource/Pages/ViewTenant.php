@@ -5,8 +5,11 @@ namespace App\Filament\Resources\TenantResource\Pages;
 use App\Filament\Resources\TenantResource;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Actions\EditAction;
-use Filament\Actions\Action;
-use App\Models\UnitContract;
+use Filament\Schemas\Schema;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Grid;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Support\Enums\FontWeight;
 
 class ViewTenant extends ViewRecord
 {
@@ -14,108 +17,149 @@ class ViewTenant extends ViewRecord
     
     protected static ?string $title = 'عرض المستأجر';
     
-    protected string $view = 'filament.resources.tenant-resource.pages.view-tenant';
+    public function infolist(Schema $schema): Schema
+    {
+        $tenant = $this->record;
+        
+        // الحصول على العقد النشط
+        $activeContract = \App\Models\UnitContract::where('tenant_id', $tenant->id)
+            ->where('contract_status', 'active')
+            ->with(['unit.property'])
+            ->first();
+        
+        return $schema
+            ->schema([
+                Section::make('معلومات المستأجر')
+                    ->schema([
+                        Grid::make(3)
+                            ->schema([
+                                TextEntry::make('name')
+                                    ->label('اسم المستأجر')
+                                    ->weight(FontWeight::Bold)
+                                    ->size('lg'),
+                                TextEntry::make('phone')
+                                    ->label('رقم الهاتف')
+                                    ->icon('heroicon-o-phone')
+                                    ->color('primary'),
+                                TextEntry::make('email')
+                                    ->label('البريد الإلكتروني')
+                                    ->icon('heroicon-o-envelope')
+                                    ->placeholder('غير محدد'),
+                                TextEntry::make('national_id')
+                                    ->label('رقم الهوية')
+                                    ->placeholder('غير محدد'),
+                                TextEntry::make('occupation')
+                                    ->label('المهنة')
+                                    ->placeholder('غير محددة'),
+                                TextEntry::make('employer')
+                                    ->label('جهة العمل')
+                                    ->placeholder('غير محددة'),
+                            ]),
+                    ]),
+                    
+                Section::make('معلومات العقد الحالي')
+                    ->schema([
+                        Grid::make(3)
+                            ->schema([
+                                TextEntry::make('current_property')
+                                    ->label('العقار الحالي')
+                                    ->state($activeContract ? $activeContract->unit->property->name : 'لا يوجد عقد نشط')
+                                    ->badge()
+                                    ->color($activeContract ? 'success' : 'gray'),
+                                TextEntry::make('current_unit')
+                                    ->label('الوحدة')
+                                    ->state($activeContract ? $activeContract->unit->name : '-')
+                                    ->icon('heroicon-o-home'),
+                                TextEntry::make('monthly_rent')
+                                    ->label('الإيجار الشهري')
+                                    ->state($activeContract ? number_format($activeContract->monthly_rent, 2) . ' ريال' : '-')
+                                    ->color('warning')
+                                    ->weight(FontWeight::Bold),
+                                TextEntry::make('contract_start')
+                                    ->label('بداية العقد')
+                                    ->state($activeContract ? $activeContract->start_date : '-')
+                                    ->date('Y-m-d'),
+                                TextEntry::make('contract_end')
+                                    ->label('نهاية العقد')
+                                    ->state($activeContract ? $activeContract->end_date : '-')
+                                    ->date('Y-m-d'),
+                                TextEntry::make('remaining_days')
+                                    ->label('الأيام المتبقية')
+                                    ->state(function() use ($activeContract) {
+                                        if (!$activeContract) return '-';
+                                        $days = now()->diffInDays($activeContract->end_date, false);
+                                        return $days > 0 ? $days . ' يوم' : 'منتهي';
+                                    })
+                                    ->badge()
+                                    ->color(function() use ($activeContract) {
+                                        if (!$activeContract) return 'gray';
+                                        $days = now()->diffInDays($activeContract->end_date, false);
+                                        if ($days <= 0) return 'danger';
+                                        if ($days <= 30) return 'warning';
+                                        return 'success';
+                                    }),
+                            ]),
+                    ])
+                    ->visible($activeContract !== null),
+                    
+                Section::make('الإحصائيات المالية')
+                    ->schema([
+                        Grid::make(4)
+                            ->schema([
+                                TextEntry::make('total_paid')
+                                    ->label('إجمالي المدفوع')
+                                    ->state(function() use ($tenant) {
+                                        $total = \App\Models\CollectionPayment::where('tenant_id', $tenant->id)
+                                            ->collectedPayments()
+                                            ->sum('total_amount');
+                                        return number_format($total, 2) . ' ريال';
+                                    })
+                                    ->color('success')
+                                    ->weight(FontWeight::Bold)
+                                    ->size('lg'),
+                                TextEntry::make('pending_payments')
+                                    ->label('مدفوعات مستحقة')
+                                    ->state(function() use ($tenant) {
+                                        $total = \App\Models\CollectionPayment::where('tenant_id', $tenant->id)
+                                            ->dueForCollection()
+                                            ->sum('total_amount');
+                                        return number_format($total, 2) . ' ريال';
+                                    })
+                                    ->color('warning'),
+                                TextEntry::make('overdue_payments')
+                                    ->label('مدفوعات متأخرة')
+                                    ->state(function() use ($tenant) {
+                                        $total = \App\Models\CollectionPayment::where('tenant_id', $tenant->id)
+                                            ->overduePayments()
+                                            ->sum('total_amount');
+                                        return number_format($total, 2) . ' ريال';
+                                    })
+                                    ->color('danger')
+                                    ->weight(FontWeight::Bold),
+                                TextEntry::make('payment_count')
+                                    ->label('عدد الدفعات')
+                                    ->state(function() use ($tenant) {
+                                        return \App\Models\CollectionPayment::where('tenant_id', $tenant->id)->count();
+                                    })
+                                    ->badge()
+                                    ->color('primary'),
+                            ]),
+                    ]),
+            ]);
+    }
     
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('back')
-                ->label('المستأجرين')
-                ->icon('heroicon-o-arrow-right')
-                ->color('gray')
-                ->url(TenantResource::getUrl('index')),
-            Action::make('print')
-                ->label('طباعة التقرير')
-                ->icon('heroicon-o-printer')
-                ->color('gray')
-                ->modalHeading('طباعة تقرير المستأجر')
-                ->modalContent(function () {
-                    $data = $this->getViewData();
-                    return view('filament.resources.tenant-resource.pages.print-tenant', [
-                        'tenant' => $this->record,
-                        'reportData' => $data['reportData'],
-                    ]);
-                })
-                ->modalWidth('5xl')
-                ->modalFooterActions([
-                    Action::make('printReport')
-                        ->label('طباعة التقرير')
-                        ->icon('heroicon-o-printer')
-                        ->color('success')
-                        ->extraAttributes([
-                            'onclick' => "
-                                var printContent = document.querySelector('.print-content').innerHTML;
-                                var originalContent = document.body.innerHTML;
-                                document.body.innerHTML = printContent;
-                                window.print();
-                                document.body.innerHTML = originalContent;
-                                window.location.reload();
-                                return false;
-                            ",
-                        ]),
-                    Action::make('close')
-                        ->label('إلغاء')
-                        ->color('gray')
-                        ->close(),
-                ]),
             EditAction::make()->label('تعديل'),
         ];
     }
     
-    protected function getViewData(): array
+    public function getRelationManagers(): array
     {
-        $tenant = $this->record;
-        
-        // الحصول على العقد النشط الحالي
-        $activeContract = UnitContract::where('tenant_id', $tenant->id)
-            ->where('contract_status', 'active')
-            ->with(['unit', 'unit.property', 'unit.unitType'])
-            ->first();
-        
-        $reportData = [];
-        
-        if ($activeContract) {
-            // تحويل تكرار الدفعات إلى العربية
-            $paymentFrequency = $activeContract->payment_frequency;
-            $paymentFrequencyAr = match($paymentFrequency) {
-                'monthly' => 'شهري',
-                'quarterly' => 'ربع سنوي',
-                'semi_annual' => 'نصف سنوي',
-                'annual' => 'سنوي',
-                'yearly' => 'سنوي',
-                default => $paymentFrequency ?? '-'
-            };
-            
-            $reportData = [
-                'tenant_name' => $tenant->name,
-                'phone' => $tenant->phone ?? '-',
-                'property_name' => $activeContract->unit?->property?->name ?? '-',
-                'unit_number' => $activeContract->unit?->id ?? '-',
-                'unit_type' => $activeContract->unit?->unitType?->name_ar ?? '-',
-                'security_deposit' => $activeContract->security_deposit ?? 0,
-                'payment_count' => $paymentFrequencyAr,
-                'contract_start' => $activeContract->start_date,
-                'notes' => $activeContract->notes ?? '-',
-            ];
-        } else {
-            // إذا لم يكن هناك عقد نشط، نعرض بيانات فارغة
-            $reportData = [
-                'tenant_name' => $tenant->name,
-                'phone' => $tenant->phone ?? '-',
-                'property_name' => '-',
-                'unit_number' => '-',
-                'unit_type' => '-',
-                'security_deposit' => 0,
-                'payment_count' => '-',
-                'contract_start' => '-',
-                'notes' => '-',
-            ];
-        }
-        
         return [
-            'tenant' => $tenant,
-            'reportData' => $reportData,
-            'activeContract' => $activeContract,
+            \App\Filament\Resources\TenantResource\RelationManagers\ContractsRelationManager::class,
+            \App\Filament\Resources\TenantResource\RelationManagers\PaymentsRelationManager::class,
         ];
     }
 }

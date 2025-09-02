@@ -53,7 +53,9 @@ class TenantsPaymentDueWidget extends BaseWidget
 
                 Tables\Columns\TextColumn::make('due_date_start')
                     ->label('التاريخ')
-                    ->date('d/m'),
+                    
+                    ->date('d/m/Y')
+                    ->sortable(),
 
                 Tables\Columns\TextColumn::make('tenant.phone')
                     ->label('الهاتف'),
