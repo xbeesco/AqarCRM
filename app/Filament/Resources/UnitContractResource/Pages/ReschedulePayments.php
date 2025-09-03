@@ -31,12 +31,16 @@ class ReschedulePayments extends Page implements HasForms
     public UnitContract $record;
     public ?array $data = [];
     
-    protected PaymentGeneratorService $paymentService;
+    protected ?PaymentGeneratorService $paymentService = null;
+
+    public function __construct()
+    {
+        $this->paymentService = app(PaymentGeneratorService::class);
+    }
 
     public function mount(UnitContract $record): void
     {
         $this->record = $record;
-        $this->paymentService = app(PaymentGeneratorService::class);
         
         // التحقق من الصلاحيات
         if (auth()->user()->type !== 'super_admin') {

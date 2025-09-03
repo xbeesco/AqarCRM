@@ -318,7 +318,7 @@ class CollectionPayment extends Model
             return PaymentStatus::OVERDUE;
         }
         
-        // إذا كانت مستحقة (وصل تاريخها لكن لم تتجاوز مدة السماح)
+        // إذا كانت مستحقة (وkصل تاريخها لكن لم تتجاوز مدة السماح)
         if ($this->due_date_start <= $today) {
             return PaymentStatus::DUE;
         }

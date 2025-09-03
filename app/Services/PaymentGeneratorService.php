@@ -63,7 +63,7 @@ class PaymentGeneratorService
                     'unit_id' => $contract->unit_id,
                     'property_id' => $contract->property_id,
                     'tenant_id' => $contract->tenant_id,
-                    'payment_status_id' => 2,  // Due - تستحق التحصيل
+                    'payment_status_id' => 2,  // Due - تستحق التحصيل 
                     'amount' => $baseAmount,
                     'late_fee' => 0,
                     'total_amount' => $baseAmount,
@@ -223,8 +223,33 @@ class PaymentGeneratorService
      */
     private function calculateMonthlyExpenses(int $propertyId, Carbon $month): float
     {
-        // TODO: حساب المصروفات من جدول expenses
-        return 0;
+        // حساب مصروفات العقار نفسه
+        $propertyExpenses = \App\Models\Expense::where('subject_type', 'App\Models\Property')
+            ->where('subject_id', $propertyId)
+            ->whereYear('date', $month->year)
+            ->whereMonth('date', $month->month)
+            ->sum('cost');
+        
+        // حساب مصروفات الوحدات التابعة للعقار
+        $property = \App\Models\Property::find($propertyId);
+        $unitsExpenses = 0;
+        
+        if ($property) {
+            $unitIds = $property->units->pluck('id');
+            $unitsExpenses = \App\Models\Expense::where('subject_type', 'App\Models\Unit')
+                ->whereIn('subject_id', $unitIds)
+                ->whereYear('date', $month->year)
+                ->whereMonth('date', $month->month)
+                ->sum('cost');
+        }
+        
+        // حساب مصروفات الصيانة من جدول property_repairs
+        $maintenanceExpenses = \App\Models\PropertyRepair::where('property_id', $propertyId)
+            ->whereYear('maintenance_date', $month->year)
+            ->whereMonth('maintenance_date', $month->month)
+            ->sum('total_cost');
+        
+        return $propertyExpenses + $unitsExpenses + $maintenanceExpenses;
     }
     
     /**

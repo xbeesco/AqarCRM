@@ -283,7 +283,7 @@ class PropertyContractResource extends Resource
                             
                             \Filament\Notifications\Notification::make()
                                 ->title('تم توليد الدفعات')
-                                ->body("تم توليد {$count} دفعة")
+                                ->body("تم تصفية المستحقات والنفقات لهذا الشهر")
                                 ->success()
                                 ->send();
                         } catch (\Exception $e) {

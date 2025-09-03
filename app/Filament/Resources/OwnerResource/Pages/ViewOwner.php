@@ -127,6 +127,9 @@ class ViewOwner extends ViewRecord
             
             $propertiesReport[] = [
                 'property_name' => $property->name,
+                'location' => $property->location?->name ?? 'غير محدد',
+                'is_residential' => $property->propertyType?->slug === 'residential' ? 'نعم' : 'لا',
+                'is_commercial' => $property->propertyType?->slug === 'commercial' ? 'نعم' : 'لا',
                 'property_category' => $property->propertyType?->name ?? '-',
                 'collection_payments' => CollectionPayment::where('property_id', $property->id)->count(),
                 'total_income' => $propertyIncome,
@@ -190,6 +193,81 @@ class ViewOwner extends ViewRecord
         });
         $annualRevenue = $monthlyRevenue * 12;
         
+        // بيانات الجدول الثاني - تقرير مالك العقار التفصيلي
+        $ownerDetailedReport = [];
+        $detailedTotals = [
+            'payment_amount' => 0,
+            'admin_fee' => 0,
+            'maintenance_special' => 0,
+            'government_obligations' => 0,
+            'general_maintenance' => 0,
+            'general_obligations' => 0,
+            'net_income' => 0,
+            'grand_total' => 0,
+        ];
+        
+        foreach ($properties as $property) {
+            // حساب مصاريف الصيانة الخاصة بالعقار
+            $maintenanceExpenses = PropertyRepair::where('property_id', $property->id)
+                ->whereYear('maintenance_date', date('Y'))
+                ->sum('total_cost');
+            
+            // حساب الإيرادات والمصاريف للعقار
+            $propertyIncome = CollectionPayment::where('property_id', $property->id)
+                ->collectedPayments()
+                ->sum('total_amount');
+            
+            // نسبة الإدارة من عقد العقار
+            $propertyContract = \App\Models\PropertyContract::where('property_id', $property->id)
+                ->where('contract_status', 'active')
+                ->first();
+            
+            $adminPercentage = $propertyContract ? $propertyContract->commission_rate : 0;
+            $adminFee = $propertyIncome * ($adminPercentage / 100);
+            
+            // حساب صافي المبلغ للمالك
+            $netIncome = $propertyIncome - $adminFee - $maintenanceExpenses;
+            
+            // معلومات الوحدات
+            $unitsCount = $property->units->count();
+            $unitTypes = $property->units->pluck('unitType.name')->unique()->implode(', ');
+            
+            // تواريخ الدفع من أول وآخر دفعة
+            $firstPayment = CollectionPayment::where('property_id', $property->id)
+                ->collectedPayments()
+                ->orderBy('due_date_start', 'asc')
+                ->first();
+            
+            $lastPayment = CollectionPayment::where('property_id', $property->id)
+                ->collectedPayments()
+                ->orderBy('due_date_end', 'desc')
+                ->first();
+            
+            $ownerDetailedReport[] = [
+                'property_name' => $property->name,
+                'units_count' => $unitsCount,
+                'unit_type' => $unitTypes ?: '-',
+                'payment_date_from' => $firstPayment?->due_date_start ?? '-',
+                'payment_date_to' => $lastPayment?->due_date_end ?? '-',
+                'payment_amount' => $propertyIncome,
+                'admin_fee' => $adminFee,
+                'maintenance_special' => $maintenanceExpenses,
+                'government_obligations' => 0, // يمكن إضافة الحساب الفعلي لاحقاً
+                'net_income' => $netIncome,
+            ];
+            
+            // تحديث الإجماليات
+            $detailedTotals['payment_amount'] += $propertyIncome;
+            $detailedTotals['admin_fee'] += $adminFee;
+            $detailedTotals['maintenance_special'] += $maintenanceExpenses;
+            $detailedTotals['net_income'] += $netIncome;
+        }
+        
+        // حساب الإجمالي الكلي
+        $detailedTotals['grand_total'] = $detailedTotals['net_income'] - 
+            $detailedTotals['general_maintenance'] - 
+            $detailedTotals['general_obligations'];
+        
         return [
             'owner' => $owner,
             'summary' => [
@@ -208,6 +286,8 @@ class ViewOwner extends ViewRecord
                 'total_income' => $totalIncome,
                 'total_admin_fee' => $totalAdminFee,
             ],
+            'ownerDetailedReport' => $ownerDetailedReport,
+            'detailedTotals' => $detailedTotals,
             'tenantsReport' => $tenantsReport,
         ];
     }

@@ -121,7 +121,7 @@ class PropertyResource extends Resource
                             ->numeric()
                             ->nullable(),
                             
-                        TextInput::make('built_year')
+                        TextInput::make('build_year')
                             ->label('سنة البناء')
                             ->numeric()
                             ->minValue(1900)
