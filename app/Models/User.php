@@ -97,49 +97,104 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
-     * Scope for employees
+     * Unified scope for filtering by user type(s)
+     * Supports: strings, UserType enums, arrays, and special keywords
+     * 
+     * Examples:
+     * - User::byType('owner')
+     * - User::byType(UserType::TENANT)
+     * - User::byType(['owner', 'tenant'])
+     * - User::byType('staff') // returns all employees
+     * - User::byType('admin') // returns admin + super_admin
+     * - User::byType('clients') // returns owner + tenant
+     */
+    public function scopeByType($query, $types)
+    {
+        // Convert single value to array for uniform processing
+        if (!is_array($types)) {
+            // Handle UserType enum
+            if ($types instanceof UserType) {
+                $types = [$types->value];
+            } 
+            // Handle string keywords
+            else {
+                $types = match(strtolower($types)) {
+                    // Groups
+                    'admin', 'admins' => [
+                        UserType::SUPER_ADMIN->value,
+                        UserType::ADMIN->value
+                    ],
+                    'staff', 'employees' => [
+                        UserType::EMPLOYEE->value,
+                        UserType::ADMIN->value,
+                        UserType::SUPER_ADMIN->value
+                    ],
+                    'clients', 'client' => [
+                        UserType::OWNER->value,
+                        UserType::TENANT->value
+                    ],
+                    // Single types
+                    'owner', 'owners' => [UserType::OWNER->value],
+                    'tenant', 'tenants' => [UserType::TENANT->value],
+                    'employee' => [UserType::EMPLOYEE->value],
+                    'super_admin' => [UserType::SUPER_ADMIN->value],
+                    // Default: use as-is
+                    default => [$types]
+                };
+            }
+        } else {
+            // Process array - convert any UserType enums to strings
+            $types = array_map(function($type) {
+                return $type instanceof UserType ? $type->value : $type;
+            }, $types);
+        }
+        
+        // Apply query filter
+        if (count($types) === 1) {
+            return $query->where('type', $types[0]);
+        }
+        
+        return $query->whereIn('type', $types);
+    }
+
+    /**
+     * Scope for employees (legacy - uses byType internally)
      */
     public function scopeEmployees($query)
     {
-        return $query->where('type', UserType::EMPLOYEE->value);
+        return $query->byType('staff');
     }
 
     /**
-     * Scope for admins
+     * Scope for admins (legacy - uses byType internally)
      */
     public function scopeAdmins($query)
     {
-        return $query->whereIn('type', [
-            UserType::SUPER_ADMIN->value,
-            UserType::ADMIN->value,
-        ]);
+        return $query->byType('admin');
     }
 
     /**
-     * Scope for owners
+     * Scope for owners (legacy - uses byType internally)
      */
     public function scopeOwners($query)
     {
-        return $query->where('type', UserType::OWNER->value);
+        return $query->byType('owner');
     }
 
     /**
-     * Scope for tenants
+     * Scope for tenants (legacy - uses byType internally)
      */
     public function scopeTenants($query)
     {
-        return $query->where('type', UserType::TENANT->value);
+        return $query->byType('tenant');
     }
     
     /**
-     * Scope by user type
+     * Scope by user type (legacy - uses byType internally)
      */
     public function scopeOfType($query, $type)
     {
-        if ($type instanceof UserType) {
-            $type = $type->value;
-        }
-        return $query->where('type', $type);
+        return $query->byType($type);
     }
 
     /**

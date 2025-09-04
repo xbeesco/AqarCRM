@@ -159,7 +159,7 @@ class UserResource extends Resource
                 ]),
             ])
             ->defaultSort('created_at', 'desc')
-            ->modifyQueryUsing(fn (Builder $query) => $query->employees());
+            ->modifyQueryUsing(fn (Builder $query) => $query->byType('staff'));
     }
 
     public static function getRelations(): array

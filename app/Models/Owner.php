@@ -43,52 +43,56 @@ class Owner extends User
 
     /**
      * Get the supply payments for this owner.
+     * Note: SupplyPayment model needs to be created
      */
     public function supplyPayments()
     {
-        return $this->hasMany(SupplyPayment::class, 'owner_id');
+        // return $this->hasMany(SupplyPayment::class, 'owner_id');
+        return $this->hasMany(\App\Models\SupplyPayment::class, 'owner_id');
     }
 
     /**
      * Get rental contracts for this owner's properties.
+     * Note: RentalContract model needs to be created
      */
-    public function rentalContracts()
-    {
-        return $this->hasManyThrough(RentalContract::class, Property::class, 'owner_id', 'property_id');
-    }
+    // public function rentalContracts()
+    // {
+    //     // return $this->hasManyThrough(RentalContract::class, Property::class, 'owner_id', 'property_id');
+    //     return $this->hasManyThrough(\App\Models\RentalContract::class, Property::class, 'owner_id', 'property_id');
+    // }
 
     /**
      * Get payments received by this owner.
+     * Overrides the parent payments() method to return supplyPayments
      */
     public function payments()
     {
-        return $this->hasManyThrough(Payment::class, RentalContract::class, 'owner_id', 'contract_id')
-                    ->through('properties');
+        return $this->supplyPayments();
     }
 
     /**
      * Get maintenance requests for this owner's properties.
      */
-    public function maintenanceRequests()
-    {
-        return $this->hasManyThrough(MaintenanceRequest::class, Property::class, 'owner_id', 'property_id');
-    }
+    // public function maintenanceRequests()
+    // {
+    //     return $this->hasManyThrough(MaintenanceRequest::class, Property::class, 'owner_id', 'property_id');
+    // }
 
     /**
      * Get financial statements for this owner.
      */
-    public function financialStatements()
-    {
-        return $this->hasMany(FinancialStatement::class, 'owner_id');
-    }
+    // public function financialStatements()
+    // {
+    //     return $this->hasMany(FinancialStatement::class, 'owner_id');
+    // }
 
     /**
      * Get property valuations for this owner's properties.
      */
-    public function propertyValuations()
-    {
-        return $this->hasManyThrough(PropertyValuation::class, Property::class, 'owner_id', 'property_id');
-    }
+    // public function propertyValuations()
+    // {
+    //     return $this->hasManyThrough(PropertyValuation::class, Property::class, 'owner_id', 'property_id');
+    // }
 
     /**
      * Get all units for this owner's properties.
