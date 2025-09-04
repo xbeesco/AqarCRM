@@ -26,33 +26,12 @@ class User extends Authenticatable implements FilamentUser
     protected $fillable = [
         'name',
         'email',
+        'email_verified_at',
         'password',
         'phone',
         'secondary_phone',
         'identity_file',
         'type',
-        // Employee fields
-        'employee_id',
-        'department',
-        'joining_date',
-        'salary',
-        'position',
-        'supervisor_id',
-        'emergency_contact',
-        'emergency_phone',
-        'address',
-        'birth_date',
-        // Owner fields
-        'commercial_register',
-        'tax_number',
-        'bank_name',
-        'bank_account_number',
-        'iban',
-        'nationality',
-        'ownership_documents',
-        'legal_representative',
-        'company_name',
-        'business_type',
     ];
 
     /**
@@ -76,10 +55,6 @@ class User extends Authenticatable implements FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'deleted_at' => 'datetime',
-            'joining_date' => 'date',
-            'birth_date' => 'date',
-            'salary' => 'decimal:2',
-            'ownership_documents' => 'array',
         ];
     }
 
