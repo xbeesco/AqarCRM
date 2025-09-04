@@ -300,8 +300,6 @@ class SupplyPaymentResource extends Resource
             'owner.name',
             'owner.phone',
             'owner.email',
-            'owner.commercial_register',
-            'owner.tax_number',
             'approver.name',
         ];
     }
@@ -481,9 +479,7 @@ class SupplyPaymentResource extends Resource
                         ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%")
                         ->orWhere('phone', 'LIKE', "%{$search}%")
                         ->orWhere('phone', 'LIKE', "%{$searchWithoutSpaces}%")
-                        ->orWhere('email', 'LIKE', "%{$search}%")
-                        ->orWhere('commercial_register', 'LIKE', "%{$search}%")
-                        ->orWhere('tax_number', 'LIKE', "%{$search}%");
+                        ->orWhere('email', 'LIKE', "%{$search}%");
                 });
                 
                 // البحث في المعتمد
