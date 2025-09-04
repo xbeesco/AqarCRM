@@ -6,11 +6,11 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Enums\UserType;
-use App\Helpers\AppHelper;
+use App\Traits\AutoGeneratesCredentials;
 
 class Tenant extends User
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, AutoGeneratesCredentials;
 
     protected $table = 'users';
 
@@ -27,16 +27,9 @@ class Tenant extends User
             $builder->where('type', UserType::TENANT->value);
         });
 
-        // Auto-set type and generate email/password on creation
+        // Auto-set type on creation
         static::creating(function ($tenant) {
             $tenant->type = UserType::TENANT->value;
-            // Auto-generate email and password from phone
-            if ($tenant->phone && !$tenant->email) {
-                $tenant->email = AppHelper::generateEmailFromPhone($tenant->phone);
-            }
-            if ($tenant->phone && !$tenant->password) {
-                $tenant->password = bcrypt($tenant->phone);
-            }
         });
     }
 
