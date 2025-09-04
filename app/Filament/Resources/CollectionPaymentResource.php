@@ -295,8 +295,9 @@ class CollectionPaymentResource extends Resource
                     ->requiresConfirmation()
                     ->modalHeading('تأكيد استلام الدفعة')
                     ->modalDescription(fn (CollectionPayment $record) => 
-                        "أقر أنا " . auth()->user()->name . " باستلام مبلغ وقدره " . 
-                        number_format($record->amount, 2) . " ريال سعودي"
+                        "أقر أنا " . auth()->user()->name . " باستلام الدفعة رقم " . 
+                        $record->payment_number . " من " . 
+                        ($record->tenant?->name ?? 'المستأجر')
                     )
                     ->modalSubmitActionLabel('تأكيد الاستلام')
                     ->modalIcon('heroicon-o-check-circle')
