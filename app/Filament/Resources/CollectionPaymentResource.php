@@ -153,6 +153,12 @@ class CollectionPaymentResource extends Resource
                     ->sortable()
                     ->placeholder('غير محدد'),
 
+                TextColumn::make('due_date_start')
+                    ->label('تاريخ الاستحقاق')
+                    ->date('d/m/Y')
+                    ->searchable()
+                    ->sortable(),
+
                 TextColumn::make('amount')
                     ->label('القيمة')
                     ->money('SAR')
@@ -164,12 +170,6 @@ class CollectionPaymentResource extends Resource
                     ->badge()
                     ->getStateUsing(fn ($record) => $record->payment_status_label)
                     ->color(fn ($record): string => $record->payment_status_color),
-
-                TextColumn::make('due_date_start')
-                    ->label('تاريخ الاستحقاق')
-                    ->date('d/m/Y')
-                    ->searchable()
-                    ->sortable(),
 
                 TextColumn::make('delay_duration')
                     ->label('ملاحظات')
@@ -320,7 +320,6 @@ class CollectionPaymentResource extends Resource
             ->toolbarActions([
                 // Bulk actions here
             ])
-            ->defaultSort('created_at', 'desc')
             ->searchable([
                 'payment_number',
                 'amount',

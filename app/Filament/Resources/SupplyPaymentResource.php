@@ -170,6 +170,11 @@ class SupplyPaymentResource extends Resource
                 TextColumn::make('month_year')
                     ->label('الشهر'),
 
+                TextColumn::make('due_date')
+                    ->label('تاريخ الاستحقاق')
+                    ->date('d/m/Y')
+                    ->sortable(),
+
                 TextColumn::make('net_amount')
                     ->label('القيمة')
                     ->money('SAR'),
@@ -195,11 +200,6 @@ class SupplyPaymentResource extends Resource
                                 default => $record->supply_status,
                             }
                     ),
-
-                TextColumn::make('due_date')
-                    ->label('تاريخ الاستحقاق')
-                    ->date('d/m/Y')
-                    ->sortable(),
                     
                 TextColumn::make('delay_reason')
                     ->label('سبب التأجيل')
