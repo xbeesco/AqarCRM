@@ -511,3 +511,18 @@ document.addEventListener('livewire:init', function () {
 - Every change must be programmatically tested. Write a new test or update an existing test, then run the affected tests to make sure they pass.
 - Run the minimum number of tests needed to ensure code quality and speed. Use `php artisan test` with a specific filename or filter.
 </laravel-boost-guidelines>
+
+## Development Environment
+- OS: Windows 10.0.21996
+- Shell: Git Bash
+- Path format: Windows (use forward slashes in Git Bash)
+- File system: Case-insensitive
+- Line endings: CRLF (configure Git autocrlf)
+
+## Playwright MCP Guide
+
+File paths:
+- Screenshots: `./CCimages/screenshots/`
+- PDFs: `./CCimages/pdfs/`
+
+Browser error fix: `npx playwright install`
