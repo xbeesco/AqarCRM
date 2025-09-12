@@ -68,7 +68,7 @@ class PostponedPaymentsWidget extends BaseWidget
                     ->label('التأجيل')
                     ->getStateUsing(function ($record) {
                         if (!$record->delay_duration) {
-                            $days = Carbon::parse($record->due_date_end)->diffInDays(DateHelper::getCurrentDate());
+                            $days = Carbon::parse($record->due_date_end)->diffInDays(Carbon::now());
                             return "{$days} يوم";
                         }
                         return "{$record->delay_duration} يوم";
@@ -147,7 +147,7 @@ class PostponedPaymentsWidget extends BaseWidget
         $formattedAmount = number_format($totalAmount, 2) . ' ريال';
         
         // إضافة التاريخ الحالي للاختبار
-        $currentDate = DateHelper::formatDate();
+        $currentDate = Carbon::now()->format('Y-m-d');
         $dateLabel = DateHelper::isTestMode() ? " [تاريخ الاختبار: {$currentDate}]" : "";
         
         return static::$heading . " ({$totalPostponed} دفعة - {$criticalCount} حرجة - إجمالي: {$formattedAmount})" . $dateLabel;

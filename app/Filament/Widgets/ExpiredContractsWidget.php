@@ -8,7 +8,6 @@ use Filament\Tables\Grouping\Group;
 use Filament\Widgets\TableWidget as BaseWidget;
 use App\Models\UnitContract;
 use Carbon\Carbon;
-use App\Helpers\DateHelper;
 use Filament\Forms;
 
 class ExpiredContractsWidget extends BaseWidget
@@ -25,7 +24,7 @@ class ExpiredContractsWidget extends BaseWidget
     
     protected function getToday(): Carbon
     {
-        return DateHelper::getCurrentDate()->copy()->startOfDay();
+        return Carbon::now()->copy()->startOfDay();
     }
     
     public function table(Table $table): Table

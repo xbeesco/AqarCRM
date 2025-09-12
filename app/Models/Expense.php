@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Carbon\Carbon;
-use App\Helpers\DateHelper;
 
 class Expense extends Model
 {
@@ -162,7 +161,7 @@ class Expense extends Model
      */
     public function scopeThisMonth($query)
     {
-        $currentDate = DateHelper::getCurrentDate();
+        $currentDate = Carbon::now();
         return $query->whereMonth('date', $currentDate->month)
                     ->whereYear('date', $currentDate->year);
     }
@@ -172,7 +171,7 @@ class Expense extends Model
      */
     public function scopeThisYear($query)
     {
-        $currentDate = DateHelper::getCurrentDate();
+        $currentDate = Carbon::now();
         return $query->whereYear('date', $currentDate->year);
     }
 

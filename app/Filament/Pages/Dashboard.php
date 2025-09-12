@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use Filament\Pages\Dashboard as BaseDashboard;
 use App\Helpers\DateHelper;
+use Carbon\Carbon;
 use BackedEnum;
 
 class Dashboard extends BaseDashboard
@@ -17,7 +18,7 @@ class Dashboard extends BaseDashboard
     public function getTitle(): string
     {
         // Get current date (either test date or real date)
-        $currentDate = DateHelper::formatDate();
+        $currentDate = Carbon::now()->format('Y-m-d');
         
         // Add indicator if in test mode
         $title = 'لوحة التحكم';

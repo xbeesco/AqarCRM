@@ -70,6 +70,16 @@ class Setting extends Model
     }
 
     /**
+     * Delete a setting by key
+     */
+    public static function forget(string $key): bool
+    {
+        $deleted = self::where('key', $key)->delete();
+        Cache::forget("setting.{$key}");
+        return $deleted > 0;
+    }
+
+    /**
      * Clear all cached settings
      */
     public static function clearCache(): void

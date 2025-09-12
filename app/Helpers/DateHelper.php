@@ -8,26 +8,61 @@ use App\Models\Setting;
 class DateHelper
 {
     /**
-     * Get the current date (either test date or real date)
+     * Initialize test date on application boot
      */
-    public static function getCurrentDate(): Carbon
+    public static function initializeTestDate(): void
     {
         $testDate = self::getTestDate();
-        
-        if ($testDate) {
-            return Carbon::parse($testDate);
-        }
-        
-        return Carbon::now();
+        $testDate = $testDate ? Carbon::parse($testDate) : null ;
+    
+        Carbon::setTestNow($testDate);
     }
     
     /**
-     * Get test date from settings or environment
+     * Set a new test date
+     */
+    public static function setTestDate(?string $date): void
+    {
+        if ($date) {
+            $carbonDate = Carbon::parse($date);
+            $realNow = Carbon::now()->setTestNow(null);
+            
+            // Get session lifetime in minutes and convert to days
+            $sessionLifetimeMinutes = config('session.lifetime', 120);
+            $maxDaysAllowed = floor($sessionLifetimeMinutes / 60 / 24);
+            
+            // Check if date exceeds session lifetime range (both past and future)
+            $daysDifference = abs($carbonDate->diffInDays($realNow));
+            
+            if ($daysDifference > $maxDaysAllowed) {
+                throw new \InvalidArgumentException(
+                    "التاريخ يجب أن يكون في نطاق {$maxDaysAllowed} يوم من التاريخ الحالي (مدة صلاحية الجلسة)"
+                );
+            }
+            
+            Carbon::setTestNow($carbonDate);
+            Setting::set('test_date', $date);
+        } else {
+            self::clearTestDate();
+        }
+    }
+    
+    /**
+     * Clear the test date
+     */
+    public static function clearTestDate(): void
+    {
+        Carbon::setTestNow(null);
+        Setting::forget('test_date');
+    }
+    
+    /**
+     * Get test date from settings or env
      */
     public static function getTestDate(): ?string
     {
+        // Check database first
         try {
-            // Check database first
             if (\Schema::hasTable('settings')) {
                 $testDate = Setting::get('test_date');
                 if (!empty($testDate)) {
@@ -39,12 +74,7 @@ class DateHelper
         }
         
         // Fall back to environment variable
-        $envDate = env('TEST_DATE');
-        if (!empty($envDate)) {
-            return $envDate;
-        }
-        
-        return null;
+        return env('TEST_DATE') ?: null;
     }
     
     /**
@@ -56,16 +86,16 @@ class DateHelper
     }
     
     /**
-     * Format date for display
+     * Get status information about test mode
      */
-    public static function formatDate($date = null, $format = 'Y-m-d'): string
+    public static function getTestModeStatus(): array
     {
-        if ($date === null) {
-            $date = self::getCurrentDate();
-        } elseif (!($date instanceof Carbon)) {
-            $date = Carbon::parse($date);
-        }
+        $testDate = self::getTestDate();
         
-        return $date->format($format);
+        return [
+            'enabled' => !empty($testDate),
+            'test_date' => $testDate,
+            'current_date' => Carbon::now()->format('Y-m-d H:i:s')
+        ];
     }
 }

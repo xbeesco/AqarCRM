@@ -20,6 +20,7 @@ use App\Models\PropertyContract;
 use App\Models\CollectionPayment;
 use App\Models\SupplyPayment;
 use App\Models\Expense;
+use App\Helpers\DateHelper;
 use BackedEnum;
 
 class SystemManagement extends Page implements HasSchemas
@@ -80,7 +81,6 @@ class SystemManagement extends Page implements HasSchemas
                     ->schema([
                         TextInput::make('payment_due_days')
                             ->label('فترة السماح بعد تاريخ الاستحقاق')
-                            ->helperText('عدد الأيام المسموح بها للتأخير قبل اعتبار الدفعة متأخرة (مثال: 7 أيام من بداية الشهر)')
                             ->numeric()
                             ->default(7)
                             ->minValue(0)
@@ -89,7 +89,6 @@ class SystemManagement extends Page implements HasSchemas
                             
                         TextInput::make('allowed_delay_days')
                             ->label('أيام إضافية قبل الإجراءات')
-                            ->helperText('أيام إضافية بعد انتهاء فترة السماح قبل اتخاذ إجراءات (غير مستخدم حالياً)')
                             ->numeric()
                             ->default(5)
                             ->minValue(0)
@@ -98,9 +97,11 @@ class SystemManagement extends Page implements HasSchemas
                             ->disabled(),
                             
                         DatePicker::make('test_date')
-                            ->label('يوم الاختبار المطلوب')
+                            ->label('التاريخ الاختباري للنظام')
                             ->native(false)
                             ->displayFormat('Y-m-d')
+                            ->minDate(fn() => now()->subDays(floor(config('session.lifetime', 120) / 60 / 24)))
+                            ->maxDate(fn() => now()->addDays(floor(config('session.lifetime', 120) / 60 / 24)))
                             ->columnSpanFull(),
                     ]),
             ])
@@ -235,6 +236,13 @@ class SystemManagement extends Page implements HasSchemas
                 'test_date' => $data['test_date'] ?? null,
             ]);
             
+            // Set test date using DateHelper
+            if (!empty($data['test_date'])) {
+                DateHelper::setTestDate($data['test_date']);
+            } else {
+                DateHelper::clearTestDate();
+            }
+            
             logger()->info('System Settings Saved', [
                 'user' => Auth::user()->email,
                 'settings' => $data,
@@ -243,10 +251,13 @@ class SystemManagement extends Page implements HasSchemas
 
             Notification::make()
                 ->title('تم الحفظ بنجاح')
-                ->body('تم حفظ الإعدادات بنجاح')
+                ->body('تم حفظ الإعدادات بنجاح. سيتم إعادة تحميل الصفحة...')
                 ->success()
-                ->duration(3000)
+                ->duration(2000)
                 ->send();
+            
+            // Reload the page after a short delay to apply the new test date
+            $this->redirect(static::getUrl(), navigate: true);
 
         } catch (\Exception $e) {
             logger()->error('System Settings Save Failed', [
@@ -262,40 +273,6 @@ class SystemManagement extends Page implements HasSchemas
         }
     }
 
-    public function cleanAllData(): void
-    {
-        try {
-            $cleanupType = $this->form->getState()['cleanup_type'] ?? 'financial';
-            
-            DB::transaction(function () use ($cleanupType) {
-                if ($cleanupType === 'financial') {
-                    $this->cleanFinancialData();
-                } else {
-                    $this->cleanAllDataCompletely();
-                }
-            });
-            
-            $message = $cleanupType === 'financial' 
-                ? 'تم حذف جميع البيانات المالية بنجاح'
-                : 'تم حذف جميع العقود والدفعات والمصروفات بنجاح';
-            
-            Notification::make()
-                ->title('تم المسح بنجاح')
-                ->body($message)
-                ->success()
-                ->duration(5000)
-                ->send();
-                
-        } catch (\Exception $e) {
-            Notification::make()
-                ->title('فشل المسح')
-                ->body('حدث خطأ أثناء المسح: ' . $e->getMessage())
-                ->danger()
-                ->duration(10000)
-                ->send();
-        }
-    }
-    
     /**
      * مسح البيانات المالية فقط
      */

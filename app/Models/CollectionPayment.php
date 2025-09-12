@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Carbon\Carbon;
-use App\Helpers\DateHelper;
 use App\Models\Setting;
 use App\Enums\PaymentStatus;
 
@@ -78,7 +77,7 @@ class CollectionPayment extends Model
             // توليد الشهر والسنة للتقارير
             if (empty($payment->month_year)) {
                 // استخدم due_date_start إن وجد، وإلا استخدم التاريخ الحالي
-                $dateForMonth = $payment->due_date_start ?? DateHelper::getCurrentDate();
+                $dateForMonth = $payment->due_date_start ?? Carbon::now();
                 $payment->month_year = \Carbon\Carbon::parse($dateForMonth)->format('Y-m');
             }
         });
@@ -188,14 +187,14 @@ class CollectionPayment extends Model
         return $query->postponedPayments()
                      ->where(function($q) {
                          $q->where('delay_duration', '>', 30)
-                           ->orWhere('due_date_end', '<', DateHelper::getCurrentDate()->subDays(30));
+                           ->orWhere('due_date_end', '<', Carbon::now()->subDays(30));
                      });
     }
     
     public function scopeRecentPostponed($query, $days = 7)
     {
         return $query->postponedPayments()
-                     ->where('created_at', '>=', DateHelper::getCurrentDate()->subDays($days));
+                     ->where('created_at', '>=', Carbon::now()->subDays($days));
     }
     
     // New Scopes for actual payment status (not relying on collection_status field)
@@ -206,7 +205,7 @@ class CollectionPayment extends Model
      */
     public function scopeDueForCollection($query)
     {
-        $today = DateHelper::getCurrentDate()->startOfDay();
+        $today = Carbon::now()->startOfDay();
         return $query->where('due_date_start', '<=', $today)
                     ->whereNull('collection_date')
                     ->where(function($q) {
@@ -221,7 +220,7 @@ class CollectionPayment extends Model
      */
     public function scopePostponedPayments($query)
     {
-        $today = DateHelper::getCurrentDate()->startOfDay();
+        $today = Carbon::now()->startOfDay();
         return $query->where('due_date_start', '<=', $today)
                     ->whereNull('collection_date')
                     ->whereNotNull('delay_duration')
@@ -235,7 +234,7 @@ class CollectionPayment extends Model
     public function scopeOverduePayments($query)
     {
         $paymentDueDays = Setting::get('payment_due_days', 7);
-        $today = DateHelper::getCurrentDate()->startOfDay();
+        $today = Carbon::now()->startOfDay();
         $overdueDate = $today->copy()->subDays($paymentDueDays);
         
         return $query->where('due_date_start', '<', $overdueDate)
@@ -259,7 +258,7 @@ class CollectionPayment extends Model
      */
     public function scopeUpcomingPayments($query)
     {
-        $today = DateHelper::getCurrentDate()->startOfDay();
+        $today = Carbon::now()->startOfDay();
         return $query->whereNull('collection_date')
                     ->where('due_date_start', '>', $today);
     }
@@ -309,7 +308,7 @@ class CollectionPayment extends Model
             return PaymentStatus::POSTPONED;
         }
         
-        $today = DateHelper::getCurrentDate()->startOfDay();
+        $today = Carbon::now()->startOfDay();
         $paymentsDueDays = Setting::get('payment_due_days', 7);
         $overdueDate = $today->copy()->subDays($paymentsDueDays);
         
@@ -371,7 +370,7 @@ class CollectionPayment extends Model
      */
     public function markAsCollected(): void
     {
-        $currentDate = DateHelper::getCurrentDate();
+        $currentDate = Carbon::now();
         $this->update([
             'collection_date' => $currentDate,
             'paid_date' => $currentDate,
@@ -404,7 +403,7 @@ class CollectionPayment extends Model
             return 0;
         }
 
-        return Carbon::parse($this->due_date_end)->diffInDays(DateHelper::getCurrentDate());
+        return Carbon::parse($this->due_date_end)->diffInDays(Carbon::now());
     }
 
     public function isOverdue(): bool
@@ -423,7 +422,7 @@ class CollectionPayment extends Model
     {
         $this->update([
             'payment_method_id' => $paymentMethodId,
-            'paid_date' => $paidDate ?: DateHelper::getCurrentDate()->toDateString(),
+            'paid_date' => $paidDate ?: Carbon::now()->toDateString(),
             'payment_reference' => $paymentReference,
             'payment_status_id' => PaymentStatus::COLLECTED,
             'receipt_number' => $this->generateReceiptNumber(),

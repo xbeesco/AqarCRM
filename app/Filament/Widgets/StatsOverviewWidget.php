@@ -10,7 +10,6 @@ use App\Models\Property;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Carbon\Carbon;
-use App\Helpers\DateHelper;
 
 class StatsOverviewWidget extends BaseWidget
 {
@@ -19,8 +18,8 @@ class StatsOverviewWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        // استخدام DateHelper للحصول على التاريخ الحالي
-        $currentDate = DateHelper::getCurrentDate();
+        // استخدام Carbon للحصول على التاريخ الحالي
+        $currentDate = Carbon::now();
         $today = $currentDate->copy()->startOfDay();
         $startOfMonth = $currentDate->copy()->startOfMonth();
         $endOfMonth = $currentDate->copy()->endOfMonth();

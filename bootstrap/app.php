@@ -11,7 +11,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Apply test date middleware globally
+        $middleware->append(\App\Http\Middleware\ApplyTestDate::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
