@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\SupplyPayment;
 use App\Models\PropertyContract;
-use App\Models\Transaction;
 use App\Models\Unit;
 use App\Models\Expense;
 use App\Models\Property;
@@ -212,9 +211,6 @@ class SupplyPaymentService
             'bank_transfer_reference' => $bankTransferReference,
         ]);
 
-        // Create transaction record
-        $this->createTransaction($payment);
-
         return true;
     }
 
@@ -239,31 +235,6 @@ class SupplyPaymentService
                 'details' => $payment->deduction_details,
             ]
         ];
-    }
-
-    /**
-     * إنشاء معاملة مالية
-     */
-    protected function createTransaction(SupplyPayment $payment): void
-    {
-        Transaction::create([
-            'transaction_number' => Transaction::generateTransactionNumber(),
-            'type' => 'supply_payment',
-            'transactionable_type' => SupplyPayment::class,
-            'transactionable_id' => $payment->id,
-            'property_id' => $payment->propertyContract->property_id ?? null,
-            'debit_amount' => 0.00,
-            'credit_amount' => $payment->net_amount,
-            'description' => "توريد دفعة للمالك - {$payment->month_year}",
-            'transaction_date' => $payment->paid_date,
-            'reference_number' => $payment->payment_number,
-            'meta_data' => [
-                'owner_name' => $payment->owner->name,
-                'gross_amount' => $payment->gross_amount,
-                'deductions' => $this->getDeductionBreakdown($payment),
-                'bank_reference' => $payment->bank_transfer_reference,
-            ]
-        ]);
     }
 
     /**
@@ -331,11 +302,6 @@ class SupplyPaymentService
             'paid_date' => now(),
             'collected_by' => $userId,
         ]);
-
-        // إنشاء معاملة مالية إذا لم تكن تسوية صفرية
-        if ($amounts['net_amount'] != 0) {
-            $this->createTransaction($payment);
-        }
 
         // إعداد رسالة النجاح
         if ($isSettlement) {

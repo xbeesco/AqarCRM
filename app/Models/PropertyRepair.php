@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class PropertyRepair extends Model
 {
@@ -70,11 +69,6 @@ class PropertyRepair extends Model
     public function assignedEmployee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');
-    }
-
-    public function transaction(): MorphOne
-    {
-        return $this->morphOne(Transaction::class, 'transactionable');
     }
 
     // Scopes
@@ -173,9 +167,6 @@ class PropertyRepair extends Model
             'work_notes' => $completionNotes ?: $this->work_notes,
         ]);
 
-        // Create transaction record
-        $this->createTransaction();
-
         // Schedule next maintenance if recurring
         $this->scheduleNextMaintenance();
 
@@ -191,27 +182,5 @@ class PropertyRepair extends Model
         ]);
 
         return true;
-    }
-
-    private function createTransaction(): void
-    {
-        Transaction::create([
-            'transaction_number' => Transaction::generateTransactionNumber(),
-            'type' => 'repair_expense',
-            'transactionable_type' => PropertyRepair::class,
-            'transactionable_id' => $this->id,
-            'property_id' => $this->property_id,
-            'debit_amount' => 0.00,
-            'credit_amount' => $this->total_cost,
-            'description' => "Repair expense: {$this->title}",
-            'transaction_date' => $this->completion_date,
-            'reference_number' => $this->repair_number,
-            'meta_data' => [
-                'repair_category' => $this->repairCategory->name ?? '',
-                'vendor_name' => $this->vendor_name,
-                'cost_breakdown' => $this->calculateCostImpact(),
-                'under_warranty' => $this->isUnderWarranty(),
-            ]
-        ]);
     }
 }

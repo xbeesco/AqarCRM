@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\MorphOne;
 use App\Services\SupplyPaymentService;
 
 class SupplyPayment extends Model
@@ -85,11 +84,6 @@ class SupplyPayment extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
-    }
-
-    public function transaction(): MorphOne
-    {
-        return $this->morphOne(Transaction::class, 'transactionable');
     }
 
     public function collectedBy(): BelongsTo

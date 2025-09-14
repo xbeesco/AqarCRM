@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Carbon\Carbon;
 use App\Models\Setting;
 use App\Enums\PaymentStatus;
@@ -119,11 +118,6 @@ class CollectionPayment extends Model
     public function paymentMethod(): BelongsTo
     {
         return $this->belongsTo(PaymentMethod::class);
-    }
-
-    public function transaction(): MorphOne
-    {
-        return $this->morphOne(Transaction::class, 'transactionable');
     }
 
     public function collectedBy(): BelongsTo
@@ -410,9 +404,6 @@ class CollectionPayment extends Model
             'receipt_number' => $this->generateReceiptNumber(),
         ]);
 
-        // Create transaction record
-        $this->createTransaction();
-
         return true;
     }
 
@@ -425,26 +416,6 @@ class CollectionPayment extends Model
         return 'REC-' . $year . '-' . str_pad($count, 6, '0', STR_PAD_LEFT);
     }
 
-    private function createTransaction(): void
-    {
-        Transaction::create([
-            'transaction_number' => Transaction::generateTransactionNumber(),
-            'type' => 'collection_payment',
-            'transactionable_type' => CollectionPayment::class,
-            'transactionable_id' => $this->id,
-            'property_id' => $this->property_id,
-            'debit_amount' => $this->total_amount,
-            'credit_amount' => 0.00,
-            'description' => "Payment collection for unit {$this->unit->name} - {$this->month_year}",
-            'transaction_date' => $this->paid_date,
-            'reference_number' => $this->payment_number,
-            'meta_data' => [
-                'tenant_name' => $this->tenant->name,
-                'unit_name' => $this->unit->name,
-                'property_name' => $this->property->name,
-            ]
-        ]);
-    }
     // ==========================================
     // Scopes إضافية جديدة لدعم ميزة إعادة الجدولة
     // Additional Scopes for Rescheduling Feature
