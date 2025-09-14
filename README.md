@@ -1,25 +1,147 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# AqarCRM - نظام إدارة العقارات
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+نظام إدارة العقارات المطور باستخدام Laravel 12 و Filament 4 لإدارة العقارات والوحدات والعقود والمدفوعات.
 
-## About Laravel
+## المتطلبات التقنية
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- PHP 8.4+
+- Laravel 12
+- Filament 4
+- MySQL/MariaDB
+- Composer
+- Node.js & NPM
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Business Logic - القواعد التجارية
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### 1. نظام المستخدمين والأدوار
+
+#### الأدوار الرئيسية:
+- **super_admin**: إدارة كاملة للنظام
+- **admin**: إدارة عامة
+- **employee**: موظف/مدير عقار
+- **manager**: إدارة محدودة
+- **owner**: مالك العقار
+- **tenant**: 
+
+### 2. نظام الدفعات والتوريد
+
+#### منطق تخصيص دفعات التحصيل لدفعات التوريد:
+
+**الحالة الأولى - الدفع المبكر:**
+- دفعة إيجار مارس تم دفعها في فبراير
+- تنتمي لدفعة التوريد الأصلية (مارس)
+- المعيار: `due_date_start` يحدد الانتماء الأصلي
+
+**الحالة الثانية - الدفع في الوقت المحدد:**
+- دفعة إيجار مارس تم دفعها في مارس
+- تنتمي لدفعة التوريد الأصلية (مارس)
+- المعيار: `due_date_start` و `paid_date` في نفس الفترة
+
+**الحالة الثالثة - الدفع المتأخر جداً:**
+- دفعة إيجار فبراير تم دفعها في أبريل (تخطت دفعة مارس)
+- تنتقل لدفعة التوريد الجديدة (أبريل)
+- المعيار: `paid_date` في فترة دفعة توريد أحدث
+
+#### خوارزمية التخصيص:
+**المرجع**: `shouldPaymentBelongToPeriod()` في `app/Services/PaymentAssignmentService.php`
+
+### 3. نظام العقود
+
+#### أنواع العقود:
+- **PropertyContract**: عقد مع المالك لإدارة العقار
+- **UnitContract**: عقد إيجار مع المستأجر
+
+#### حالات العقود:
+- **draft**: مسودة
+- **active**: فعال
+- **suspended**: معلق
+- **expired**: منتهي الصلاحية
+- **terminated**: مُنهى
+
+#### قواعد العقود:
+- العقد يجب أن يكون فعال لإنشاء دفعات
+- لا يمكن حذف عقد له دفعات مرتبطة
+- العقد المنتهي لا يمكن تعديله
+- تجديد العقد ينشئ عقد جديد بنفس الشروط
+
+### 4. نظام العقارات والوحدات
+
+#### هيكل البيانات الهرمي:
+```
+العقار (Property)
+├── الوحدات (Units)
+├── العقود (PropertyContract)
+└── المصروفات (Expenses)
+
+الوحدة (Unit)
+├── عقود الإيجار (UnitContracts)
+├── المستأجرين (Tenants)
+└── دفعات التحصيل (CollectionPayments)
+```
+
+#### قواعد الإشغال:
+- الوحدة لا يمكن أن يكون لها أكثر من عقد فعال
+- حالة الوحدة تحدد توفرها للإيجار
+
+#### حساب معدل الإشغال:
+**المرجع**: `getOccupancyRateAttribute()` في `app/Models/Property.php`
+
+### 5. النظام المالي
+
+#### أنواع المدفوعات:
+- **CollectionPayment**: دفعة محصلة من المستأجر
+- **SupplyPayment**: دفعة موردة للمالك
+
+#### حساب دفعة التوريد:
+**المرجع**: `calculateAmountsFromPeriod()` في `app/Models/SupplyPayment.php`
+
+#### معادلة العمولة:
+**المرجع**: `calculateAmountsFromPeriod()` في `app/Models/SupplyPayment.php`
+
+#### قواعد المصروفات:
+- مصروفات العقار تُحسم من كل دفعات التوريد
+- مصروفات الوحدة تُحسم من دفعات تلك الوحدة فقط
+- المصروفات تُحسب حسب تاريخ حدوثها وليس تاريخ الدفع
+
+### 6. نظام المواقع
+
+#### التسلسل الهرمي:
+1. **المنطقة** (Level 1)
+2. **المدينة** (Level 2)
+3. **المركز/الحي** (Level 3)
+4. **الشارع/الحي الفرعي** (Level 4)
+
+#### قواعد المواقع:
+- كل موقع له موقع أب (ما عدا المستوى الأول)
+- المسار الكامل يُحفظ لسرعة البحث
+- الإحداثيات اختيارية ولكن مفضلة للعقارات
+
+### 7. قواعد التحقق والأمان
+
+#### التحقق من البيانات:
+- الهوية الوطنية فريدة لكل مستخدم
+- رقم العقد فريد لكل نوع عقد
+- تواريخ العقد منطقية (البداية قبل النهاية)
+
+#### الأمان:
+- كلمات المرور مُشفرة
+- الصلاحيات محددة بدقة
+- تسجيل العمليات الحساسة
+- حماية من CSRF و XSS
+
+### 8. قواعد التقارير والإحصائيات
+
+#### مؤشرات الأداء:
+- معدل الإشغال الإجمالي
+- الدخل الشهري لكل عقار
+- متوسط فترة البقاء للمستأجرين
+- معدل المصروفات للدخل
+
+#### التقارير المالية:
+- كشف حساب المالك
+- تقرير التحصيلات الشهرية
+- تقرير المصروفات
+- تقرير الأرباح والخسائر
 
 ## Learning Laravel
 

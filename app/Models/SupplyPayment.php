@@ -109,6 +109,7 @@ class SupplyPayment extends Model
     /**
      * حساب قيمة دفعة التوريد بناءً على المدى الزمني
      * يحسب إجمالي المبالغ المحصلة خلال الفترة مع خصم العمولة والمصروفات
+     * Calculate supply payment amounts using PaymentAssignmentService
      */
     public function calculateAmountsFromPeriod(): array
     {
@@ -116,28 +117,33 @@ class SupplyPayment extends Model
         $invoiceDetails = $this->invoice_details ?? [];
         $periodStart = $invoiceDetails['period_start'] ?? $this->month_year . '-01';
         $periodEnd = $invoiceDetails['period_end'] ?? date('Y-m-t', strtotime($periodStart));
-        
-        // 1. حساب إجمالي المبالغ المحصلة خلال الفترة
-        $collectedAmount = \App\Models\CollectionPayment::where('property_id', $this->propertyContract->property_id)
-            ->whereNotNull('paid_date')
-            ->whereBetween('paid_date', [$periodStart, $periodEnd])
-            ->sum('total_amount');
-        
+
+        // 1. حساب إجمالي المبالغ المحصلة خلال الفترة باستخدام خدمة تخصيص الدفعات
+        $paymentService = app(\App\Services\PaymentAssignmentService::class);
+        $collectionData = $paymentService->calculateCollectedAmountsForPeriod(
+            $this->propertyContract->property_id,
+            $periodStart,
+            $periodEnd
+        );
+
+        $collectedAmount = $collectionData['total_amount'];
+        $collectionsCount = $collectionData['payments_count'];
+
         // 2. حساب العمولة
         $commissionAmount = round($collectedAmount * ($this->commission_rate / 100), 2);
-        
+
         // 3. حساب المصروفات خلال الفترة (للعقار والوحدات التابعة له)
         // جلب معرفات الوحدات التابعة للعقار
         $unitIds = \App\Models\Unit::where('property_id', $this->propertyContract->property_id)
             ->pluck('id')
             ->toArray();
-        
+
         // حساب مصروفات العقار
         $propertyExpenses = \App\Models\Expense::where('subject_type', \App\Models\Property::class)
             ->where('subject_id', $this->propertyContract->property_id)
             ->whereBetween('date', [$periodStart, $periodEnd])
             ->sum('cost');
-        
+
         // حساب مصروفات الوحدات
         $unitExpenses = 0;
         if (!empty($unitIds)) {
@@ -146,18 +152,12 @@ class SupplyPayment extends Model
                 ->whereBetween('date', [$periodStart, $periodEnd])
                 ->sum('cost');
         }
-        
+
         $expenses = $propertyExpenses + $unitExpenses;
-        
+
         // 4. حساب المبلغ الصافي
         $netAmount = $collectedAmount - $commissionAmount - $expenses;
-        
-        // 5. عدد الدفعات المحصلة
-        $collectionsCount = \App\Models\CollectionPayment::where('property_id', $this->propertyContract->property_id)
-            ->whereNotNull('paid_date')
-            ->whereBetween('paid_date', [$periodStart, $periodEnd])
-            ->count();
-        
+
         return [
             'gross_amount' => $collectedAmount,
             'commission_amount' => $commissionAmount,
@@ -171,19 +171,23 @@ class SupplyPayment extends Model
     
     /**
      * الحصول على دفعات التحصيل التفصيلية للفترة
+     * Get detailed collection payments using PaymentAssignmentService
      */
     public function getCollectionPaymentsDetails(): \Illuminate\Database\Eloquent\Collection
     {
+        // استخراج المدى الزمني
         $invoiceDetails = $this->invoice_details ?? [];
         $periodStart = $invoiceDetails['period_start'] ?? $this->month_year . '-01';
         $periodEnd = $invoiceDetails['period_end'] ?? date('Y-m-t', strtotime($periodStart));
-        
-        return \App\Models\CollectionPayment::with(['tenant', 'unit'])
-            ->where('property_id', $this->propertyContract->property_id)
-            ->whereNotNull('paid_date')
-            ->whereBetween('paid_date', [$periodStart, $periodEnd])
-            ->orderBy('paid_date', 'desc')
-            ->get();
+
+        // استخدام خدمة تخصيص الدفعات
+        $paymentService = app(\App\Services\PaymentAssignmentService::class);
+
+        return $paymentService->getPaymentsForPeriod(
+            $this->propertyContract->property_id,
+            $periodStart,
+            $periodEnd
+        );
     }
     
     /**
@@ -405,4 +409,17 @@ class SupplyPayment extends Model
             ]
         ]);
     }
+
+    /**
+     * تحديد ما إذا كانت دفعة التحصيل تنتمي لهذه دفعة التوريد
+     * Determines if a collection payment belongs to this supply payment period
+     *
+     * Business Logic:
+     * 1. Primary: Use due_date_start to determine original period
+     * 2. Exception: If payment is VERY late (crosses into new supply payment period), assign to new period
+     * 3. Early payments: Always stay with original period
+     *
+     * @param \App\Models\CollectionPayment $payment
+     * @return bool
+     */
 }
