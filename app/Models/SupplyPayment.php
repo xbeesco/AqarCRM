@@ -194,12 +194,12 @@ class SupplyPayment extends Model
         $invoiceDetails = $this->invoice_details ?? [];
         $periodStart = $invoiceDetails['period_start'] ?? $this->month_year . '-01';
         $periodEnd = $invoiceDetails['period_end'] ?? date('Y-m-t', strtotime($periodStart));
-        
+
         // جلب معرفات الوحدات التابعة للعقار
         $unitIds = \App\Models\Unit::where('property_id', $this->propertyContract->property_id)
             ->pluck('id')
             ->toArray();
-        
+
         // جلب النفقات للعقار والوحدات معاً
         return \App\Models\Expense::where(function($query) use ($unitIds) {
                 // نفقات العقار
@@ -218,6 +218,62 @@ class SupplyPayment extends Model
             ->whereBetween('date', [$periodStart, $periodEnd])
             ->orderBy('date', 'desc')
             ->get();
+    }
+
+    // Accessors للحالة الديناميكية
+    /**
+     * Override حقل supply_status ليكون ديناميكي
+     */
+    public function getSupplyStatusAttribute(): string
+    {
+        // إذا تم التوريد
+        if ($this->paid_date) {
+            return 'collected';
+        }
+
+        // إذا كانت مؤجلة
+        if ($this->delay_duration && $this->delay_duration > 0) {
+            return 'postponed';
+        }
+
+        // حساب القيمة من دفعات التحصيل
+        $amounts = $this->calculateAmountsFromPeriod();
+
+        // إذا حل تاريخ الاستحقاق وهناك مبلغ للتوريد
+        if ($this->due_date <= \Carbon\Carbon::now() && $amounts['net_amount'] > 0) {
+            return 'worth_collecting';
+        }
+
+        // وإلا قيد الانتظار
+        return 'pending';
+    }
+
+    /**
+     * الحصول على التسمية العربية للحالة
+     */
+    public function getSupplyStatusLabelAttribute(): string
+    {
+        return match($this->supply_status) {
+            'pending' => 'قيد الانتظار',
+            'worth_collecting' => 'تستحق التوريد',
+            'collected' => 'تم التوريد',
+            'postponed' => 'مؤجلة',
+            default => $this->supply_status,
+        };
+    }
+
+    /**
+     * الحصول على اللون المناسب للحالة
+     */
+    public function getSupplyStatusColorAttribute(): string
+    {
+        return match($this->supply_status) {
+            'pending' => 'warning',
+            'worth_collecting' => 'info',
+            'collected' => 'success',
+            'postponed' => 'gray',
+            default => 'gray',
+        };
     }
 
     // Scopes

@@ -134,7 +134,32 @@ class CollectionPayment extends Model
     // Accessors للحصول على معلومات الحالة من Enum (محسوبة ديناميكياً)
     public function getPaymentStatusAttribute(): PaymentStatus
     {
-        return $this->determinePaymentStatus();
+        // إذا تم التحصيل
+        if ($this->collection_date) {
+            return PaymentStatus::COLLECTED;
+        }
+
+        // إذا كانت مؤجلة
+        if ($this->delay_duration && $this->delay_duration > 0) {
+            return PaymentStatus::POSTPONED;
+        }
+
+        $today = Carbon::now()->startOfDay();
+        $paymentsDueDays = Setting::get('payment_due_days', 7);
+        $overdueDate = $today->copy()->subDays($paymentsDueDays);
+
+        // إذا كانت متأخرة (تجاوزت مدة السماح)
+        if ($this->due_date_start < $overdueDate) {
+            return PaymentStatus::OVERDUE;
+        }
+
+        // إذا كانت مستحقة (وصل تاريخها لكن لم تتجاوز مدة السماح)
+        if ($this->due_date_start <= $today) {
+            return PaymentStatus::DUE;
+        }
+
+        // إذا كانت قادمة (لم يصل تاريخها بعد)
+        return PaymentStatus::UPCOMING;
     }
     
     public function getPaymentStatusLabelAttribute(): string
@@ -293,49 +318,6 @@ class CollectionPayment extends Model
     }
 
     // Attributes using Enum
-    /**
-     * تحديد حالة الدفعة بناءً على البيانات الفعلية
-     */
-    public function determinePaymentStatus(): PaymentStatus
-    {
-        // إذا تم التحصيل
-        if ($this->collection_date) {
-            return PaymentStatus::COLLECTED;
-        }
-        
-        // إذا كانت مؤجلة
-        if ($this->delay_duration && $this->delay_duration > 0) {
-            return PaymentStatus::POSTPONED;
-        }
-        
-        $today = Carbon::now()->startOfDay();
-        $paymentsDueDays = Setting::get('payment_due_days', 7);
-        $overdueDate = $today->copy()->subDays($paymentsDueDays);
-        
-        // إذا كانت متأخرة (تجاوزت مدة السماح)
-        if ($this->due_date_start < $overdueDate) {
-            return PaymentStatus::OVERDUE;
-        }
-        
-        // إذا كانت مستحقة (وkصل تاريخها لكن لم تتجاوز مدة السماح)
-        if ($this->due_date_start <= $today) {
-            return PaymentStatus::DUE;
-        }
-        
-        // إذا كانت قادمة (لم يصل تاريخها بعد)
-        return PaymentStatus::UPCOMING;
-    }
-    
-    /**
-     * الحصول على حالة الدفعة باستخدام Enum
-     */
-    public function getPaymentStatusEnumAttribute(): PaymentStatus
-    {
-        return $this->determinePaymentStatus();
-    }
-    
-    // تم حذف getPaymentStatusLabelAttribute و getPaymentStatusColorAttribute المكررين
-    // موجودين بالفعل في الأعلى (السطر 139 و 144)
         
     /**
      * هل يمكن تأجيل الدفعة؟

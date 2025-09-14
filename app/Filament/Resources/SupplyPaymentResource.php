@@ -179,27 +179,11 @@ class SupplyPaymentResource extends Resource
                     ->label('القيمة')
                     ->money('SAR'),
 
-                TextColumn::make('supply_status')
+                TextColumn::make('supply_status_label')
                     ->label('الحالة')
                     ->badge()
-                    ->color(fn ($record): string => 
-                        $record->delay_duration > 0 ? 'info' : match ($record->supply_status) {
-                            'pending' => 'warning',
-                            'worth_collecting' => 'info',
-                            'collected' => 'success',
-                            default => 'gray',
-                        }
-                    )
-                    ->formatStateUsing(fn ($record) => 
-                        $record->delay_duration > 0 
-                            ? 'مؤجل لمدة ' . $record->delay_duration . ' يوم'
-                            : match($record->supply_status) {
-                                'pending' => 'قيد الانتظار',
-                                'worth_collecting' => 'تستحق التوريد',
-                                'collected' => 'تم التوريد',
-                                default => $record->supply_status,
-                            }
-                    ),
+                    ->getStateUsing(fn ($record) => $record->supply_status_label)
+                    ->color(fn ($record) => $record->supply_status_color),
                     
                 TextColumn::make('delay_reason')
                     ->label('سبب التأجيل')
@@ -495,13 +479,8 @@ class SupplyPaymentResource extends Resource
                 $property = $contract?->property?->name ?? 'غير محدد';
                 $owner = $record->owner?->name ?? 'غير محدد';
                 
-                // تحديد لون وعنوان الحالة
-                $statusLabel = match($record->supply_status) {
-                    'pending' => 'قيد الانتظار',
-                    'worth_collecting' => 'تستحق التوريد',
-                    'collected' => 'تم التوريد',
-                    default => $record->supply_status,
-                };
+                // استخدام الـ Accessor للحصول على التسمية
+                $statusLabel = $record->supply_status_label;
                 
                 return new GlobalSearchResult(
                     title: $record->payment_number,
