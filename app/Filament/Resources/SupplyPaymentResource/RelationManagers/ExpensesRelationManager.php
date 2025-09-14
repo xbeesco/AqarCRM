@@ -29,7 +29,10 @@ class ExpensesRelationManager extends RelationManager
                     ->date('d/m/Y')
                     ->sortable(),
                 TextColumn::make('type')
-                    ->label('النوع'),
+                    ->label('النوع')
+                    ->getStateUsing(fn (\App\Models\Expense $record): string => $record->type_name)
+                    ->badge()
+                    ->color(fn (\App\Models\Expense $record): string => $record->type_color),
                 TextColumn::make('desc')
                     ->label('الوصف')
                     ->wrap()
