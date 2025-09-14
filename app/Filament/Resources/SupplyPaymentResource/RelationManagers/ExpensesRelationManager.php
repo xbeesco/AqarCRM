@@ -3,23 +3,26 @@
 namespace App\Filament\Resources\SupplyPaymentResource\RelationManagers;
 
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
 
 class ExpensesRelationManager extends RelationManager
 {
     protected static string $relationship = 'expenses';
+
     protected static ?string $title = 'المصروفات والنفقات';
+
     protected static ?string $modelLabel = 'مصروف';
+
     protected static ?string $pluralModelLabel = 'المصروفات';
-    
+
     public function table(Table $table): Table
     {
         // الحصول على دفعة التوريد الحالية
         $supplyPayment = $this->ownerRecord;
         $supplyPaymentService = app(\App\Services\SupplyPaymentService::class);
         $expenses = $supplyPaymentService->getExpensesDetails($supplyPayment);
-        
+
         return $table
             ->query(fn () => \App\Models\Expense::query()
                 ->whereIn('id', $expenses->pluck('id'))
@@ -27,7 +30,7 @@ class ExpensesRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('date')
                     ->label('التاريخ')
-                    ->date('d/m/Y')
+                    ->date('Y-m-d')
                     ->sortable(),
                 TextColumn::make('type')
                     ->label('النوع')
@@ -50,8 +53,10 @@ class ExpensesRelationManager extends RelationManager
                             if ($unit) {
                                 return $unit->name;
                             }
+
                             return 'وحدة';
                         }
+
                         return '-';
                     })
                     ->badge()

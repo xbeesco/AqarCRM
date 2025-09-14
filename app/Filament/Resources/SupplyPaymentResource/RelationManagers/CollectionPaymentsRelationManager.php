@@ -3,17 +3,20 @@
 namespace App\Filament\Resources\SupplyPaymentResource\RelationManagers;
 
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Tables\Table;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Support\Enums\FontWeight;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
 
 class CollectionPaymentsRelationManager extends RelationManager
 {
     protected static string $relationship = 'collectionPayments';
+
     protected static ?string $title = 'دفعات التحصيل من المستأجرين';
+
     protected static ?string $modelLabel = 'دفعة تحصيل';
+
     protected static ?string $pluralModelLabel = 'دفعات التحصيل';
-    
+
     public function table(Table $table): Table
     {
         // الحصول على دفعة التوريد الحالية
@@ -21,7 +24,7 @@ class CollectionPaymentsRelationManager extends RelationManager
         $supplyPaymentService = app(\App\Services\SupplyPaymentService::class);
         $collectionPayments = $supplyPaymentService->getCollectionPaymentsDetails($supplyPayment);
         $commissionRate = $supplyPayment->commission_rate;
-        
+
         return $table
             ->query(fn () => \App\Models\CollectionPayment::query()
                 ->whereIn('id', $collectionPayments->pluck('id'))
@@ -44,7 +47,7 @@ class CollectionPaymentsRelationManager extends RelationManager
                         ->label('الإجمالي')
                         ->money('SAR')),
                 TextColumn::make('commission')
-                    ->label('العمولة (' . $commissionRate . '%)')
+                    ->label('العمولة ('.$commissionRate.'%)')
                     ->state(fn ($record) => number_format($record->total_amount * ($commissionRate / 100), 2))
                     ->suffix(' ريال')
                     ->color('warning'),
@@ -56,7 +59,7 @@ class CollectionPaymentsRelationManager extends RelationManager
                     ->color('success'),
                 TextColumn::make('paid_date')
                     ->label('تاريخ الدفع')
-                    ->date('d/m/Y')
+                    ->date('Y-m-d')
                     ->sortable(),
                 TextColumn::make('month_year')
                     ->label('الشهر')

@@ -2,25 +2,23 @@
 
 namespace App\Filament\Resources;
 
+use App\Enums\PaymentStatus;
 use App\Filament\Resources\CollectionPaymentResource\Pages;
 use App\Models\CollectionPayment;
-use Filament\Actions\EditAction;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
-use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Filament\Actions\Action;
-use Filament\Notifications\Notification;
-use App\Helpers\DateHelper;
-use App\Enums\PaymentStatus;
 
 class CollectionPaymentResource extends Resource
 {
@@ -58,6 +56,7 @@ class CollectionPaymentResource extends Resource
                                             $contract->unit?->name ?? 'غير محدد',
                                             $contract->property?->name ?? 'غير محدد'
                                         );
+
                                         return [$contract->id => $label];
                                     });
                             })
@@ -83,7 +82,7 @@ class CollectionPaymentResource extends Resource
                             ->step(0.01)
                             ->postfix('ريال')
                             ->columnSpan(6),
-                        
+
                         DatePicker::make('due_date_start')
                             ->label('تاريخ بداية الاستحقاق')
                             ->required()
@@ -155,7 +154,7 @@ class CollectionPaymentResource extends Resource
 
                 TextColumn::make('due_date_start')
                     ->label('تاريخ الاستحقاق')
-                    ->date('d/m/Y')
+                    ->date('Y-m-d')
                     ->searchable()
                     ->sortable(),
 
@@ -175,12 +174,14 @@ class CollectionPaymentResource extends Resource
                     ->label('ملاحظات')
                     ->formatStateUsing(function ($record) {
                         if ($record->delay_duration && $record->delay_duration > 0) {
-                            $text = $record->delay_duration . ' يوم';
+                            $text = $record->delay_duration.' يوم';
                             if ($record->delay_reason) {
-                                $text .= ' - السبب: ' . $record->delay_reason;
+                                $text .= ' - السبب: '.$record->delay_reason;
                             }
+
                             return $text;
                         }
+
                         return '';
                     })
                     ->placeholder('')
@@ -198,30 +199,32 @@ class CollectionPaymentResource extends Resource
                                 ->preload()
                                 ->live()
                                 ->afterStateUpdated(fn ($set) => $set('unit_id', null)),
-                            
+
                             Select::make('unit_id')
                                 ->label('الوحدة')
                                 ->native(true)
                                 ->placeholder('جميع الوحدات')
                                 ->options(function ($get) {
                                     $propertyId = $get('property_id');
-                                    if (!$propertyId) {
+                                    if (! $propertyId) {
                                         return [];
                                     }
+
                                     return \App\Models\Unit::where('property_id', $propertyId)
                                         ->pluck('name', 'id')
                                         ->toArray();
                                 })
-                                ->visible(fn ($get) => (bool)$get('property_id')),
+                                ->visible(fn ($get) => (bool) $get('property_id')),
                         ]),
                     ])
                     ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
-                        if (!empty($data['property_id'])) {
+                        if (! empty($data['property_id'])) {
                             $query->where('property_id', $data['property_id']);
                         }
-                        if (!empty($data['unit_id'])) {
+                        if (! empty($data['unit_id'])) {
                             $query->where('unit_id', $data['unit_id']);
                         }
+
                         return $query;
                     }),
 
@@ -235,13 +238,15 @@ class CollectionPaymentResource extends Resource
                     ->label('حالة الدفعة')
                     ->options(PaymentStatus::options())
                     ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
-                        if (!empty($data['value'])) {
+                        if (! empty($data['value'])) {
                             $status = PaymentStatus::from($data['value']);
+
                             return $query->byStatus($status);
                         }
+
                         return $query;
                     }),
-                    
+
                 SelectFilter::make('unit_contract_id')
                     ->label('العقد')
                     ->relationship('unitContract', 'contract_number')
@@ -263,32 +268,31 @@ class CollectionPaymentResource extends Resource
                             ->maxValue(90)
                             ->default(7)
                             ->suffix('يوم'),
-                            
+
                         Textarea::make('delay_reason')
                             ->label('سبب التأجيل')
                             ->required()
                             ->rows(3)
-                            ->placeholder('اذكر سبب التأجيل...')
+                            ->placeholder('اذكر سبب التأجيل...'),
                     ])
                     ->modalHeading('تأجيل الدفعة')
                     ->modalSubmitActionLabel('تأجيل')
                     ->modalIcon('heroicon-o-clock')
                     ->modalIconColor('warning')
-                    ->visible(fn (CollectionPayment $record) => 
-                        !$record->collection_date && 
-                        (!$record->delay_duration || $record->delay_duration == 0)
+                    ->visible(fn (CollectionPayment $record) => ! $record->collection_date &&
+                        (! $record->delay_duration || $record->delay_duration == 0)
                     )
                     ->action(function (CollectionPayment $record, array $data) {
                         $record->postpone($data['delay_duration'], $data['delay_reason']);
-                        
+
                         Notification::make()
                             ->title('تم تأجيل الدفعة')
                             ->body("تم تأجيل الدفعة لمدة {$data['delay_duration']} يوم")
                             ->warning()
                             ->send();
                     }),
-                    
-            Action::make('confirm_payment')
+
+                Action::make('confirm_payment')
                     ->label('تأكيد الاستلام')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
@@ -316,21 +320,19 @@ class CollectionPaymentResource extends Resource
                     ->modalSubmitActionLabel('تأكيد الاستلام')
                     ->modalIcon('heroicon-o-check-circle')
                     ->modalIconColor('success')
-                    ->visible(fn (CollectionPayment $record) => 
-                        !$record->collection_date
+                    ->visible(fn (CollectionPayment $record) => ! $record->collection_date
                     )
                     ->action(function (CollectionPayment $record) {
                         $record->markAsCollected();
-                        
+
                         Notification::make()
                             ->title('تم تأكيد الاستلام')
                             ->body('تم تسجيل استلام الدفعة بنجاح')
                             ->success()
                             ->send();
                     }),
-                    
-                
-                    ])
+
+            ])
             ->toolbarActions([
                 // Bulk actions here
             ])
@@ -416,8 +418,8 @@ class CollectionPaymentResource extends Resource
                         // استخدم الـ scope المناسب بدلاً من البحث في حقل
                         try {
                             $status = PaymentStatus::from($key);
-                            $query->orWhere(function($statusQuery) use ($status) {
-                                (new CollectionPayment())->scopeByStatus($statusQuery, $status);
+                            $query->orWhere(function ($statusQuery) use ($status) {
+                                (new CollectionPayment)->scopeByStatus($statusQuery, $status);
                             });
                         } catch (\ValueError $e) {
                             // تجاهل القيم غير الصالحة

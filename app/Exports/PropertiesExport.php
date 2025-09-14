@@ -3,30 +3,33 @@
 namespace App\Exports;
 
 use App\Models\Property;
-use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\Exportable;
+use Maatwebsite\Excel\Concerns\FromQuery;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithColumnFormatting;
+use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
-use Maatwebsite\Excel\Concerns\WithColumnFormatting;
 use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class PropertiesExport implements FromQuery, WithHeadings, WithMapping, WithColumnFormatting, WithStyles, WithEvents, ShouldAutoSize
+class PropertiesExport implements FromQuery, ShouldAutoSize, WithColumnFormatting, WithEvents, WithHeadings, WithMapping, WithStyles
 {
     use Exportable;
-    
+
     protected $search;
+
     protected $filters;
+
     protected $sortColumn;
+
     protected $sortDirection;
-    
+
     public function __construct($search = null, $filters = [], $sortColumn = 'id', $sortDirection = 'asc')
     {
         $this->search = $search;
@@ -34,48 +37,48 @@ class PropertiesExport implements FromQuery, WithHeadings, WithMapping, WithColu
         $this->sortColumn = $sortColumn;
         $this->sortDirection = $sortDirection;
     }
-    
+
     public function query()
     {
         $query = Property::with(['owner', 'location.parent.parent.parent']);
-        
+
         // Apply search if provided
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('name', 'like', '%' . $this->search . '%')
-                    ->orWhere('address', 'like', '%' . $this->search . '%')
+                $q->where('name', 'like', '%'.$this->search.'%')
+                    ->orWhere('address', 'like', '%'.$this->search.'%')
                     ->orWhereHas('owner', function ($subQuery) {
-                        $subQuery->where('name', 'like', '%' . $this->search . '%');
+                        $subQuery->where('name', 'like', '%'.$this->search.'%');
                     })
                     ->orWhereHas('location', function ($subQuery) {
-                        $subQuery->where('name', 'like', '%' . $this->search . '%');
+                        $subQuery->where('name', 'like', '%'.$this->search.'%');
                     });
             });
         }
-        
+
         // Apply filters
         if (isset($this->filters['owner_id']) && $this->filters['owner_id']) {
             $query->where('owner_id', $this->filters['owner_id']);
         }
-        
+
         if (isset($this->filters['location_id']) && $this->filters['location_id']) {
             $query->where('location_id', $this->filters['location_id']);
         }
-        
+
         if (isset($this->filters['status_id']) && $this->filters['status_id']) {
             $query->where('status_id', $this->filters['status_id']);
         }
-        
+
         if (isset($this->filters['type_id']) && $this->filters['type_id']) {
             $query->where('type_id', $this->filters['type_id']);
         }
-        
+
         // Apply sorting
         $query->orderBy($this->sortColumn, $this->sortDirection);
-        
+
         return $query;
     }
-    
+
     public function headings(): array
     {
         return [
@@ -92,21 +95,21 @@ class PropertiesExport implements FromQuery, WithHeadings, WithMapping, WithColu
             'عدد المصاعد',
             'عدد الطوابق',
             'سنة البناء',
-            'تاريخ الإنشاء'
+            'تاريخ الإنشاء',
         ];
     }
-    
+
     public function map($property): array
     {
         // Get location hierarchy
         $location = $property->location;
-        
+
         // Initialize location levels
         $district = '-';  // المنطقة - Level 1
         $city = '-';      // المدينة - Level 2
         $center = '-';    // المركز - Level 3
         $neighborhood = '-'; // الحي - Level 4
-        
+
         if ($location) {
             // If location is level 4 (neighborhood)
             if ($location->level == 4) {
@@ -143,7 +146,7 @@ class PropertiesExport implements FromQuery, WithHeadings, WithMapping, WithColu
                 $district = $location->name;
             }
         }
-        
+
         return [
             $property->id,
             $property->name ?? '-',
@@ -158,10 +161,10 @@ class PropertiesExport implements FromQuery, WithHeadings, WithMapping, WithColu
             $property->elevators ?? 0,
             $property->floors_count ?? 0,
             $property->built_year ?? '-',
-            $property->created_at ? $property->created_at->format('d/m/Y') : '-'
+            $property->created_at ? $property->created_at->format('Y-m-d') : '-',
         ];
     }
-    
+
     public function columnFormats(): array
     {
         return [
@@ -174,12 +177,12 @@ class PropertiesExport implements FromQuery, WithHeadings, WithMapping, WithColu
             'N' => NumberFormat::FORMAT_DATE_DDMMYYYY,
         ];
     }
-    
+
     public function styles(Worksheet $sheet)
     {
         // Set RTL direction for the entire sheet
         $sheet->setRightToLeft(true);
-        
+
         // Style the header row
         $sheet->getStyle('A1:N1')->applyFromArray([
             'font' => [
@@ -202,29 +205,29 @@ class PropertiesExport implements FromQuery, WithHeadings, WithMapping, WithColu
                 ],
             ],
         ]);
-        
+
         // Set row height for header
         $sheet->getRowDimension(1)->setRowHeight(25);
-        
+
         // Center align numeric columns
         $sheet->getStyle('A:A')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('D:D')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('J:M')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        
+
         return [];
     }
-    
+
     public function registerEvents(): array
     {
         return [
-            AfterSheet::class => function(AfterSheet $event) {
+            AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
-                
+
                 // Get the highest row number
                 $highestRow = $sheet->getHighestRow();
-                
+
                 // Apply borders to all data cells
-                $sheet->getStyle('A1:N' . $highestRow)->applyFromArray([
+                $sheet->getStyle('A1:N'.$highestRow)->applyFromArray([
                     'borders' => [
                         'allBorders' => [
                             'borderStyle' => Border::BORDER_THIN,
@@ -232,11 +235,11 @@ class PropertiesExport implements FromQuery, WithHeadings, WithMapping, WithColu
                         ],
                     ],
                 ]);
-                
+
                 // Apply zebra striping
                 for ($row = 2; $row <= $highestRow; $row++) {
                     if ($row % 2 == 0) {
-                        $sheet->getStyle('A' . $row . ':N' . $row)->applyFromArray([
+                        $sheet->getStyle('A'.$row.':N'.$row)->applyFromArray([
                             'fill' => [
                                 'fillType' => Fill::FILL_SOLID,
                                 'startColor' => ['rgb' => 'F9FAFB'],
@@ -244,7 +247,7 @@ class PropertiesExport implements FromQuery, WithHeadings, WithMapping, WithColu
                         ]);
                     }
                 }
-                
+
                 // Set column widths
                 $sheet->getColumnDimension('A')->setWidth(8);  // م
                 $sheet->getColumnDimension('B')->setAutoSize(true); // اسم العقار
@@ -260,16 +263,16 @@ class PropertiesExport implements FromQuery, WithHeadings, WithMapping, WithColu
                 $sheet->getColumnDimension('L')->setWidth(12); // عدد الطوابق
                 $sheet->getColumnDimension('M')->setWidth(12); // سنة البناء
                 $sheet->getColumnDimension('N')->setWidth(15); // تاريخ الإنشاء
-                
+
                 // Freeze the header row
                 $sheet->freezePane('A2');
-                
+
                 // Set print options
                 $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
                 $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_A4);
                 $sheet->getPageSetup()->setFitToWidth(1);
                 $sheet->getPageSetup()->setFitToHeight(0);
-                
+
                 // Set print margins
                 $sheet->getPageMargins()->setTop(0.75);
                 $sheet->getPageMargins()->setRight(0.25);

@@ -4,17 +4,12 @@ namespace App\Filament\Resources\SupplyPaymentResource\Pages;
 
 use App\Filament\Resources\SupplyPaymentResource;
 use App\Services\SupplyPaymentService;
-use Filament\Resources\Pages\ViewRecord;
-use Filament\Tables\Table;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Concerns\InteractsWithTable;
-use Filament\Tables\Contracts\HasTable;
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Grid;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Resources\Pages\ViewRecord;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Model;
-use Filament\Support\Enums\FontWeight;
 
 class ViewSupplyPayment extends ViewRecord
 {
@@ -25,9 +20,10 @@ class ViewSupplyPayment extends ViewRecord
     protected function resolveRecord($key): Model
     {
         $this->supplyPaymentService = app(SupplyPaymentService::class);
+
         return parent::resolveRecord($key);
     }
-    
+
     public function getRelationManagers(): array
     {
         return [
@@ -35,12 +31,12 @@ class ViewSupplyPayment extends ViewRecord
             \App\Filament\Resources\SupplyPaymentResource\RelationManagers\ExpensesRelationManager::class,
         ];
     }
-    
+
     public function infolist(Schema $schema): Schema
     {
         // حساب القيم باستخدام Service
         $amounts = $this->supplyPaymentService->calculateAmountsFromPeriod($this->record);
-        
+
         return $schema
             ->schema([
                 Section::make('معلومات دفعة التوريد')
@@ -49,7 +45,7 @@ class ViewSupplyPayment extends ViewRecord
                             ->schema([
                                 TextEntry::make('propertyContract.property.name')
                                     ->label('العقار'),
-                                                                TextEntry::make('period_start')
+                                TextEntry::make('period_start')
                                     ->label('من')
                                     ->state(fn () => "{$amounts['period_start']}"),
                                 TextEntry::make('period_end')
@@ -73,36 +69,36 @@ class ViewSupplyPayment extends ViewRecord
                                     }),
                                 TextEntry::make('due_date')
                                     ->label('تاريخ الاستحقاق')
-                                    ->date('d/m/Y'),
+                                    ->date('Y-m-d'),
                                 TextEntry::make('paid_date')
                                     ->label('تاريخ التوريد')
-                                    ->date('d/m/Y')
+                                    ->date('Y-m-d')
                                     ->placeholder('لم يتم التوريد بعد'),
 
                             ]),
                     ]),
-                    
+
                 Section::make('الحسابات المالية')
                     ->schema([
                         Grid::make(4)
                             ->schema([
                                 TextEntry::make('gross_calculated')
                                     ->label('إجمالي المحصل')
-                                    ->state(number_format($amounts['gross_amount'], 2) . ' ريال'),
+                                    ->state(number_format($amounts['gross_amount'], 2).' ريال'),
                                 TextEntry::make('commission_calculated')
-                                    ->label('العمولة (' . $this->record->commission_rate . '%)')
-                                    ->state(number_format($amounts['commission_amount'], 2) . ' ريال'),
+                                    ->label('العمولة ('.$this->record->commission_rate.'%)')
+                                    ->state(number_format($amounts['commission_amount'], 2).' ريال'),
                                 TextEntry::make('expenses_calculated')
                                     ->label('المصروفات')
-                                    ->state(number_format($amounts['maintenance_deduction'], 2) . ' ريال'),
+                                    ->state(number_format($amounts['maintenance_deduction'], 2).' ريال'),
                                 TextEntry::make('net_calculated')
                                     ->label('صافي المستحق ')
-                                    ->state(number_format($amounts['net_amount'], 2) . ' ريال'),
+                                    ->state(number_format($amounts['net_amount'], 2).' ريال'),
                             ]),
                     ]),
             ]);
     }
-    
+
     protected function getHeaderActions(): array
     {
         // التحقق من الدفعات السابقة غير المؤكدة
@@ -134,9 +130,9 @@ class ViewSupplyPayment extends ViewRecord
                     foreach ($pendingPayments as $payment) {
                         $paymentAmounts = $this->supplyPaymentService->calculateAmountsFromPeriod($payment);
                         $html .= '<li style="margin-bottom: 10px;">';
-                        $html .= '<strong>دفعة شهر:</strong> ' . $payment->month_year . '<br>';
-                        $html .= '<strong>تاريخ الاستحقاق:</strong> ' . $payment->due_date->format('Y-m-d') . '<br>';
-                        $html .= '<strong>المبلغ المستحق:</strong> ' . number_format($paymentAmounts['net_amount'], 2) . ' ريال';
+                        $html .= '<strong>دفعة شهر:</strong> '.$payment->month_year.'<br>';
+                        $html .= '<strong>تاريخ الاستحقاق:</strong> '.$payment->due_date->format('Y-m-d').'<br>';
+                        $html .= '<strong>المبلغ المستحق:</strong> '.number_format($paymentAmounts['net_amount'], 2).' ريال';
                         $html .= '</li>';
                     }
 
@@ -151,7 +147,7 @@ class ViewSupplyPayment extends ViewRecord
         }
 
         // زر تأكيد التوريد أو التسوية - يظهر فقط عند عدم وجود دفعات سابقة
-        if (!$hasPendingPayments || $this->record->supply_status === 'collected') {
+        if (! $hasPendingPayments || $this->record->supply_status === 'collected') {
             $actions[] = \Filament\Actions\Action::make('confirm_payment')
                 ->label($isSettlement ? 'تأكيد التسوية' : 'تأكيد التوريد')
                 ->icon($isSettlement ? 'heroicon-o-document-check' : 'heroicon-o-check-circle')
@@ -170,8 +166,8 @@ class ViewSupplyPayment extends ViewRecord
                                     <p><strong>تأكيد التسوية:</strong></p>
                                     <p>المالك: <strong>{$ownerName}</strong></p>
                                     <p>العقار: <strong>{$propertyName}</strong></p>
-                                    <p>المبلغ المستحق: <strong style='color: red;'>" . number_format(abs($netAmount), 2) . " ريال</strong> (دين على المالك)</p>
-                                </div>"
+                                    <p>المبلغ المستحق: <strong style='color: red;'>".number_format(abs($netAmount), 2).' ريال</strong> (دين على المالك)</p>
+                                </div>'
                             );
                         } else {
                             // قيمة صفر - لا توجد مستحقات
@@ -187,10 +183,11 @@ class ViewSupplyPayment extends ViewRecord
                     } else {
                         // قيمة موجبة - توريد عادي
                         $userName = auth()->user()->name;
+
                         return new \Illuminate\Support\HtmlString(
                             "<div style='text-align: right; direction: rtl;'>
                                 <p>أقر أنا <strong>{$userName}</strong> بتوريد:</p>
-                                <p>المبلغ: <strong style='color: green;'>" . number_format($netAmount, 2) . " ريال</strong></p>
+                                <p>المبلغ: <strong style='color: green;'>".number_format($netAmount, 2)." ريال</strong></p>
                                 <p>للمالك: <strong>{$ownerName}</strong></p>
                                 <p>العقار: <strong>{$propertyName}</strong></p>
                             </div>"
@@ -200,12 +197,11 @@ class ViewSupplyPayment extends ViewRecord
                 ->modalSubmitActionLabel($isSettlement ? 'تأكيد التسوية' : 'تأكيد التوريد')
                 ->modalIcon($isSettlement ? 'heroicon-o-document-check' : 'heroicon-o-check-circle')
                 ->modalIconColor($isSettlement ? 'warning' : 'success')
-                ->visible(fn () =>
-                    $this->record &&
+                ->visible(fn () => $this->record &&
                     $this->record->supply_status !== 'collected' &&
                     $this->record->due_date &&
                     now()->gte($this->record->due_date) &&
-                    !$hasPendingPayments // الشرط الجديد: عدم وجود دفعات سابقة غير مؤكدة
+                    ! $hasPendingPayments // الشرط الجديد: عدم وجود دفعات سابقة غير مؤكدة
                 )
                 ->action(function () {
                     // استخدام Service لتأكيد التوريد

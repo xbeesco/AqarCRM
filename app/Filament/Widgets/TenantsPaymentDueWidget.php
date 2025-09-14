@@ -2,14 +2,14 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\PaymentStatus;
+use App\Models\CollectionPayment;
+use Filament\Actions\Action;
+use Filament\Forms;
+use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
-use App\Models\CollectionPayment;
-use Filament\Forms;
-use Filament\Actions\Action;
-use Filament\Notifications\Notification;
-use App\Enums\PaymentStatus;
 
 class TenantsPaymentDueWidget extends BaseWidget
 {
@@ -17,12 +17,11 @@ class TenantsPaymentDueWidget extends BaseWidget
 
     protected static ?int $sort = 4;
 
-    protected int | string | array $columnSpan = 'full';
+    protected int|string|array $columnSpan = 'full';
 
     protected static ?string $pollingInterval = '30s';
 
     protected static bool $isLazy = false;
-
 
     public function table(Table $table): Table
     {
@@ -53,8 +52,8 @@ class TenantsPaymentDueWidget extends BaseWidget
 
                 Tables\Columns\TextColumn::make('due_date_start')
                     ->label('التاريخ')
-                    
-                    ->date('d/m/Y')
+
+                    ->date('Y-m-d')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('tenant.phone')
@@ -63,8 +62,7 @@ class TenantsPaymentDueWidget extends BaseWidget
                 Tables\Columns\TextColumn::make('payment_status_label')
                     ->label('الحالة')
                     ->badge()
-                    ->color(fn ($record): string => 
-                        $record->payment_status_enum === PaymentStatus::OVERDUE ? 'danger' : 'gray'
+                    ->color(fn ($record): string => $record->payment_status_enum === PaymentStatus::OVERDUE ? 'danger' : 'gray'
                     ),
             ])
             ->recordActions([
@@ -72,7 +70,7 @@ class TenantsPaymentDueWidget extends BaseWidget
                     ->label('تأجيل')
                     ->icon('heroicon-o-clock')
                     ->color('warning')
-                    ->visible(fn(?CollectionPayment $record): bool => $record?->can_be_postponed ?? false)
+                    ->visible(fn (?CollectionPayment $record): bool => $record?->can_be_postponed ?? false)
                     ->modalHeading('تأجيل الدفعة')
                     ->modalDescription('قم بتحديد مدة التأجيل وسبب التأجيل')
                     ->modalSubmitActionLabel('تأجيل')
@@ -101,12 +99,11 @@ class TenantsPaymentDueWidget extends BaseWidget
                     ->label('تأكيد الاستلام')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn(?CollectionPayment $record): bool => $record?->can_be_collected ?? false)
+                    ->visible(fn (?CollectionPayment $record): bool => $record?->can_be_collected ?? false)
                     ->modalHeading('تأكيد استلام الدفعة')
                     ->modalDescription(
-                        fn(?CollectionPayment $record): string =>
-                        $record ? "أقر أنا " . auth()->user()->name . " باستلام مبلغ وقدره " .
-                            number_format($record->amount, 2) . " ريال" : ""
+                        fn (?CollectionPayment $record): string => $record ? 'أقر أنا '.auth()->user()->name.' باستلام مبلغ وقدره '.
+                            number_format($record->amount, 2).' ريال' : ''
                     )
                     ->modalSubmitActionLabel('تأكيد')
                     ->modalCancelActionLabel('إلغاء')
@@ -136,7 +133,7 @@ class TenantsPaymentDueWidget extends BaseWidget
                         if (empty($data['values'])) {
                             return $query;
                         }
-                        
+
                         // استخدام scope الموديل الجديد byStatuses
                         return $query->byStatuses($data['values']);
                     }),
@@ -155,8 +152,8 @@ class TenantsPaymentDueWidget extends BaseWidget
 
         $totalAmount = CollectionPayment::dueForCollection()->sum('amount');
 
-        $formattedAmount = number_format($totalAmount, 2) . ' ريال';
+        $formattedAmount = number_format($totalAmount, 2).' ريال';
 
-        return static::$heading . " ({$totalDue} دفعة - إجمالي: {$formattedAmount})";
+        return static::$heading." ({$totalDue} دفعة - إجمالي: {$formattedAmount})";
     }
 }

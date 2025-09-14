@@ -54,8 +54,8 @@
     <div>
         <p class="text-sm text-gray-500 dark:text-gray-400">فترة التحصيل</p>
         <p class="font-semibold">
-            من {{ \Carbon\Carbon::parse($payment->due_date_start)->format('Y/m/d') }}
-            إلى {{ \Carbon\Carbon::parse($payment->due_date_end)->format('Y/m/d') }}
+            من {{ \Carbon\Carbon::parse($payment->due_date_start)->format('Y-m-d') }}
+            إلى {{ \Carbon\Carbon::parse($payment->due_date_end)->format('Y-m-d') }}
         </p>
     </div>
     
@@ -76,7 +76,7 @@
     <hr class="border-gray-200 dark:border-gray-700">
     
     <div class="text-sm text-gray-500">
-        <p>تاريخ الإنشاء: {{ $payment->created_at->format('Y/m/d H:i') }}</p>
-        <p>آخر تحديث: {{ $payment->updated_at->format('Y/m/d H:i') }}</p>
+        <p>تاريخ الإنشاء: {{ $payment->created_at->format('Y-m-d H:i:s') }}</p>
+        <p>آخر تحديث: {{ $payment->updated_at->format('Y-m-d H:i:s') }}</p>
     </div>
 </div>

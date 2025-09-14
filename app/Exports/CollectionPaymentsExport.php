@@ -41,7 +41,7 @@ class CollectionPaymentsExport implements FromCollection, ShouldAutoSize, WithHe
             $payment->unit?->name ?? 'غير محدد',
             number_format($payment->amount, 2).' ريال',
             $status,
-            $payment->due_date_start?->format('d/m/Y') ?? '-',
+            $payment->due_date_start?->format('Y-m-d') ?? '-',
             $payment->delay_reason ?? $payment->late_payment_notes ?? '-',
         ];
     }

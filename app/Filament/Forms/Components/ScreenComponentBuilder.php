@@ -116,7 +116,7 @@ class ScreenComponentBuilder
                                 
                                 TextInput::make('format')
                                     ->label('Format Pattern')
-                                    ->placeholder('d/m/Y, $0.00, etc.')
+                                    ->placeholder('Y-m-d, $0.00, etc.')
                                     ->helperText('Format pattern for dates, numbers, etc.')
                                     ->columnSpanFull(),
                             ])

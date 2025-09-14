@@ -3,30 +3,25 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\UnitContractResource\Pages;
-use App\Models\UnitContract;
-use App\Models\User;
 use App\Models\Property;
 use App\Models\Unit;
-use App\Services\UnitContractService;
-use Filament\Resources\Resource;
-use Filament\Tables;
-use Filament\Tables\Table;
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Section;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
+use App\Models\UnitContract;
+use App\Models\User;
+use Closure;
+use Filament\Actions\Action;
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\Action;
-use Illuminate\Database\Eloquent\Builder;
-use Carbon\Carbon;
-use Closure;
+use Filament\Tables\Table;
 
 class UnitContractResource extends Resource
 {
@@ -55,7 +50,7 @@ class UnitContractResource extends Resource
                             ->afterStateUpdated(function (callable $set, $state) {
                                 // Clear unit selection when property changes
                                 $set('unit_id', null);
-                                
+
                                 // Auto-select unit if only one unit exists
                                 if ($state) {
                                     $units = Unit::where('property_id', $state)->get();
@@ -75,17 +70,17 @@ class UnitContractResource extends Resource
                             ->placeholder('اختر وحدة')
                             ->options(function (callable $get) {
                                 $propertyId = $get('property_id');
-                                
-                                if (!$propertyId) {
+
+                                if (! $propertyId) {
                                     return [];
                                 }
-                                
+
                                 // Get all units for the property immediately without search
                                 return Unit::where('property_id', $propertyId)
                                     ->pluck('name', 'id');
                             })
                             ->searchable(false) // Disable search to show all options immediately
-                            ->disabled(fn (callable $get): bool => !$get('property_id'))
+                            ->disabled(fn (callable $get): bool => ! $get('property_id'))
                             ->live()
                             ->afterStateUpdated(function (callable $set, $state) {
                                 if ($state) {
@@ -123,13 +118,13 @@ class UnitContractResource extends Resource
                                 'date',
                                 fn ($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
                                     $unitId = $get('unit_id');
-                                    if (!$unitId || !$value) {
+                                    if (! $unitId || ! $value) {
                                         return;
                                     }
-                                    
+
                                     $validationService = app(\App\Services\ContractValidationService::class);
                                     $excludeId = $record ? $record->id : null;
-                                    
+
                                     // التحقق من تاريخ البداية فقط
                                     $error = $validationService->validateStartDate($unitId, $value, $excludeId);
                                     if ($error) {
@@ -155,25 +150,25 @@ class UnitContractResource extends Resource
                             ->rules([
                                 fn ($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
                                     $frequency = $get('payment_frequency') ?? 'monthly';
-                                    if (!\App\Services\PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
-                                        $periodName = match($frequency) {
+                                    if (! \App\Services\PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
+                                        $periodName = match ($frequency) {
                                             'quarterly' => 'ربع سنة',
                                             'semi_annually' => 'نصف سنة',
                                             'annually' => 'سنة',
                                             default => $frequency,
                                         };
-                                        
+
                                         $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
                                     }
-                                    
+
                                     // التحقق من المدة فقط
                                     $unitId = $get('unit_id');
                                     $startDate = $get('start_date');
-                                    
+
                                     if ($unitId && $startDate && $value) {
                                         $validationService = app(\App\Services\ContractValidationService::class);
                                         $excludeId = $record ? $record->id : null;
-                                        
+
                                         // التحقق من المدة وتأثيرها على النهاية
                                         $error = $validationService->validateDuration($unitId, $startDate, $value, $excludeId);
                                         if ($error) {
@@ -205,8 +200,8 @@ class UnitContractResource extends Resource
                             ->rules([
                                 fn ($get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
                                     $duration = $get('duration_months') ?? 0;
-                                    if (!\App\Services\PropertyContractService::isValidDuration($duration, $value ?? 'monthly')) {
-                                        $periodName = match($value) {
+                                    if (! \App\Services\PropertyContractService::isValidDuration($duration, $value ?? 'monthly')) {
+                                        $periodName = match ($value) {
                                             'quarterly' => 'ربع سنة',
                                             'semi_annually' => 'نصف سنة',
                                             'annually' => 'سنة',
@@ -226,11 +221,12 @@ class UnitContractResource extends Resource
                                 $duration = $get('duration_months') ?? 0;
                                 $frequency = $get('payment_frequency') ?? 'monthly';
                                 $result = \App\Services\PropertyContractService::calculatePaymentsCount($duration, $frequency);
+
                                 return $result;
                             })
                             ->columnSpan(3),
-                        
-                            FileUpload::make('contract_file')
+
+                        FileUpload::make('contract_file')
                             ->label('ملف العقد')
                             ->required()
                             ->acceptedFileTypes(['application/pdf', 'image/*'])
@@ -271,7 +267,7 @@ class UnitContractResource extends Resource
 
                 TextColumn::make('start_date')
                     ->label('بداية العقد')
-                    ->date('d/m/Y')
+                    ->date('Y-m-d')
                     ->sortable(),
 
                 TextColumn::make('duration_months')
@@ -280,12 +276,12 @@ class UnitContractResource extends Resource
 
                 TextColumn::make('end_date')
                     ->label('نهاية العقد')
-                    ->date('d/m/Y')
+                    ->date('Y-m-d')
                     ->sortable(),
 
                 TextColumn::make('payment_frequency')
                     ->label('نوع التحصيل')
-                    ->formatStateUsing(fn ($state) => match($state) {
+                    ->formatStateUsing(fn ($state) => match ($state) {
                         'monthly' => 'شهري',
                         'quarterly' => 'ربع سنوي',
                         'semi_annually' => 'نصف سنوي',
@@ -293,7 +289,7 @@ class UnitContractResource extends Resource
                         default => $state
                     })
                     ->badge()
-                    ->color(fn ($state) => match($state) {
+                    ->color(fn ($state) => match ($state) {
                         'monthly' => 'success',
                         'quarterly' => 'info',
                         'semi_annually' => 'warning',
@@ -303,7 +299,7 @@ class UnitContractResource extends Resource
 
                 TextColumn::make('monthly_rent')
                     ->label('الايجار الشهري')
-                    ->money('SAR' , 1 , null , 0 ),
+                    ->money('SAR', 1, null, 0),
             ])
             ->filters([
                 SelectFilter::make('property_id')
@@ -330,14 +326,14 @@ class UnitContractResource extends Resource
                         'annually' => 'سنوي',
                     ]),
             ])
-            //->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
+            // ->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
             ->recordActions([
                 Action::make('viewPayments')
                     ->label('عرض الدفعات')
                     ->icon('heroicon-o-eye')
                     ->color('info')
                     ->url(fn ($record) => $record ? route('filament.admin.resources.collection-payments.index', [
-                        'unit_contract_id' => $record->id
+                        'unit_contract_id' => $record->id,
                     ]) : '#')
                     ->visible(fn ($record) => $record && $record->payments()->exists()),
                 Action::make('generatePayments')
@@ -347,7 +343,9 @@ class UnitContractResource extends Resource
                     ->requiresConfirmation()
                     ->modalHeading('توليد دفعات التحصيل')
                     ->modalDescription(function ($record) {
-                        if (!$record) return '';
+                        if (! $record) {
+                            return '';
+                        }
 
                         $paymentsCount = $record->payments_count;
                         $tenantName = $record->tenant?->name ?? 'غير محدد';
@@ -373,7 +371,7 @@ class UnitContractResource extends Resource
                             $paymentService = app(\App\Services\PaymentGeneratorService::class);
                             $payments = $paymentService->generateTenantPayments($record);
                             $count = count($payments);
-                            
+
                             \Filament\Notifications\Notification::make()
                                 ->title('تم توليد الدفعات بنجاح')
                                 ->body("تم توليد {$count} دفعة للعقد رقم {$record->contract_number}")
@@ -417,34 +415,37 @@ class UnitContractResource extends Resource
             'reschedule' => Pages\ReschedulePayments::route('/{record}/reschedule'), // Only accessible by super_admin
         ];
     }
-    
+
     /**
      * Only super_admin can edit contracts
      */
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
         $user = auth()->user();
+
         return $user && $user->type === 'super_admin';
     }
-    
+
     /**
      * Only super_admin can delete contracts
      */
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
         $user = auth()->user();
+
         return $user && $user->type === 'super_admin';
     }
-    
+
     /**
      * Only admins and employees can create contracts
      */
     public static function canCreate(): bool
     {
         $user = auth()->user();
+
         return $user && in_array($user->type, ['super_admin', 'admin', 'employee']);
     }
-    
+
     /**
      * Filter records based on user type
      */
@@ -452,7 +453,7 @@ class UnitContractResource extends Resource
     {
         $query = parent::getEloquentQuery();
         $user = auth()->user();
-        
+
         if ($user) {
             switch ($user->type) {
                 case 'owner':
@@ -460,13 +461,13 @@ class UnitContractResource extends Resource
                     return $query->whereHas('property', function ($q) use ($user) {
                         $q->where('owner_id', $user->id);
                     });
-                    
+
                 case 'tenant':
                     // Tenants see only their own contracts
                     return $query->where('tenant_id', $user->id);
             }
         }
-        
+
         return $query;
     }
 }

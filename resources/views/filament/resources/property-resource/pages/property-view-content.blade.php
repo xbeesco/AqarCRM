@@ -82,7 +82,7 @@
                         </td>
                         <td class="px-6 py-4 text-sm font-medium text-green-600">{{ number_format($generalReport['collected_rent'] ?? 0) }} ر.س</td>
                         <td class="px-6 py-4 text-sm font-medium text-blue-600">{{ number_format($generalReport['next_collection'] ?? 0) }} ر.س</td>
-                        <td class="px-6 py-4 text-sm text-gray-700">{{ $generalReport['next_collection_date'] ? Carbon\Carbon::parse($generalReport['next_collection_date'])->format('Y-m-d') : '-' }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-700">{{ $generalReport['next_collection_date'] ? \Carbon\Carbon::parse($generalReport['next_collection_date'])->format('Y-m-d') : '-' }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -171,7 +171,7 @@
                             <td class="px-6 py-4 text-sm text-gray-700 text-center">
                                 <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-lg">{{ $row['total_payments'] }}</span>
                             </td>
-                            <td class="px-6 py-4 text-sm text-gray-700">{{ $row['payment_date'] ? Carbon\Carbon::parse($row['payment_date'])->format('Y-m-d') : '-' }}</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">{{ $row['payment_date'] ? \Carbon\Carbon::parse($row['payment_date'])->format('Y-m-d') : '-' }}</td>
                             <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ number_format($row['amount']) }} ر.س</td>
                             <td class="px-6 py-4 text-sm text-orange-600">{{ number_format($row['admin_fee']) }} ر.س</td>
                             <td class="px-6 py-4 text-sm text-red-600">{{ number_format($row['maintenance']) }} ر.س</td>
