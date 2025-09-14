@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\SupplyPaymentResource\Pages;
 
 use App\Filament\Resources\SupplyPaymentResource;
+use App\Services\SupplyPaymentService;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
@@ -18,6 +19,14 @@ use Filament\Support\Enums\FontWeight;
 class ViewSupplyPayment extends ViewRecord
 {
     protected static string $resource = SupplyPaymentResource::class;
+
+    protected SupplyPaymentService $supplyPaymentService;
+
+    protected function resolveRecord($key): Model
+    {
+        $this->supplyPaymentService = app(SupplyPaymentService::class);
+        return parent::resolveRecord($key);
+    }
     
     public function getRelationManagers(): array
     {
@@ -29,8 +38,8 @@ class ViewSupplyPayment extends ViewRecord
     
     public function infolist(Schema $schema): Schema
     {
-        // حساب القيم
-        $amounts = $this->record->calculateAmountsFromPeriod();
+        // حساب القيم باستخدام Service
+        $amounts = $this->supplyPaymentService->calculateAmountsFromPeriod($this->record);
         
         return $schema
             ->schema([
@@ -96,16 +105,54 @@ class ViewSupplyPayment extends ViewRecord
     
     protected function getHeaderActions(): array
     {
+        // التحقق من الدفعات السابقة غير المؤكدة
+        $hasPendingPayments = $this->supplyPaymentService->hasPendingPreviousPayments($this->record);
+        $pendingPayments = $hasPendingPayments ? $this->supplyPaymentService->getPendingPreviousPayments($this->record) : collect();
+
         // حساب القيمة لتحديد نوع الزر المطلوب
-        $amounts = $this->record->calculateAmountsFromPeriod();
+        $amounts = $this->supplyPaymentService->calculateAmountsFromPeriod($this->record);
         $netAmount = $amounts['net_amount'];
 
         // تحديد نوع العملية بناءً على القيمة
         $isSettlement = $netAmount <= 0; // تسوية إذا كانت القيمة صفر أو سالبة
 
-        return [
-            // زر تأكيد التوريد أو التسوية
-            \Filament\Actions\Action::make('confirm_payment')
+        $actions = [];
+
+        // زر التنبيه عند وجود دفعات سابقة غير مؤكدة
+        if ($hasPendingPayments && $this->record->supply_status !== 'collected') {
+            $actions[] = \Filament\Actions\Action::make('pending_payments_notice')
+                ->label('يوجد دفعات سابقة غير مؤكدة')
+                ->icon('heroicon-o-exclamation-triangle')
+                ->color('warning')
+                ->disabled()
+                ->modalHeading('دفعات سابقة في الانتظار')
+                ->modalDescription(function () use ($pendingPayments) {
+                    $html = '<div style="text-align: right; direction: rtl;">';
+                    $html .= '<p><strong>لا يمكن تأكيد هذه الدفعة حتى يتم توريد الدفعات التالية:</strong></p>';
+                    $html .= '<ul style="list-style-type: disc; padding-right: 20px;">';
+
+                    foreach ($pendingPayments as $payment) {
+                        $paymentAmounts = $this->supplyPaymentService->calculateAmountsFromPeriod($payment);
+                        $html .= '<li style="margin-bottom: 10px;">';
+                        $html .= '<strong>دفعة شهر:</strong> ' . $payment->month_year . '<br>';
+                        $html .= '<strong>تاريخ الاستحقاق:</strong> ' . $payment->due_date->format('Y-m-d') . '<br>';
+                        $html .= '<strong>المبلغ المستحق:</strong> ' . number_format($paymentAmounts['net_amount'], 2) . ' ريال';
+                        $html .= '</li>';
+                    }
+
+                    $html .= '</ul>';
+                    $html .= '<p style="margin-top: 15px; color: #d97706;"><strong>يجب توريد هذه الدفعات بالترتيب الزمني</strong></p>';
+                    $html .= '</div>';
+
+                    return new \Illuminate\Support\HtmlString($html);
+                })
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('إغلاق');
+        }
+
+        // زر تأكيد التوريد أو التسوية - يظهر فقط عند عدم وجود دفعات سابقة
+        if (!$hasPendingPayments || $this->record->supply_status === 'collected') {
+            $actions[] = \Filament\Actions\Action::make('confirm_payment')
                 ->label($isSettlement ? 'تأكيد التسوية' : 'تأكيد التوريد')
                 ->icon($isSettlement ? 'heroicon-o-document-check' : 'heroicon-o-check-circle')
                 ->color($isSettlement ? 'warning' : 'success')
@@ -157,52 +204,35 @@ class ViewSupplyPayment extends ViewRecord
                     $this->record &&
                     $this->record->supply_status !== 'collected' &&
                     $this->record->due_date &&
-                    now()->gte($this->record->due_date)
+                    now()->gte($this->record->due_date) &&
+                    !$hasPendingPayments // الشرط الجديد: عدم وجود دفعات سابقة غير مؤكدة
                 )
-                ->action(function () use ($isSettlement, $netAmount) {
-                    // حساب وحفظ القيم
-                    $amounts = $this->record->calculateAmountsFromPeriod();
+                ->action(function () {
+                    // استخدام Service لتأكيد التوريد
+                    $result = $this->supplyPaymentService->confirmSupplyPayment(
+                        $this->record,
+                        auth()->id()
+                    );
 
-                    $this->record->update([
-                        'gross_amount' => $amounts['gross_amount'],
-                        'commission_amount' => $amounts['commission_amount'],
-                        'maintenance_deduction' => $amounts['maintenance_deduction'],
-                        'net_amount' => $amounts['net_amount'],
-                        'supply_status' => 'collected',
-                        'paid_date' => now(),
-                        'collected_by' => auth()->id(),
-                    ]);
+                    if ($result['success']) {
+                        \Filament\Notifications\Notification::make()
+                            ->title($result['is_settlement'] ? 'تم تأكيد التسوية' : 'تم تأكيد التوريد')
+                            ->body($result['message'])
+                            ->success()
+                            ->send();
 
-                    // رسالة النجاح حسب نوع العملية
-                    if ($isSettlement) {
-                        if ($netAmount < 0) {
-                            $message = sprintf(
-                                'تم تسجيل دين بقيمة %s ريال على المالك %s',
-                                number_format(abs($netAmount), 2),
-                                $this->record->owner?->name
-                            );
-                        } else {
-                            $message = sprintf(
-                                'تم تأكيد التسوية - لا توجد مستحقات للمالك %s',
-                                $this->record->owner?->name
-                            );
-                        }
+                        $this->redirect($this->getResource()::getUrl('index'));
                     } else {
-                        $message = sprintf(
-                            'تم توريد مبلغ %s ريال للمالك %s',
-                            number_format($netAmount, 2),
-                            $this->record->owner?->name
-                        );
+                        // في حالة الفشل (لا يجب أن يحدث بسبب الشروط المسبقة)
+                        \Filament\Notifications\Notification::make()
+                            ->title('خطأ في التأكيد')
+                            ->body($result['message'])
+                            ->danger()
+                            ->send();
                     }
+                });
+        }
 
-                    \Filament\Notifications\Notification::make()
-                        ->title($isSettlement ? 'تم تأكيد التسوية' : 'تم تأكيد التوريد')
-                        ->body($message)
-                        ->success()
-                        ->send();
-
-                    $this->redirect($this->getResource()::getUrl('index'));
-                }),
-        ];
+        return $actions;
     }
 }

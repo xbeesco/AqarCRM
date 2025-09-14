@@ -17,7 +17,8 @@ class ExpensesRelationManager extends RelationManager
     {
         // الحصول على دفعة التوريد الحالية
         $supplyPayment = $this->ownerRecord;
-        $expenses = $supplyPayment->getExpensesDetails();
+        $supplyPaymentService = app(\App\Services\SupplyPaymentService::class);
+        $expenses = $supplyPaymentService->getExpensesDetails($supplyPayment);
         
         return $table
             ->query(fn () => \App\Models\Expense::query()

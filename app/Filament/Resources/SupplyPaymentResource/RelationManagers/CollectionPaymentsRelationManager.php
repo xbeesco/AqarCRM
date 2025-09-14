@@ -18,7 +18,8 @@ class CollectionPaymentsRelationManager extends RelationManager
     {
         // الحصول على دفعة التوريد الحالية
         $supplyPayment = $this->ownerRecord;
-        $collectionPayments = $supplyPayment->getCollectionPaymentsDetails();
+        $supplyPaymentService = app(\App\Services\SupplyPaymentService::class);
+        $collectionPayments = $supplyPaymentService->getCollectionPaymentsDetails($supplyPayment);
         $commissionRate = $supplyPayment->commission_rate;
         
         return $table
