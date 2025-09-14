@@ -22,8 +22,8 @@ class ViewSupplyPayment extends ViewRecord
     public function getRelationManagers(): array
     {
         return [
-            \App\Filament\Resources\SupplyPaymentResource\RelationManagers\ExpensesRelationManager::class,
             \App\Filament\Resources\SupplyPaymentResource\RelationManagers\CollectionPaymentsRelationManager::class,
+            \App\Filament\Resources\SupplyPaymentResource\RelationManagers\ExpensesRelationManager::class,
         ];
     }
     
@@ -36,16 +36,17 @@ class ViewSupplyPayment extends ViewRecord
             ->schema([
                 Section::make('معلومات دفعة التوريد')
                     ->schema([
-                        Grid::make(4)
+                        Grid::make(3)
                             ->schema([
-                                TextEntry::make('payment_number')
-                                    ->label('رقم الدفعة'),
-                                TextEntry::make('month_year')
-                                    ->label('الشهر'),
-                                TextEntry::make('owner.name')
-                                    ->label('المالك'),
                                 TextEntry::make('propertyContract.property.name')
                                     ->label('العقار'),
+                                                                TextEntry::make('period_start')
+                                    ->label('من')
+                                    ->state(fn () => "{$amounts['period_start']}"),
+                                TextEntry::make('period_end')
+                                    ->label('الي')
+                                    ->state(fn () => "{$amounts['period_end']}"),
+
                                 TextEntry::make('supply_status')
                                     ->label('حالة التوريد')
                                     ->badge()
@@ -68,9 +69,7 @@ class ViewSupplyPayment extends ViewRecord
                                     ->label('تاريخ التوريد')
                                     ->date('d/m/Y')
                                     ->placeholder('لم يتم التوريد بعد'),
-                                TextEntry::make('period')
-                                    ->label('الفترة')
-                                    ->state(fn () => "من {$amounts['period_start']} إلى {$amounts['period_end']}"),
+
                             ]),
                     ]),
                     
