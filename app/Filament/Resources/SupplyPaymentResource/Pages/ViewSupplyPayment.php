@@ -15,13 +15,21 @@ class ViewSupplyPayment extends ViewRecord
 {
     protected static string $resource = SupplyPaymentResource::class;
 
-    protected SupplyPaymentService $supplyPaymentService;
+    protected ?SupplyPaymentService $supplyPaymentService = null;
 
     protected function resolveRecord($key): Model
     {
         $this->supplyPaymentService = app(SupplyPaymentService::class);
 
         return parent::resolveRecord($key);
+    }
+
+    protected function getSupplyPaymentService(): SupplyPaymentService
+    {
+        if ($this->supplyPaymentService === null) {
+            $this->supplyPaymentService = app(SupplyPaymentService::class);
+        }
+        return $this->supplyPaymentService;
     }
 
     public function getRelationManagers(): array
@@ -35,7 +43,7 @@ class ViewSupplyPayment extends ViewRecord
     public function infolist(Schema $schema): Schema
     {
         // حساب القيم باستخدام Service
-        $amounts = $this->supplyPaymentService->calculateAmountsFromPeriod($this->record);
+        $amounts = $this->getSupplyPaymentService()->calculateAmountsFromPeriod($this->record);
 
         return $schema
             ->schema([
@@ -102,11 +110,11 @@ class ViewSupplyPayment extends ViewRecord
     protected function getHeaderActions(): array
     {
         // التحقق من الدفعات السابقة غير المؤكدة
-        $hasPendingPayments = $this->supplyPaymentService->hasPendingPreviousPayments($this->record);
-        $pendingPayments = $hasPendingPayments ? $this->supplyPaymentService->getPendingPreviousPayments($this->record) : collect();
+        $hasPendingPayments = $this->getSupplyPaymentService()->hasPendingPreviousPayments($this->record);
+        $pendingPayments = $hasPendingPayments ? $this->getSupplyPaymentService()->getPendingPreviousPayments($this->record) : collect();
 
         // حساب القيمة لتحديد نوع الزر المطلوب
-        $amounts = $this->supplyPaymentService->calculateAmountsFromPeriod($this->record);
+        $amounts = $this->getSupplyPaymentService()->calculateAmountsFromPeriod($this->record);
         $netAmount = $amounts['net_amount'];
 
         // تحديد نوع العملية بناءً على القيمة
@@ -128,7 +136,7 @@ class ViewSupplyPayment extends ViewRecord
                     $html .= '<ul style="list-style-type: disc; padding-right: 20px;">';
 
                     foreach ($pendingPayments as $payment) {
-                        $paymentAmounts = $this->supplyPaymentService->calculateAmountsFromPeriod($payment);
+                        $paymentAmounts = $this->getSupplyPaymentService()->calculateAmountsFromPeriod($payment);
                         $html .= '<li style="margin-bottom: 10px;">';
                         $html .= '<strong>دفعة شهر:</strong> '.$payment->month_year.'<br>';
                         $html .= '<strong>تاريخ الاستحقاق:</strong> '.$payment->due_date->format('Y-m-d').'<br>';
@@ -205,7 +213,7 @@ class ViewSupplyPayment extends ViewRecord
                 )
                 ->action(function () {
                     // استخدام Service لتأكيد التوريد
-                    $result = $this->supplyPaymentService->confirmSupplyPayment(
+                    $result = $this->getSupplyPaymentService()->confirmSupplyPayment(
                         $this->record,
                         auth()->id()
                     );

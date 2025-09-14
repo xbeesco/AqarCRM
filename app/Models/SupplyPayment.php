@@ -198,4 +198,103 @@ class SupplyPayment extends Model
     {
         return $this->approval_status === 'pending';
     }
+
+    /**
+     * الحصول على دفعات التحصيل مصنفة حسب الأنواع الستة
+     * Get categorized collection payments for this supply payment
+     */
+    public function getCategorizedCollectionPayments(): array
+    {
+        $paymentAssignmentService = app(\App\Services\PaymentAssignmentService::class);
+        $invoiceDetails = $this->invoice_details ?? [];
+        $periodStart = $invoiceDetails['period_start'] ?? $this->month_year . '-01';
+        $periodEnd = $invoiceDetails['period_end'] ?? date('Y-m-t', strtotime($periodStart));
+
+        return $paymentAssignmentService->getCategorizedPaymentsForPeriod(
+            $this->propertyContract->property_id,
+            $periodStart,
+            $periodEnd
+        );
+    }
+
+    /**
+     * الحصول على ملخص إحصائي لدفعات التحصيل
+     * Get collection payments summary
+     */
+    public function getCollectionPaymentsSummary(): array
+    {
+        $categorizedData = $this->getCategorizedCollectionPayments();
+
+        $summary = [
+            'total_payments' => 0,
+            'total_amount' => 0,
+            'counted_payments' => 0,
+            'counted_amount' => $categorizedData['counted_total'],
+            'uncounted_payments' => 0,
+            'uncounted_amount' => $categorizedData['uncounted_total'],
+            'by_type' => []
+        ];
+
+        foreach ($categorizedData['categories'] as $type => $category) {
+            $count = $category['payments']->count();
+            $total = $category['total'];
+
+            $summary['total_payments'] += $count;
+            $summary['total_amount'] += $total;
+
+            if ($category['counted']) {
+                $summary['counted_payments'] += $count;
+            } else {
+                $summary['uncounted_payments'] += $count;
+            }
+
+            $summary['by_type'][$type] = [
+                'name' => $category['name'],
+                'count' => $count,
+                'total' => $total,
+                'counted' => $category['counted']
+            ];
+        }
+
+        return $summary;
+    }
+
+    /**
+     * التحقق من صحة الحسابات
+     * Validate calculations match expected values
+     */
+    public function validateCalculations(): array
+    {
+        $service = app(\App\Services\SupplyPaymentService::class);
+        $calculated = $service->calculateAmountsFromPeriod($this);
+
+        $errors = [];
+
+        // فقط تحقق إذا كانت الدفعة محصلة
+        if ($this->supply_status === 'collected') {
+            if (abs($this->gross_amount - $calculated['gross_amount']) > 0.01) {
+                $errors[] = [
+                    'field' => 'gross_amount',
+                    'stored' => $this->gross_amount,
+                    'calculated' => $calculated['gross_amount'],
+                    'difference' => $this->gross_amount - $calculated['gross_amount']
+                ];
+            }
+
+            if (abs($this->net_amount - $calculated['net_amount']) > 0.01) {
+                $errors[] = [
+                    'field' => 'net_amount',
+                    'stored' => $this->net_amount,
+                    'calculated' => $calculated['net_amount'],
+                    'difference' => $this->net_amount - $calculated['net_amount']
+                ];
+            }
+        }
+
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors,
+            'calculated' => $calculated
+        ];
+    }
 }

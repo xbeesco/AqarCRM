@@ -12,54 +12,52 @@ use Illuminate\Database\Eloquent\Collection;
 class PaymentAssignmentService
 {
     /**
-     * تحديد ما إذا كانت دفعة التحصيل تنتمي لفترة دفعة التوريد المحددة
-     * Determine if a collection payment belongs to a specific supply payment period
+     * تحديد ما إذا كانت دفعة التحصيل تُحتسب للمالك في فترة دفعة التوريد المحددة
+     * Determine if a collection payment should be counted for owner in a specific supply payment period
      *
-     * Business Logic:
-     * 1. Early Payment: March rent paid in February -> belongs to March supply payment
-     * 2. On-time Payment: March rent paid in March -> belongs to March supply payment
-     * 3. Very Late Payment: February rent paid in April -> belongs to April supply payment
+     * المنطق المحاسبي:
+     * يُحاسب المالك فقط على المبالغ المحصلة فعلياً:
+     * - النوع 2: دفعة للفترة ودُفعت خلالها ✅
+     * - النوع 3: دفعة للفترة دُفعت قبلها (مدفوعة مسبقاً) ✅
+     * - النوع 5: دفعة لفترة سابقة دُفعت خلال الفترة (متأخرات محصلة) ✅
+     *
+     * لا يُحاسب المالك على:
+     * - النوع 1: دفعة للفترة لم تُدفع ❌
+     * - النوع 4: دفعة للفترة دُفعت بعدها (ستُحتسب في الفترة التي دُفعت فيها) ❌
+     * - النوع 6: دفعة لفترة لاحقة دُفعت مبكراً (ستُحتسب عند استحقاقها) ❌
      */
     public function shouldPaymentBelongToPeriod(
         CollectionPayment $payment,
         string $periodStart,
         string $periodEnd
     ): bool {
-        // 1. تحديد الفترة الأصلية للدفعة
-        $paymentDueStart = $payment->due_date_start;
-        $paymentOriginallyBelongsHere = $paymentDueStart >= $periodStart && $paymentDueStart <= $periodEnd;
-
-        // 2. إذا لم تُدفع، تبقى مع الفترة الأصلية
+        // إذا لم تُدفع الدفعة، لا تُحتسب للمالك
         if (!$payment->paid_date) {
-            return $paymentOriginallyBelongsHere;
+            return false;
         }
 
-        // 3. إذا تم الدفع، تحقق من التأخير الشديد (عبور فترات دفعات التوريد)
-        $paidDate = $payment->paid_date;
+        $paymentDueStart = $payment->due_date_start->format('Y-m-d');
+        $paidDate = $payment->paid_date->format('Y-m-d');
 
-        // إذا تم الدفع في هذه الفترة، فهي تنتمي هنا بغض النظر عن تاريخ الاستحقاق الأصلي
-        $paidInThisPeriod = $paidDate >= $periodStart && $paidDate <= $periodEnd;
-
-        // 4. معالجة الحالات الثلاث:
-
-        // الحالة أ: الدفع المبكر (الفترة الأصلية بعد هذه الفترة)
-        // مثال: إيجار مارس دُفع في فبراير -> ينتمي لدفعة توريد مارس
-        if ($paymentDueStart > $periodEnd) {
-            return false; // الدفعات المبكرة تنتمي لفترتها الأصلية، وليس لهذه
+        // النوع 2: دفعة للفترة ودُفعت خلالها
+        if ($paymentDueStart >= $periodStart && $paymentDueStart <= $periodEnd
+            && $paidDate >= $periodStart && $paidDate <= $periodEnd) {
+            return true;
         }
 
-        // الحالة ب: الدفع العادي أو المتأخر العادي (الفترة الأصلية تطابق هذه الفترة)
-        // مثال: إيجار فبراير دُفع في فبراير (أو متأخر قليلاً) -> ينتمي لدفعة توريد فبراير
-        if ($paymentOriginallyBelongsHere) {
-            return true; // الدفعة تنتمي لفترتها الأصلية
+        // النوع 3: دفعة للفترة دُفعت قبلها (مدفوعة مسبقاً)
+        if ($paymentDueStart >= $periodStart && $paymentDueStart <= $periodEnd
+            && $paidDate < $periodStart) {
+            return true;
         }
 
-        // الحالة ج: الدفع المتأخر جداً (الفترة الأصلية قبل هذه الفترة، لكن دُفعت في هذه الفترة)
-        // مثال: إيجار يناير دُفع في مارس -> ينتمي لدفعة توريد مارس حيث تم التحصيل فعلياً
-        if ($paymentDueStart < $periodStart && $paidInThisPeriod) {
-            return true; // الدفعة المتأخرة جداً تُخصص للفترة التي تم دفعها فيها
+        // النوع 5: دفعة لفترة سابقة دُفعت خلال الفترة (متأخرات محصلة)
+        if ($paymentDueStart < $periodStart
+            && $paidDate >= $periodStart && $paidDate <= $periodEnd) {
+            return true;
         }
 
+        // الأنواع الأخرى لا تُحتسب
         return false;
     }
 
@@ -113,41 +111,137 @@ class PaymentAssignmentService
     }
 
     /**
-     * التحقق من حالة دفعة التحصيل بالنسبة للفترة
-     * Check collection payment status relative to a period
+     * تصنيف دفعة التحصيل حسب الأنواع الستة
+     * Categorize collection payment into one of six types
      */
-    public function getPaymentStatusForPeriod(
+    public function getPaymentTypeForPeriod(
         CollectionPayment $payment,
         string $periodStart,
         string $periodEnd
-    ): string {
-        $paymentDueStart = $payment->due_date_start;
+    ): array {
+        $paymentDueStart = $payment->due_date_start->format('Y-m-d');
+        $paidDate = $payment->paid_date ? $payment->paid_date->format('Y-m-d') : null;
 
-        if (!$payment->paid_date) {
-            return 'unpaid';
-        }
-
-        $paidDate = $payment->paid_date;
-
-        // دفع مبكر
-        if ($paymentDueStart > $periodEnd && $paidDate < $periodStart) {
-            return 'early_payment';
-        }
-
-        // دفع في الوقت أو متأخر عادي
+        // تحديد نوع الدفعة
         if ($paymentDueStart >= $periodStart && $paymentDueStart <= $periodEnd) {
-            if ($paidDate >= $periodStart && $paidDate <= $periodEnd) {
-                return 'on_time_payment';
-            } else if ($paidDate > $periodEnd) {
-                return 'late_payment';
+            // دفعة تابعة للفترة
+            if (!$paidDate) {
+                return [
+                    'type' => 1,
+                    'name' => 'غير مدفوعة',
+                    'counted' => false,
+                    'color' => 'danger',
+                    'icon' => 'heroicon-o-x-circle'
+                ];
+            } elseif ($paidDate >= $periodStart && $paidDate <= $periodEnd) {
+                return [
+                    'type' => 2,
+                    'name' => 'مدفوعة',
+                    'counted' => true,
+                    'color' => 'success',
+                    'icon' => 'heroicon-o-check-circle'
+                ];
+            } elseif ($paidDate < $periodStart) {
+                return [
+                    'type' => 3,
+                    'name' => 'مدفوعة مسبقاً',
+                    'counted' => true,
+                    'color' => 'success',
+                    'icon' => 'heroicon-o-clock'
+                ];
+            } else { // $paidDate > $periodEnd
+                return [
+                    'type' => 4,
+                    'name' => 'دفعت لاحقا',
+                    'counted' => false,
+                    'color' => 'warning',
+                    'icon' => 'heroicon-o-exclamation-triangle'
+                ];
+            }
+        } elseif ($paymentDueStart < $periodStart && $paidDate && $paidDate >= $periodStart && $paidDate <= $periodEnd) {
+            return [
+                'type' => 5,
+                'name' => 'متأخرات محصلة',
+                'counted' => true,
+                'color' => 'success',
+                'icon' => 'heroicon-o-arrow-path'
+            ];
+        } elseif ($paymentDueStart > $periodEnd && $paidDate && $paidDate >= $periodStart && $paidDate <= $periodEnd) {
+            return [
+                'type' => 6,
+                'name' => 'دفعة مستقبلية',
+                'counted' => false,
+                'color' => 'gray',
+                'icon' => 'heroicon-o-forward'
+            ];
+        }
+
+        return [
+            'type' => 0,
+            'name' => 'غير مصنف',
+            'counted' => false,
+            'color' => 'gray',
+            'icon' => 'heroicon-o-question-mark-circle'
+        ];
+    }
+
+    /**
+     * الحصول على دفعات التحصيل مصنفة حسب الأنواع الستة
+     * Get collection payments categorized by the six types
+     */
+    public function getCategorizedPaymentsForPeriod(
+        int $propertyId,
+        string $periodStart,
+        string $periodEnd
+    ): array {
+        // جلب جميع الدفعات المحتملة
+        $allPayments = CollectionPayment::with(['tenant', 'unit'])
+            ->where('property_id', $propertyId)
+            ->where(function($query) use ($periodStart, $periodEnd) {
+                // دفعات الفترة (مدفوعة أو غير مدفوعة)
+                $query->whereBetween('due_date_start', [$periodStart, $periodEnd])
+                    // أو دفعات مدفوعة في الفترة (بغض النظر عن تاريخ الاستحقاق)
+                    ->orWhereBetween('paid_date', [$periodStart, $periodEnd]);
+            })
+            ->orderBy('due_date_start')
+            ->orderBy('paid_date')
+            ->get();
+
+        // تصنيف الدفعات
+        $categorized = [
+            1 => ['name' => 'دفعات الفترة غير المدفوعة', 'payments' => collect(), 'total' => 0, 'counted' => false],
+            2 => ['name' => 'دفعات الفترة المدفوعة خلالها', 'payments' => collect(), 'total' => 0, 'counted' => true],
+            3 => ['name' => 'دفعات الفترة المدفوعة مسبقاً', 'payments' => collect(), 'total' => 0, 'counted' => true],
+            4 => ['name' => 'دفعات الفترة المدفوعة متأخراً', 'payments' => collect(), 'total' => 0, 'counted' => false],
+            5 => ['name' => 'متأخرات من فترات سابقة محصلة', 'payments' => collect(), 'total' => 0, 'counted' => true],
+            6 => ['name' => 'دفعات مستقبلية محصلة مبكراً', 'payments' => collect(), 'total' => 0, 'counted' => false],
+        ];
+
+        foreach ($allPayments as $payment) {
+            $typeInfo = $this->getPaymentTypeForPeriod($payment, $periodStart, $periodEnd);
+            if ($typeInfo['type'] > 0) {
+                $payment->type_info = $typeInfo;
+                $categorized[$typeInfo['type']]['payments']->push($payment);
+                $categorized[$typeInfo['type']]['total'] += $payment->total_amount;
             }
         }
 
-        // دفع متأخر جداً
-        if ($paymentDueStart < $periodStart && $paidDate >= $periodStart && $paidDate <= $periodEnd) {
-            return 'very_late_payment';
+        // حساب المجاميع
+        $countedTotal = 0;
+        $uncountedTotal = 0;
+        foreach ($categorized as $category) {
+            if ($category['counted']) {
+                $countedTotal += $category['total'];
+            } else {
+                $uncountedTotal += $category['total'];
+            }
         }
 
-        return 'unassigned';
+        return [
+            'categories' => $categorized,
+            'counted_total' => $countedTotal,
+            'uncounted_total' => $uncountedTotal,
+            'all_payments' => $allPayments
+        ];
     }
 }
