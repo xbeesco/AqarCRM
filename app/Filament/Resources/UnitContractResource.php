@@ -346,7 +346,26 @@ class UnitContractResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('توليد دفعات التحصيل')
-                    ->modalDescription(fn ($record) => $record ? "سيتم توليد {$record->payments_count} دفعة للمستأجر" : '')
+                    ->modalDescription(function ($record) {
+                        if (!$record) return '';
+
+                        $paymentsCount = $record->payments_count;
+                        $tenantName = $record->tenant?->name ?? 'غير محدد';
+                        $propertyName = $record->property?->name ?? 'غير محدد';
+                        $unitName = $record->unit?->name ?? 'غير محدد';
+                        $contractNumber = $record->contract_number ?? 'غير محدد';
+
+                        return new \Illuminate\Support\HtmlString(
+                            "<div style='text-align: right; direction: rtl;'>
+                                <p>رقم العقد: <strong>{$contractNumber}</strong></p>
+                                <p>المستأجر: <strong>{$tenantName}</strong></p>
+                                <p>العقار: <strong>{$propertyName}</strong></p>
+                                <p>الوحدة: <strong>{$unitName}</strong></p>
+                                <hr style='margin: 10px 0;'>
+                                <p>سيتم توليد: <strong style='color: green;'>{$paymentsCount} دفعة</strong></p>
+                            </div>"
+                        );
+                    })
                     ->modalSubmitActionLabel('توليد')
                     ->visible(fn ($record) => $record && $record->canGeneratePayments())
                     ->action(function ($record) {

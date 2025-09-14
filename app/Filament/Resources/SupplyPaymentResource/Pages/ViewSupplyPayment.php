@@ -96,39 +96,73 @@ class ViewSupplyPayment extends ViewRecord
     
     protected function getHeaderActions(): array
     {
+        // حساب القيمة لتحديد نوع الزر المطلوب
+        $amounts = $this->record->calculateAmountsFromPeriod();
+        $netAmount = $amounts['net_amount'];
+
+        // تحديد نوع العملية بناءً على القيمة
+        $isSettlement = $netAmount <= 0; // تسوية إذا كانت القيمة صفر أو سالبة
+
         return [
-            // زر تأكيد التوريد المحدث
+            // زر تأكيد التوريد أو التسوية
             \Filament\Actions\Action::make('confirm_payment')
-                ->label('تأكيد التوريد')
-                ->icon('heroicon-o-check-circle')
-                ->color('success')
+                ->label($isSettlement ? 'تأكيد التسوية' : 'تأكيد التوريد')
+                ->icon($isSettlement ? 'heroicon-o-document-check' : 'heroicon-o-check-circle')
+                ->color($isSettlement ? 'warning' : 'success')
                 ->requiresConfirmation()
-                ->modalHeading('تأكيد توريد المبلغ')
-                ->modalDescription(function () {
-                    // حساب القيمة الفعلية
-                    $amounts = $this->record->calculateAmountsFromPeriod();
-                    
-                    // رسالة بسيطة للتأكيد
-                    return sprintf(
-                        "أقر أنا %s بتوريد مبلغ %s ريال للمالك %s",
-                        auth()->user()->name,
-                        number_format($amounts['net_amount'], 2),
-                        $this->record->owner?->name ?? 'غير محدد'
-                    );
+                ->modalHeading($isSettlement ? 'تأكيد التسوية' : 'تأكيد توريد المبلغ')
+                ->modalDescription(function () use ($netAmount, $isSettlement) {
+                    $ownerName = $this->record->owner?->name ?? 'غير محدد';
+                    $propertyName = $this->record->propertyContract?->property?->name ?? 'غير محدد';
+
+                    if ($isSettlement) {
+                        if ($netAmount < 0) {
+                            // قيمة سالبة - المالك مدين للشركة
+                            return new \Illuminate\Support\HtmlString(
+                                "<div style='text-align: right; direction: rtl;'>
+                                    <p><strong>تأكيد التسوية:</strong></p>
+                                    <p>المالك: <strong>{$ownerName}</strong></p>
+                                    <p>العقار: <strong>{$propertyName}</strong></p>
+                                    <p>المبلغ المستحق: <strong style='color: red;'>" . number_format(abs($netAmount), 2) . " ريال</strong> (دين على المالك)</p>
+                                </div>"
+                            );
+                        } else {
+                            // قيمة صفر - لا توجد مستحقات
+                            return new \Illuminate\Support\HtmlString(
+                                "<div style='text-align: right; direction: rtl;'>
+                                    <p><strong>تأكيد التسوية:</strong></p>
+                                    <p>المالك: <strong>{$ownerName}</strong></p>
+                                    <p>العقار: <strong>{$propertyName}</strong></p>
+                                    <p>الحالة: <strong style='color: orange;'>لا توجد مستحقات</strong></p>
+                                </div>"
+                            );
+                        }
+                    } else {
+                        // قيمة موجبة - توريد عادي
+                        $userName = auth()->user()->name;
+                        return new \Illuminate\Support\HtmlString(
+                            "<div style='text-align: right; direction: rtl;'>
+                                <p>أقر أنا <strong>{$userName}</strong> بتوريد:</p>
+                                <p>المبلغ: <strong style='color: green;'>" . number_format($netAmount, 2) . " ريال</strong></p>
+                                <p>للمالك: <strong>{$ownerName}</strong></p>
+                                <p>العقار: <strong>{$propertyName}</strong></p>
+                            </div>"
+                        );
+                    }
                 })
-                ->modalSubmitActionLabel('تأكيد التوريد')
-                ->modalIcon('heroicon-o-check-circle')
-                ->modalIconColor('success')
-                ->visible(fn () => 
-                    $this->record && 
+                ->modalSubmitActionLabel($isSettlement ? 'تأكيد التسوية' : 'تأكيد التوريد')
+                ->modalIcon($isSettlement ? 'heroicon-o-document-check' : 'heroicon-o-check-circle')
+                ->modalIconColor($isSettlement ? 'warning' : 'success')
+                ->visible(fn () =>
+                    $this->record &&
                     $this->record->supply_status !== 'collected' &&
-                    $this->record->due_date && 
+                    $this->record->due_date &&
                     now()->gte($this->record->due_date)
                 )
-                ->action(function () {
+                ->action(function () use ($isSettlement, $netAmount) {
                     // حساب وحفظ القيم
                     $amounts = $this->record->calculateAmountsFromPeriod();
-                    
+
                     $this->record->update([
                         'gross_amount' => $amounts['gross_amount'],
                         'commission_amount' => $amounts['commission_amount'],
@@ -138,17 +172,35 @@ class ViewSupplyPayment extends ViewRecord
                         'paid_date' => now(),
                         'collected_by' => auth()->id(),
                     ]);
-                    
-                    \Filament\Notifications\Notification::make()
-                        ->title('تم تأكيد التوريد')
-                        ->body(sprintf(
+
+                    // رسالة النجاح حسب نوع العملية
+                    if ($isSettlement) {
+                        if ($netAmount < 0) {
+                            $message = sprintf(
+                                'تم تسجيل دين بقيمة %s ريال على المالك %s',
+                                number_format(abs($netAmount), 2),
+                                $this->record->owner?->name
+                            );
+                        } else {
+                            $message = sprintf(
+                                'تم تأكيد التسوية - لا توجد مستحقات للمالك %s',
+                                $this->record->owner?->name
+                            );
+                        }
+                    } else {
+                        $message = sprintf(
                             'تم توريد مبلغ %s ريال للمالك %s',
-                            number_format($amounts['net_amount'], 2),
+                            number_format($netAmount, 2),
                             $this->record->owner?->name
-                        ))
+                        );
+                    }
+
+                    \Filament\Notifications\Notification::make()
+                        ->title($isSettlement ? 'تم تأكيد التسوية' : 'تم تأكيد التوريد')
+                        ->body($message)
                         ->success()
                         ->send();
-                        
+
                     $this->redirect($this->getResource()::getUrl('index'));
                 }),
         ];

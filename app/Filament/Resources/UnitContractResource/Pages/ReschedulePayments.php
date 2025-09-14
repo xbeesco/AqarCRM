@@ -246,7 +246,35 @@ class ReschedulePayments extends Page implements HasForms
                 ->icon('heroicon-o-check')
                 ->requiresConfirmation()
                 ->modalHeading('تأكيد إعادة الجدولة')
-                ->modalDescription('سيتم حذف جميع الدفعات غير المدفوعة وإنشاء دفعات جديدة حسب البيانات المدخلة. هل أنت متأكد؟')
+                ->modalDescription(function () {
+                    $contractNumber = $this->record->contract_number ?? 'غير محدد';
+                    $tenantName = $this->record->tenant?->name ?? 'غير محدد';
+                    $propertyName = $this->record->property?->name ?? 'غير محدد';
+                    $unitName = $this->record->unit?->name ?? 'غير محدد';
+
+                    $newMonthlyRent = number_format($this->data['new_monthly_rent'] ?? 0, 2);
+                    $additionalMonths = $this->data['additional_months'] ?? 0;
+                    $newPaymentsCount = $this->data['new_payments_count'] ?? 0;
+
+                    $unpaidCount = $this->record->collectionPayments()
+                        ->whereNull('paid_date')
+                        ->count();
+
+                    return new \Illuminate\Support\HtmlString(
+                        "<div style='text-align: right; direction: rtl;'>
+                            <p>رقم العقد: <strong>{$contractNumber}</strong></p>
+                            <p>المستأجر: <strong>{$tenantName}</strong></p>
+                            <p>العقار: <strong>{$propertyName}</strong> - <strong>{$unitName}</strong></p>
+                            <hr style='margin: 10px 0;'>
+                            <p style='color: red;'>سيتم حذف: <strong>{$unpaidCount} دفعة غير مدفوعة</strong></p>
+                            <p style='color: green;'>سيتم إنشاء: <strong>{$newPaymentsCount} دفعة جديدة</strong></p>
+                            <p>القيمة الجديدة: <strong>{$newMonthlyRent} ريال</strong></p>
+                            <p>المدة: <strong>{$additionalMonths} شهر</strong></p>
+                            <hr style='margin: 10px 0;'>
+                            <p style='color: #666; font-size: 0.9em;'>هل أنت متأكد من إعادة الجدولة؟</p>
+                        </div>"
+                    );
+                })
                 ->modalSubmitActionLabel('نعم، أعد الجدولة')
                 ->disabled(fn() => $this->data['frequency_error'] ?? false)
                 ->action(function () {

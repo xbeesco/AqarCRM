@@ -294,11 +294,25 @@ class CollectionPaymentResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('تأكيد استلام الدفعة')
-                    ->modalDescription(fn (CollectionPayment $record) => 
-                        "أقر أنا " . auth()->user()->name . " باستلام الدفعة رقم " . 
-                        $record->payment_number . " من " . 
-                        ($record->tenant?->name ?? 'المستأجر')
-                    )
+                    ->modalDescription(function (CollectionPayment $record) {
+                        $userName = auth()->user()->name;
+                        $paymentNumber = $record->payment_number;
+                        $tenantName = $record->tenant?->name ?? 'المستأجر';
+                        $amount = number_format($record->total_amount, 2);
+                        $propertyName = $record->property?->name ?? 'غير محدد';
+                        $unitName = $record->unit?->name ?? 'غير محدد';
+
+                        return new \Illuminate\Support\HtmlString(
+                            "<div style='text-align: right; direction: rtl;'>
+                                <p>أقر أنا <strong>{$userName}</strong> باستلام:</p>
+                                <p>الدفعة رقم: <strong>{$paymentNumber}</strong></p>
+                                <p>المبلغ: <strong style='color: green;'>{$amount} ريال</strong></p>
+                                <p>من المستأجر: <strong>{$tenantName}</strong></p>
+                                <p>العقار: <strong>{$propertyName}</strong></p>
+                                <p>الوحدة: <strong>{$unitName}</strong></p>
+                            </div>"
+                        );
+                    })
                     ->modalSubmitActionLabel('تأكيد الاستلام')
                     ->modalIcon('heroicon-o-check-circle')
                     ->modalIconColor('success')

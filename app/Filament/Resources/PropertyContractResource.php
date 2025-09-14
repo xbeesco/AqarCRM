@@ -272,7 +272,22 @@ class PropertyContractResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('توليد دفعات التوريد')
-                    ->modalDescription(fn ($record) => "سيتم توليد {$record->payments_count} دفعة للمالك")
+                    ->modalDescription(function ($record) {
+                        $paymentsCount = $record->payments_count;
+                        $ownerName = $record->owner?->name ?? 'غير محدد';
+                        $propertyName = $record->property?->name ?? 'غير محدد';
+                        $contractNumber = $record->contract_number ?? 'غير محدد';
+
+                        return new \Illuminate\Support\HtmlString(
+                            "<div style='text-align: right; direction: rtl;'>
+                                <p>رقم العقد: <strong>{$contractNumber}</strong></p>
+                                <p>العقار: <strong>{$propertyName}</strong></p>
+                                <p>المالك: <strong>{$ownerName}</strong></p>
+                                <hr style='margin: 10px 0;'>
+                                <p>سيتم توليد: <strong style='color: green;'>{$paymentsCount} دفعة</strong></p>
+                            </div>"
+                        );
+                    })
                     ->modalSubmitActionLabel('توليد')
                     ->visible(fn ($record) => $record->canGeneratePayments())
                     ->action(function ($record) {
