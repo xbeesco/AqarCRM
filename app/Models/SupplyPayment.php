@@ -223,6 +223,7 @@ class SupplyPayment extends Model
     // Accessors للحالة الديناميكية
     /**
      * Override حقل supply_status ليكون ديناميكي
+     * الحالة تعتمد على التواريخ فقط
      */
     public function getSupplyStatusAttribute(): string
     {
@@ -231,20 +232,12 @@ class SupplyPayment extends Model
             return 'collected';
         }
 
-        // إذا كانت مؤجلة
-        if ($this->delay_duration && $this->delay_duration > 0) {
-            return 'postponed';
-        }
-
-        // حساب القيمة من دفعات التحصيل
-        $amounts = $this->calculateAmountsFromPeriod();
-
-        // إذا حل تاريخ الاستحقاق وهناك مبلغ للتوريد
-        if ($this->due_date <= \Carbon\Carbon::now() && $amounts['net_amount'] > 0) {
+        // إذا حل تاريخ الاستحقاق ولم يتم التوريد
+        if ($this->due_date <= \Carbon\Carbon::now()) {
             return 'worth_collecting';
         }
 
-        // وإلا قيد الانتظار
+        // إذا لم يحل تاريخ الاستحقاق بعد
         return 'pending';
     }
 
@@ -257,7 +250,6 @@ class SupplyPayment extends Model
             'pending' => 'قيد الانتظار',
             'worth_collecting' => 'تستحق التوريد',
             'collected' => 'تم التوريد',
-            'postponed' => 'مؤجلة',
             default => $this->supply_status,
         };
     }
@@ -271,7 +263,6 @@ class SupplyPayment extends Model
             'pending' => 'warning',
             'worth_collecting' => 'info',
             'collected' => 'success',
-            'postponed' => 'gray',
             default => 'gray',
         };
     }
