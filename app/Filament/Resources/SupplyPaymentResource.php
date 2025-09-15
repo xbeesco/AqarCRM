@@ -21,18 +21,18 @@ class SupplyPaymentResource extends Resource
 {
     protected static ?string $model = SupplyPayment::class;
 
-    protected static ?string $navigationLabel = 'دفعات المالك';
+    protected static ?string $navigationLabel = 'دفعات الملاك';
 
-    protected static ?string $modelLabel = 'دفعة توريد';
+    protected static ?string $modelLabel = 'مالك توريد';
 
-    protected static ?string $pluralModelLabel = 'دفعات المالك';
+    protected static ?string $pluralModelLabel = 'دفعات الملاك';
 
     protected static ?string $recordTitleAttribute = 'payment_number';
 
     public static function form(Schema $schema): Schema
     {
         return $schema->schema([
-            Section::make('إضافة دفعة توريد')
+            Section::make('إضافة دفعة مالك')
                 ->columnSpan('full')
                 ->schema([
                     // العقد
@@ -235,7 +235,6 @@ class SupplyPaymentResource extends Resource
                         return $query;
                     }),
             ])
-            ->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
             ->deferFilters();
     }
 
