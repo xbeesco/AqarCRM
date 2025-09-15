@@ -96,12 +96,17 @@ class OwnerResource extends Resource
 
                         FileUpload::make('identity_file')
                             ->label('ملف الهوية')
-                            ->directory('employees/identities')
-                            ->acceptedFileTypes(['application/pdf', 'image/*'])
+                            ->disk('public')
+                            ->directory('uploads/owners/identities')
+                            ->visibility('public')
+                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'])
                             ->maxSize(5120)
                             ->downloadable()
                             ->openable()
                             ->previewable()
+                            ->imagePreviewHeight('250')
+                            ->uploadProgressIndicatorPosition('center')
+                            ->helperText('يمكنك رفع ملف PDF أو صورة (الحد الأقصى: 5MB)')
                             ->columnSpan('full'),
                     ])
                     ->columns(12)
@@ -130,6 +135,14 @@ class OwnerResource extends Resource
                 TextColumn::make('email')
                     ->label('الإيميل')
                     ->searchable(),
+
+                \Filament\Tables\Columns\ImageColumn::make('identity_file')
+                    ->label('ملف الهوية')
+                    ->disk('public')
+                    ->height(40)
+                    ->width(40)
+                    ->defaultImageUrl(asset('images/no-image.png'))
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('created_at')
                     ->label('تاريخ الإنشاء')
