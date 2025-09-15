@@ -87,12 +87,17 @@ class UserResource extends Resource
 
                         FileUpload::make('identity_file')
                             ->label('ملف الهوية')
-                            ->directory('identities')
-                            ->acceptedFileTypes(['application/pdf', 'image/*'])
+                            ->disk('public')
+                            ->directory('uploads/users/identities')
+                            ->visibility('public')
+                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'])
                             ->maxSize(5120)
                             ->downloadable()
                             ->openable()
-                            ->previewable(),
+                            ->previewable()
+                            ->imagePreviewHeight('250')
+                            ->uploadProgressIndicatorPosition('center')
+                            ->helperText('يمكنك رفع ملف PDF أو صورة (الحد الأقصى: 5MB)'),
 
                         TextInput::make('password')
                             ->password()
@@ -130,6 +135,14 @@ class UserResource extends Resource
                 TextColumn::make('phone')
                     ->label('رقم الهاتف')
                     ->searchable(),
+
+                \Filament\Tables\Columns\ImageColumn::make('identity_file')
+                    ->label('ملف الهوية')
+                    ->disk('public')
+                    ->height(40)
+                    ->width(40)
+                    ->defaultImageUrl(asset('images/no-image.png'))
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('roles.name')
                     ->label('الأدوار')
