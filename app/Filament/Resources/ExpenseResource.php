@@ -92,9 +92,13 @@ class ExpenseResource extends Resource
                                 ->preload()
                                 ->required()
                                 ->live()
-                                ->afterStateUpdated(function (Set $set, $state) {
+                                ->afterStateUpdated(function (Set $set, Get $get, $state) {
                                     // Clear unit selection when property changes
                                     $set('unit_id', null);
+                                    // إعادة التحقق من التاريخ عند تغيير العقار
+                                    if ($get('date')) {
+                                        $set('date', $get('date'));
+                                    }
                                 })
                                 ->native(false),
 
@@ -220,8 +224,41 @@ class ExpenseResource extends Resource
                                 ->label('التاريخ')
                                 ->required()
                                 ->default(now())
-                                ->native(false),
+                                ->native(false)
+                                ->rules([
+                                    function (Get $get) {
+                                        return function (string $attribute, $value, Closure $fail) use ($get) {
+                                            $propertyId = $get('property_id');
+                                            if (!$propertyId) return;
+                                            
+                                            $expenseDate = \Carbon\Carbon::parse($value);
+                                            
+                                            // البحث عن دفعات مالك مدفوعة
+                                            $paidSupplyPayment = \App\Models\SupplyPayment::query()
+                                                ->whereHas('propertyContract', function ($q) use ($propertyId) {
+                                                    $q->where('property_id', $propertyId);
+                                                })
+                                                ->whereNotNull('paid_date')
+                                                ->where(function ($q) use ($expenseDate) {
+                                                    $q->whereRaw("JSON_EXTRACT(invoice_details, '$.period_start') <= ?", [$expenseDate->format('Y-m-d')])
+                                                      ->whereRaw("JSON_EXTRACT(invoice_details, '$.period_end') >= ?", [$expenseDate->format('Y-m-d')]);
+                                                })
+                                                ->first();
+                                                
+                                            if ($paidSupplyPayment) {
+                                                $fail('لا يمكن إضافة نفقة في تاريخ ' . $expenseDate->format('Y-m-d') . 
+                                                      ' لأن دفعة المالك لهذه الفترة تم دفعها بالفعل (رقم: ' . 
+                                                      $paidSupplyPayment->payment_number . ')');
+                                            }
+                                        };
+                                    }
+                                ]),
                         ]),
+                        
+                    Placeholder::make('date_warning')
+                        ->label('')
+                        ->content('⚠️ تنبيه: لا يمكن إضافة نفقات لفترات تم دفع دفعات المالك الخاصة بها')
+                        ->visible(fn (Get $get) => (bool) $get('property_id')),
                 ]),
 
             Section::make('الإثباتات والوثائق')
@@ -244,10 +281,18 @@ class ExpenseResource extends Resource
                                     
                                     FileUpload::make('file')
                                         ->label('الملف')
-                                        ->directory('expenses/invoices')
-                                        ->acceptedFileTypes(['application/pdf', 'image/*'])
+                                        ->disk('public')
+                                        ->directory('uploads/expenses/invoices')
+                                        ->visibility('public')
+                                        ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'])
                                         ->columnSpanFull()
                                         ->maxSize(5120)
+                                        ->downloadable()
+                                        ->openable()
+                                        ->previewable()
+                                        ->imagePreviewHeight('250')
+                                        ->uploadProgressIndicatorPosition('center')
+                                        ->helperText('يمكنك رفع ملف PDF أو صورة (الحد الأقصى: 5MB)')
                                         ->required(),
 
                                 ])->columns(2),
@@ -267,10 +312,18 @@ class ExpenseResource extends Resource
                                     
                                     FileUpload::make('file')
                                         ->label('الملف')
-                                        ->directory('expenses/invoices')
-                                        ->acceptedFileTypes(['application/pdf', 'image/*'])
+                                        ->disk('public')
+                                        ->directory('uploads/expenses/invoices')
+                                        ->visibility('public')
+                                        ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'])
                                         ->columnSpanFull()
                                         ->maxSize(5120)
+                                        ->downloadable()
+                                        ->openable()
+                                        ->previewable()
+                                        ->imagePreviewHeight('250')
+                                        ->uploadProgressIndicatorPosition('center')
+                                        ->helperText('يمكنك رفع ملف PDF أو صورة (الحد الأقصى: 5MB)')
                                         ->required(),
                                 ])->columns(2),
 
@@ -291,10 +344,18 @@ class ExpenseResource extends Resource
                                                                         
                                     FileUpload::make('file')
                                         ->label('الملف')
-                                        ->directory('expenses/invoices')
-                                        ->acceptedFileTypes(['application/pdf', 'image/*'])
+                                        ->disk('public')
+                                        ->directory('uploads/expenses/invoices')
+                                        ->visibility('public')
+                                        ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'])
                                         ->columnSpanFull()
                                         ->maxSize(5120)
+                                        ->downloadable()
+                                        ->openable()
+                                        ->previewable()
+                                        ->imagePreviewHeight('250')
+                                        ->uploadProgressIndicatorPosition('center')
+                                        ->helperText('يمكنك رفع ملف PDF أو صورة (الحد الأقصى: 5MB)')
                                         ->required(),
                                 ])->columns(2),
                         ])
@@ -499,6 +560,57 @@ class ExpenseResource extends Resource
         return [
             //
         ];
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        // إذا كانت النفقة خاصة بعقار
+        if ($record->subject_type === 'App\Models\Property') {
+            // البحث عن دفعات مالك مدفوعة في نفس الفترة
+            $paidSupplyPayment = \App\Models\SupplyPayment::query()
+                ->whereHas('propertyContract', function ($q) use ($record) {
+                    $q->where('property_id', $record->subject_id);
+                })
+                ->whereNotNull('paid_date')
+                ->where(function ($q) use ($record) {
+                    $q->whereRaw("JSON_EXTRACT(invoice_details, '$.period_start') <= ?", [$record->date->format('Y-m-d')])
+                      ->whereRaw("JSON_EXTRACT(invoice_details, '$.period_end') >= ?", [$record->date->format('Y-m-d')]);
+                })
+                ->exists();
+                
+            if ($paidSupplyPayment) {
+                return false;
+            }
+        }
+        // إذا كانت النفقة خاصة بوحدة
+        elseif ($record->subject_type === 'App\Models\Unit') {
+            // الحصول على العقار من الوحدة
+            $unit = \App\Models\Unit::find($record->subject_id);
+            if ($unit) {
+                $paidSupplyPayment = \App\Models\SupplyPayment::query()
+                    ->whereHas('propertyContract', function ($q) use ($unit) {
+                        $q->where('property_id', $unit->property_id);
+                    })
+                    ->whereNotNull('paid_date')
+                    ->where(function ($q) use ($record) {
+                        $q->whereRaw("JSON_EXTRACT(invoice_details, '$.period_start') <= ?", [$record->date->format('Y-m-d')])
+                          ->whereRaw("JSON_EXTRACT(invoice_details, '$.period_end') >= ?", [$record->date->format('Y-m-d')]);
+                    })
+                    ->exists();
+                    
+                if ($paidSupplyPayment) {
+                    return false;
+                }
+            }
+        }
+        
+        return true;
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        // نفس القواعد للحذف كما في التعديل
+        return static::canEdit($record);
     }
 
     public static function getPages(): array
