@@ -57,48 +57,24 @@ class SupplyPaymentResource extends Resource
                         })
                         ->columnSpan(['lg' => 2, 'xl' => 3]),
 
-                    // حالة التوريد
-                    Select::make('supply_status')
-                        ->label('حالة التوريد')
-                        ->required()
-                        ->options([
-                            'pending' => 'قيد الانتظار',
-                            'worth_collecting' => 'تستحق التوريد',
-                            'collected' => 'تم التوريد',
-                        ])
-                        ->default('pending')
-                        ->live() // جعلها تفاعلية
-                        ->afterStateUpdated(function ($state, callable $set) {
-                            // تنظيف الحقول عند تغيير الحالة
-                            $set('due_date', null);
-                            $set('paid_date', null);
-                            $set('approval_status', null);
-                        })
-                        ->columnSpan(['lg' => 1, 'xl' => 1]),
-
-                    // الحقول الديناميكية حسب حالة التوريد
-
-                    // تاريخ الاستحقاق - يظهر مع "قيد الانتظار" و "تستحق التوريد"
+                    // تاريخ الاستحقاق
                     DatePicker::make('due_date')
                         ->label('تاريخ الاستحقاق')
-                        ->visible(fn ($get) => in_array($get('supply_status'), ['pending', 'worth_collecting']))
-                        ->required(fn ($get) => in_array($get('supply_status'), ['pending', 'worth_collecting']))
+                        ->required()
                         ->default(now()->addDays(7))
                         ->columnSpan(['lg' => 1, 'xl' => 1]),
 
-                    // تاريخ التوريد - يظهر مع "تم التوريد"
+                    // تاريخ التوريد - اختياري
                     DatePicker::make('paid_date')
                         ->label('تاريخ التوريد')
-                        ->visible(fn ($get) => $get('supply_status') === 'collected')
-                        ->required(fn ($get) => $get('supply_status') === 'collected')
-                        ->default(now())
+                        ->helperText('اتركه فارغاً إذا لم يتم التوريد بعد')
                         ->columnSpan(['lg' => 1, 'xl' => 1]),
 
-                    // إقرار ما بعد التوريد - يظهر مع "تم التوريد"
+                    // إقرار ما بعد التوريد - يظهر عند وجود تاريخ توريد
                     \Filament\Forms\Components\Placeholder::make('approval_section')
                         ->label('إقرار ما بعد التوريد')
                         ->content('')
-                        ->visible(fn ($get) => $get('supply_status') === 'collected')
+                        ->visible(fn ($get) => $get('paid_date') !== null)
                         ->columnSpan(['lg' => 3, 'xl' => 4]),
 
                     \Filament\Forms\Components\Radio::make('approval_status')
@@ -108,8 +84,8 @@ class SupplyPaymentResource extends Resource
                             'rejected' => 'غير موافق',
                         ])
                         ->inline()
-                        ->visible(fn ($get) => $get('supply_status') === 'collected')
-                        ->required(fn ($get) => $get('supply_status') === 'collected')
+                        ->visible(fn ($get) => $get('paid_date') !== null)
+                        ->required(fn ($get) => $get('paid_date') !== null)
                         ->columnSpan(['lg' => 3, 'xl' => 4]),
 
                     // Hidden fields

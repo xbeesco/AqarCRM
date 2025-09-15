@@ -29,7 +29,6 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Closure;
 
@@ -92,7 +91,7 @@ class ExpenseResource extends Resource
                                 ->preload()
                                 ->required()
                                 ->live()
-                                ->afterStateUpdated(function (Set $set, Get $get, $state) {
+                                ->afterStateUpdated(function (Set $set, $get, $state) {
                                     // Clear unit selection when property changes
                                     $set('unit_id', null);
                                     // إعادة التحقق من التاريخ عند تغيير العقار
@@ -111,7 +110,7 @@ class ExpenseResource extends Resource
                                 ])
                                 ->default('property')
                                 ->live()
-                                ->afterStateUpdated(function (Set $set, Get $get, $state) {
+                                ->afterStateUpdated(function (Set $set, $get, $state) {
                                     if ($state !== 'unit') {
                                         $set('unit_id', null);
                                     } else {
@@ -131,7 +130,7 @@ class ExpenseResource extends Resource
                                     }
                                 })
                                 ->rules([
-                                    fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                    fn ($get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
                                         if ($value === 'unit' && $get('property_id')) {
                                             $unitsCount = Unit::where('property_id', $get('property_id'))->count();
                                             if ($unitsCount === 0) {
@@ -144,10 +143,10 @@ class ExpenseResource extends Resource
 
                             Select::make('unit_id')
                                 ->label('الوحدة')
-                                ->placeholder(fn (Get $get): string => 
+                                ->placeholder(fn ($get): string => 
                                     !$get('property_id') ? 'اختر العقار أولاً' : 'اختر الوحدة'
                                 )
-                                ->options(function (Get $get): array {
+                                ->options(function ($get): array {
                                     $propertyId = $get('property_id');
                                     if (!$propertyId) {
                                         return [];
@@ -163,7 +162,7 @@ class ExpenseResource extends Resource
                                     
                                     return $units;
                                 })
-                                ->disabled(function (Get $get): bool {
+                                ->disabled(function ($get): bool {
                                     if ($get('expense_for') !== 'unit') {
                                         return true;
                                     }
@@ -173,7 +172,7 @@ class ExpenseResource extends Resource
                                     $unitsCount = Unit::where('property_id', $get('property_id'))->count();
                                     return $unitsCount === 0;
                                 })
-                                ->helperText(function (Get $get): ?string {
+                                ->helperText(function ($get): ?string {
                                     if ($get('expense_for') !== 'unit') {
                                         return null;
                                     }
@@ -189,10 +188,10 @@ class ExpenseResource extends Resource
                                 ->searchable()
                                 ->preload()
                                 ->live()
-                                ->visible(fn (Get $get): bool => $get('expense_for') === 'unit')
-                                ->required(fn (Get $get): bool => $get('expense_for') === 'unit' && Unit::where('property_id', $get('property_id'))->exists())
+                                ->visible(fn ($get): bool => $get('expense_for') === 'unit')
+                                ->required(fn ($get): bool => $get('expense_for') === 'unit' && Unit::where('property_id', $get('property_id'))->exists())
                                 ->rules([
-                                    fn (Get $get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                    fn ($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
                                         if ($get('expense_for') === 'unit' && !$value) {
                                             $propertyId = $get('property_id');
                                             if ($propertyId && Unit::where('property_id', $propertyId)->exists()) {
@@ -225,40 +224,30 @@ class ExpenseResource extends Resource
                                 ->required()
                                 ->default(now())
                                 ->native(false)
+                                ->live(onBlur: true)
                                 ->rules([
-                                    function (Get $get) {
-                                        return function (string $attribute, $value, Closure $fail) use ($get) {
-                                            $propertyId = $get('property_id');
-                                            if (!$propertyId) return;
-                                            
-                                            $expenseDate = \Carbon\Carbon::parse($value);
-                                            
-                                            // البحث عن دفعات مالك مدفوعة
-                                            $paidSupplyPayment = \App\Models\SupplyPayment::query()
-                                                ->whereHas('propertyContract', function ($q) use ($propertyId) {
-                                                    $q->where('property_id', $propertyId);
-                                                })
-                                                ->whereNotNull('paid_date')
-                                                ->where(function ($q) use ($expenseDate) {
-                                                    $q->whereRaw("JSON_EXTRACT(invoice_details, '$.period_start') <= ?", [$expenseDate->format('Y-m-d')])
-                                                      ->whereRaw("JSON_EXTRACT(invoice_details, '$.period_end') >= ?", [$expenseDate->format('Y-m-d')]);
-                                                })
-                                                ->first();
-                                                
-                                            if ($paidSupplyPayment) {
-                                                $fail('لا يمكن إضافة نفقة في تاريخ ' . $expenseDate->format('Y-m-d') . 
-                                                      ' لأن دفعة المالك لهذه الفترة تم دفعها بالفعل (رقم: ' . 
-                                                      $paidSupplyPayment->payment_number . ')');
-                                            }
-                                        };
-                                    }
-                                ]),
+                                    'required',
+                                    'date',
+                                    fn ($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
+                                        $propertyId = $get('property_id');
+                                        $unitId = $get('unit_id');
+                                        if (!$propertyId || !$value) {
+                                            return;
+                                        }
+
+                                        $validationService = app(\App\Services\ExpenseValidationService::class);
+                                        $excludeId = $record ? $record->id : null;
+                                        $expenseFor = $get('expense_for') ?? 'property';
+
+                                        // استخدام نفس الطريقة مع المعاملات الصحيحة
+                                        $error = $validationService->validateExpense($expenseFor, $propertyId, $unitId, $value, $excludeId);
+                                        if ($error) {
+                                            $fail($error);
+                                        }
+                                    },
+                                ])
+                                ->validationAttribute('التاريخ'),
                         ]),
-                        
-                    Placeholder::make('date_warning')
-                        ->label('')
-                        ->content('⚠️ تنبيه: لا يمكن إضافة نفقات لفترات تم دفع دفعات المالك الخاصة بها')
-                        ->visible(fn (Get $get) => (bool) $get('property_id')),
                 ]),
 
             Section::make('الإثباتات والوثائق')
@@ -562,56 +551,6 @@ class ExpenseResource extends Resource
         ];
     }
 
-    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
-    {
-        // إذا كانت النفقة خاصة بعقار
-        if ($record->subject_type === 'App\Models\Property') {
-            // البحث عن دفعات مالك مدفوعة في نفس الفترة
-            $paidSupplyPayment = \App\Models\SupplyPayment::query()
-                ->whereHas('propertyContract', function ($q) use ($record) {
-                    $q->where('property_id', $record->subject_id);
-                })
-                ->whereNotNull('paid_date')
-                ->where(function ($q) use ($record) {
-                    $q->whereRaw("JSON_EXTRACT(invoice_details, '$.period_start') <= ?", [$record->date->format('Y-m-d')])
-                      ->whereRaw("JSON_EXTRACT(invoice_details, '$.period_end') >= ?", [$record->date->format('Y-m-d')]);
-                })
-                ->exists();
-                
-            if ($paidSupplyPayment) {
-                return false;
-            }
-        }
-        // إذا كانت النفقة خاصة بوحدة
-        elseif ($record->subject_type === 'App\Models\Unit') {
-            // الحصول على العقار من الوحدة
-            $unit = \App\Models\Unit::find($record->subject_id);
-            if ($unit) {
-                $paidSupplyPayment = \App\Models\SupplyPayment::query()
-                    ->whereHas('propertyContract', function ($q) use ($unit) {
-                        $q->where('property_id', $unit->property_id);
-                    })
-                    ->whereNotNull('paid_date')
-                    ->where(function ($q) use ($record) {
-                        $q->whereRaw("JSON_EXTRACT(invoice_details, '$.period_start') <= ?", [$record->date->format('Y-m-d')])
-                          ->whereRaw("JSON_EXTRACT(invoice_details, '$.period_end') >= ?", [$record->date->format('Y-m-d')]);
-                    })
-                    ->exists();
-                    
-                if ($paidSupplyPayment) {
-                    return false;
-                }
-            }
-        }
-        
-        return true;
-    }
-
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
-    {
-        // نفس القواعد للحذف كما في التعديل
-        return static::canEdit($record);
-    }
 
     public static function getPages(): array
     {

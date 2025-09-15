@@ -179,7 +179,6 @@ class SupplyPaymentService
             'approval_status' => 'approved',
             'approved_by' => $approverId,
             'approved_at' => now(),
-            'supply_status' => 'worth_collecting',
         ]);
 
         return true;
@@ -206,7 +205,6 @@ class SupplyPaymentService
     public function processPayment(SupplyPayment $payment, ?string $bankTransferReference = null): bool
     {
         $payment->update([
-            'supply_status' => 'collected',
             'paid_date' => now()->toDateString(),
             'bank_transfer_reference' => $bankTransferReference,
         ]);
@@ -280,7 +278,7 @@ class SupplyPaymentService
                         'month_year' => $p->month_year,
                         'due_date' => $p->due_date->format('Y-m-d'),
                         'net_amount' => $amounts['net_amount'],
-                        'status' => $p->supply_status
+                        'status' => $p->supply_status // استخدام الـ accessor للحالة الديناميكية
                     ];
                 })
             ];
@@ -298,7 +296,6 @@ class SupplyPaymentService
             'commission_amount' => $amounts['commission_amount'],
             'maintenance_deduction' => $amounts['maintenance_deduction'],
             'net_amount' => $amounts['net_amount'],
-            'supply_status' => 'collected',
             'paid_date' => now(),
             'collected_by' => $userId,
         ]);
@@ -341,8 +338,8 @@ class SupplyPaymentService
     {
         $errors = [];
 
-        // التحقق من الحالة
-        if ($payment->supply_status === 'collected') {
+        // التحقق من الحالة (باستخدام paid_date)
+        if ($payment->paid_date !== null) {
             $errors[] = 'تم توريد هذه الدفعة مسبقاً';
         }
 

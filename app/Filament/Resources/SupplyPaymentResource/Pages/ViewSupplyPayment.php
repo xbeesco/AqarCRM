@@ -123,7 +123,7 @@ class ViewSupplyPayment extends ViewRecord
         $actions = [];
 
         // زر التنبيه عند وجود دفعات سابقة غير مؤكدة
-        if ($hasPendingPayments && $this->record->supply_status !== 'collected') {
+        if ($hasPendingPayments && !$this->record->paid_date) {
             $actions[] = \Filament\Actions\Action::make('pending_payments_notice')
                 ->label('يوجد دفعات سابقة غير مؤكدة')
                 ->icon('heroicon-o-exclamation-triangle')
@@ -155,7 +155,7 @@ class ViewSupplyPayment extends ViewRecord
         }
 
         // زر تأكيد التوريد أو التسوية - يظهر فقط عند عدم وجود دفعات سابقة
-        if (! $hasPendingPayments || $this->record->supply_status === 'collected') {
+        if (! $hasPendingPayments || $this->record->paid_date) {
             $actions[] = \Filament\Actions\Action::make('confirm_payment')
                 ->label($isSettlement ? 'تأكيد التسوية' : 'تأكيد التوريد')
                 ->icon($isSettlement ? 'heroicon-o-document-check' : 'heroicon-o-check-circle')
@@ -206,7 +206,7 @@ class ViewSupplyPayment extends ViewRecord
                 ->modalIcon($isSettlement ? 'heroicon-o-document-check' : 'heroicon-o-check-circle')
                 ->modalIconColor($isSettlement ? 'warning' : 'success')
                 ->visible(fn () => $this->record &&
-                    $this->record->supply_status !== 'collected' &&
+                    !$this->record->paid_date && // لم يتم التوريد بعد
                     $this->record->due_date &&
                     now()->gte($this->record->due_date) &&
                     ! $hasPendingPayments // الشرط الجديد: عدم وجود دفعات سابقة غير مؤكدة

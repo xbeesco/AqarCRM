@@ -18,7 +18,6 @@ class SupplyPayment extends Model
         'maintenance_deduction',
         'other_deductions',
         'net_amount',
-        'supply_status',
         'due_date',
         'paid_date',
         'collected_by',
@@ -159,17 +158,22 @@ class SupplyPayment extends Model
 
     public function scopePending($query)
     {
-        return $query->where('supply_status', 'pending');
+        // قيد الانتظار: لم يحل موعد الاستحقاق بعد ولم يتم التوريد
+        return $query->whereNull('paid_date')
+                     ->where('due_date', '>', now());
     }
 
     public function scopeWorthCollecting($query)
     {
-        return $query->where('supply_status', 'worth_collecting');
+        // تستحق التوريد: حل موعد الاستحقاق ولم يتم التوريد
+        return $query->whereNull('paid_date')
+                     ->where('due_date', '<=', now());
     }
 
     public function scopeCollected($query)
     {
-        return $query->where('supply_status', 'collected');
+        // تم التوريد: يوجد تاريخ توريد
+        return $query->whereNotNull('paid_date');
     }
 
     public function scopeAwaitingApproval($query)
@@ -265,7 +269,7 @@ class SupplyPayment extends Model
         $errors = [];
 
         // فقط تحقق إذا كانت الدفعة محصلة
-        if ($this->supply_status === 'collected') {
+        if ($this->paid_date !== null) {
             if (abs($this->gross_amount - $calculated['gross_amount']) > 0.01) {
                 $errors[] = [
                     'field' => 'gross_amount',
