@@ -21,11 +21,11 @@ class SupplyPaymentResource extends Resource
 {
     protected static ?string $model = SupplyPayment::class;
 
-    protected static ?string $navigationLabel = 'دفعات توريد';
+    protected static ?string $navigationLabel = 'دفعات المالك';
 
     protected static ?string $modelLabel = 'دفعة توريد';
 
-    protected static ?string $pluralModelLabel = 'دفعات توريد';
+    protected static ?string $pluralModelLabel = 'دفعات المالك';
 
     protected static ?string $recordTitleAttribute = 'payment_number';
 

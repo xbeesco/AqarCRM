@@ -24,11 +24,11 @@ class CollectionPaymentResource extends Resource
 {
     protected static ?string $model = CollectionPayment::class;
 
-    protected static ?string $navigationLabel = 'دفعات تحصيل';
+    protected static ?string $navigationLabel = 'دفعات المستأجر';
 
     protected static ?string $modelLabel = 'دفعة تحصيل';
 
-    protected static ?string $pluralModelLabel = 'دفعات تحصيل';
+    protected static ?string $pluralModelLabel = 'دفعات المستأجر';
 
     protected static ?string $recordTitleAttribute = 'payment_number';
     // Navigation properties removed - managed centrally in AdminPanelProvider
