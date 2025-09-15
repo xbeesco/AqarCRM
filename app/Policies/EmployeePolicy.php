@@ -44,8 +44,8 @@ class EmployeePolicy extends BasePolicy
      */
     public function create(User $user): bool
     {
-        // Only super admin can create employees
-        if ($user->type !== 'super_admin') {
+        // Super admin and admin can create employees
+        if (!$this->isAdmin($user)) {
             $this->logUnauthorizedAccess($user, 'create', Employee::class);
             return false;
         }
@@ -87,18 +87,24 @@ class EmployeePolicy extends BasePolicy
      */
     public function delete(User $user, Employee $model): bool
     {
-        // Only super admin can delete employees
-        if ($user->type !== 'super_admin') {
+        // Super admin and admin can delete employees
+        if (!$this->isAdmin($user)) {
             $this->logUnauthorizedAccess($user, 'delete', $model);
             return false;
         }
-        
+
         // Cannot delete self
         if ($user->id === $model->id) {
             $this->logUnauthorizedAccess($user, 'delete', $model);
             return false;
         }
-        
+
+        // Admin cannot delete super_admin or other admin
+        if ($user->type === 'admin' && in_array($model->type, ['super_admin', 'admin'])) {
+            $this->logUnauthorizedAccess($user, 'delete', $model);
+            return false;
+        }
+
         return true;
     }
 
