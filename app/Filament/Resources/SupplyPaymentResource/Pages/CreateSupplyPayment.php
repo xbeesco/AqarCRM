@@ -41,14 +41,14 @@ class CreateSupplyPayment extends CreateRecord
         // تعيين الشهر والسنة للدفعة (الشهر الحالي افتراضياً)
         $data['month_year'] = $data['month_year'] ?? date('Y-m');
         
-        // معالجة due_date حسب الحالة
-        if ($data['supply_status'] === 'collected') {
-            // في حالة "تم التوريد": نستخدم paid_date كـ due_date
-            if (empty($data['due_date']) && !empty($data['paid_date'])) {
+        // معالجة due_date حسب وجود paid_date
+        if (!empty($data['paid_date'])) {
+            // إذا تم التوريد (يوجد paid_date): نستخدم paid_date كـ due_date
+            if (empty($data['due_date'])) {
                 $data['due_date'] = $data['paid_date'];
             }
-        } elseif (in_array($data['supply_status'], ['pending', 'worth_collecting'])) {
-            // في حالة "قيد الانتظار" أو "تستحق التوريد": due_date يأتي من الفورم
+        } else {
+            // إذا لم يتم التوريد بعد: due_date يأتي من الفورم
             // لكن نتأكد أنه موجود
             if (empty($data['due_date'])) {
                 $data['due_date'] = now()->addDays(7); // افتراضي بعد 7 أيام

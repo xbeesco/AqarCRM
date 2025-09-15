@@ -236,7 +236,12 @@ class OwnerResource extends Resource
         // إذا كان البحث عن حالة توريد، ابحث عن الملاك الذين لديهم دفعات بهذه الحالة
         if ($englishStatus) {
             $query->whereHas('supplyPayments', function (Builder $q) use ($englishStatus) {
-                $q->where('supply_status', $englishStatus);
+                match($englishStatus) {
+                    'collected' => $q->collected(),
+                    'pending' => $q->pending(),
+                    'worth_collecting' => $q->worthCollecting(),
+                    default => $q
+                };
             });
         } else {
             // البحث العادي
@@ -276,9 +281,12 @@ class OwnerResource extends Resource
                 
                 // إضافة عدد المدفوعات بحالة التوريد المبحوث عنها
                 if ($englishStatus) {
-                    $count = $record->supplyPayments()
-                        ->where('supply_status', $englishStatus)
-                        ->count();
+                    $count = match($englishStatus) {
+                        'collected' => $record->supplyPayments()->collected()->count(),
+                        'pending' => $record->supplyPayments()->pending()->count(),
+                        'worth_collecting' => $record->supplyPayments()->worthCollecting()->count(),
+                        default => 0
+                    };
                     
                     $statusLabel = match($englishStatus) {
                         'collected' => 'محول',
@@ -315,7 +323,7 @@ class OwnerResource extends Resource
     public static function getRecentPayments($owner)
     {
         return SupplyPayment::where('owner_id', $owner->id)
-            ->where('supply_status', 'collected')
+            ->collected()
             ->latest('paid_date')
             ->limit(5)
             ->get();
@@ -359,7 +367,7 @@ class OwnerResource extends Resource
         
         // المبالغ المحولة للمالك فعلياً
         $paidToOwner = SupplyPayment::where('owner_id', $owner->id)
-            ->where('supply_status', 'collected')
+            ->collected()
             ->whereBetween('paid_date', [$dateFrom, $dateTo])
             ->sum('net_amount');
         
@@ -369,18 +377,18 @@ class OwnerResource extends Resource
         // عدد العمليات المالية
         $totalOperations = SupplyPayment::where('owner_id', $owner->id)->count();
         $completedOperations = SupplyPayment::where('owner_id', $owner->id)
-            ->where('supply_status', 'collected')
+            ->collected()
             ->count();
         
         // آخر عملية تحويل
         $lastPayment = SupplyPayment::where('owner_id', $owner->id)
-            ->where('supply_status', 'collected')
+            ->collected()
             ->latest('paid_date')
             ->first();
         
         // العملية القادمة (المعلقة)
         $nextPayment = SupplyPayment::where('owner_id', $owner->id)
-            ->where('supply_status', 'pending')
+            ->pending()
             ->oldest('created_at')
             ->first();
         

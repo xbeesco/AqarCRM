@@ -38,7 +38,7 @@ class StatsOverviewWidget extends BaseWidget
             
         // حساب ما تم توريده اليوم
         $todaySupplied = SupplyPayment::whereDate('paid_date', $today)
-            ->where('supply_status', 'collected')
+            ->collected()
             ->sum('net_amount');
             
         // المتغيرات دي  مش  محتاجينها دلوقتي 

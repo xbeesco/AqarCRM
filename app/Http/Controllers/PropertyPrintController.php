@@ -20,7 +20,7 @@ class PropertyPrintController extends Controller
         $supplyTotal = SupplyPayment::whereHas('propertyContract', function ($query) use ($property) {
             $query->where('property_id', $property->id);
         })
-        ->where('supply_status', 'collected')
+        ->collected()
         ->sum('net_amount');
         
         // بيانات الجدول الأول

@@ -33,7 +33,7 @@ class PrintProperty extends Page
         $supplyTotal = SupplyPayment::whereHas('propertyContract', function ($query) {
             $query->where('property_id', $this->record->id);
         })
-        ->where('supply_status', 'collected')
+        ->collected()
         ->sum('net_amount');
         
         // بيانات الجدول الأول
