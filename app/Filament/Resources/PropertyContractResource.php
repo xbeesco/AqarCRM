@@ -165,14 +165,18 @@ class PropertyContractResource extends Resource
                         FileUpload::make('contract_file')
                             ->label('ملف العقد')
                             ->required()
-                            ->acceptedFileTypes(['application/pdf', 'image/*'])
                             ->disk('public')
-                            ->directory('contract-files')
+                            ->directory('uploads/contracts/property-contracts')
+                            ->visibility('public')
+                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'])
                             ->preserveFilenames()
                             ->maxSize(10240) // 10MB
                             ->downloadable()
                             ->openable()
                             ->previewable()
+                            ->imagePreviewHeight('250')
+                            ->uploadProgressIndicatorPosition('center')
+                            ->helperText('يمكنك رفع ملف PDF أو صورة (الحد الأقصى: 10MB)')
                             ->columnSpan(6),
 
                         Textarea::make('notes')
