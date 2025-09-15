@@ -27,11 +27,11 @@ class PropertyContractResource extends Resource
 {
     protected static ?string $model = PropertyContract::class;
 
-    protected static ?string $navigationLabel = 'عقود الملاك';
+    protected static ?string $navigationLabel = 'عقود العقارات';
 
-    protected static ?string $modelLabel = 'عقد المالك';
+    protected static ?string $modelLabel = 'عقد العقار';
 
-    protected static ?string $pluralModelLabel = 'عقود الملاك';
+    protected static ?string $pluralModelLabel = 'عقود العقارات';
 
     public static function form(Schema $schema): Schema
     {
