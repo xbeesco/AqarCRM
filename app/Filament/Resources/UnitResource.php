@@ -131,6 +131,7 @@ class UnitResource extends Resource
                                 1 => 'نعم',
                                 0 => 'لا',
                             ])
+                            ->required()
                             ->default(0),
                         
                         TextInput::make('electricity_account_number')
