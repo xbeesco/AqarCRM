@@ -29,3 +29,4 @@ tests/development*
 nul
 .playwright-mcp*
 .docs/progress-tasks*
+.htaccess
