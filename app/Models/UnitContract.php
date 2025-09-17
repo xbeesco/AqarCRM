@@ -31,6 +31,7 @@ class UnitContract extends Model
         'terms_and_conditions',
         'special_conditions',
         'notes',
+        'file',
         'created_by',
         'approved_by',
         'approved_at',

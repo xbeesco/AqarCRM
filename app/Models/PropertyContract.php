@@ -26,6 +26,7 @@ class PropertyContract extends Model
         'payments_count',
         'terms_and_conditions',
         'notes',
+        'file',
         'created_by',
         'approved_by',
         'approved_at',
