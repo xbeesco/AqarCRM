@@ -98,17 +98,7 @@ class EmployeeResource extends Resource
 
                         FileUpload::make('identity_file')
                             ->label('ملف الهوية')
-                            ->disk('public')
-                            ->directory('uploads/employees/identities')
-                            ->visibility('public')
-                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'])
-                            ->maxSize(5120)
-                            ->downloadable()
-                            ->openable()
-                            ->previewable()
-                            ->imagePreviewHeight('250')
-                            ->uploadProgressIndicatorPosition('center')
-                            ->helperText('يمكنك رفع ملف PDF أو صورة (الحد الأقصى: 5MB)')
+                            ->directory('employee--identity-file')
                             ->columnSpan('full'),
                     ])
                     ->columns(12)

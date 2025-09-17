@@ -165,18 +165,7 @@ class UnitResource extends Resource
                     Grid::make(2)->schema([
                         FileUpload::make('floor_plan_file')
                             ->label('مخطط الوحدة')
-                            ->disk('public')
-                            ->directory('uploads/units/floor-plans')
-                            ->visibility('public')
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'])
-                            ->maxSize(5120) // 5MB
-                            ->preserveFilenames()
-                            ->downloadable()
-                            ->openable()
-                            ->previewable()
-                            ->imagePreviewHeight('250')
-                            ->uploadProgressIndicatorPosition('center')
-                            ->helperText('يمكنك رفع ملف PDF أو صورة (الحد الأقصى: 5MB)')
+                            ->directory('unit--floor-plan-file')
                             ->nullable(),
                         
                         Textarea::make('notes')

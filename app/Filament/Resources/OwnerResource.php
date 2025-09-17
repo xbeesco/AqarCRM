@@ -96,17 +96,7 @@ class OwnerResource extends Resource
 
                         FileUpload::make('identity_file')
                             ->label('ملف الهوية')
-                            ->disk('public')
-                            ->directory('uploads/owners/identities')
-                            ->visibility('public')
-                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'])
-                            ->maxSize(5120)
-                            ->downloadable()
-                            ->openable()
-                            ->previewable()
-                            ->imagePreviewHeight('250')
-                            ->uploadProgressIndicatorPosition('center')
-                            ->helperText('يمكنك رفع ملف PDF أو صورة (الحد الأقصى: 5MB)')
+                            ->directory('owner--identity-file')
                             ->columnSpan('full'),
                     ])
                     ->columns(12)
@@ -138,7 +128,7 @@ class OwnerResource extends Resource
 
                 \Filament\Tables\Columns\ImageColumn::make('identity_file')
                     ->label('ملف الهوية')
-                    ->disk('public')
+                    ->disk('local')
                     ->height(40)
                     ->width(40)
                     ->defaultImageUrl(asset('images/no-image.png'))

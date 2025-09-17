@@ -226,21 +226,10 @@ class UnitContractResource extends Resource
                             })
                             ->columnSpan(3),
 
-                        FileUpload::make('contract_file')
+                        FileUpload::make('file')
                             ->label('ملف العقد')
                             ->required()
-                            ->disk('public')
-                            ->directory('uploads/contracts/unit-contracts')
-                            ->visibility('public')
-                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'])
-                            ->preserveFilenames()
-                            ->maxSize(10240)
-                            ->downloadable()
-                            ->openable()
-                            ->previewable()
-                            ->imagePreviewHeight('250')
-                            ->uploadProgressIndicatorPosition('center')
-                            ->helperText('يمكنك رفع ملف PDF أو صورة (الحد الأقصى: 10MB)')
+                            ->directory('unit-contract--file')
                             ->columnSpan(6),
 
                         Textarea::make('notes')

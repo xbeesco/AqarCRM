@@ -270,18 +270,8 @@ class ExpenseResource extends Resource
                                     
                                     FileUpload::make('file')
                                         ->label('الملف')
-                                        ->disk('public')
-                                        ->directory('uploads/expenses/invoices')
-                                        ->visibility('public')
-                                        ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'])
+                                        ->directory('expense--file')
                                         ->columnSpanFull()
-                                        ->maxSize(5120)
-                                        ->downloadable()
-                                        ->openable()
-                                        ->previewable()
-                                        ->imagePreviewHeight('250')
-                                        ->uploadProgressIndicatorPosition('center')
-                                        ->helperText('يمكنك رفع ملف PDF أو صورة (الحد الأقصى: 5MB)')
                                         ->required(),
 
                                 ])->columns(2),
@@ -301,18 +291,8 @@ class ExpenseResource extends Resource
                                     
                                     FileUpload::make('file')
                                         ->label('الملف')
-                                        ->disk('public')
-                                        ->directory('uploads/expenses/invoices')
-                                        ->visibility('public')
-                                        ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'])
+                                        ->directory('expense--file')
                                         ->columnSpanFull()
-                                        ->maxSize(5120)
-                                        ->downloadable()
-                                        ->openable()
-                                        ->previewable()
-                                        ->imagePreviewHeight('250')
-                                        ->uploadProgressIndicatorPosition('center')
-                                        ->helperText('يمكنك رفع ملف PDF أو صورة (الحد الأقصى: 5MB)')
                                         ->required(),
                                 ])->columns(2),
 
@@ -333,18 +313,8 @@ class ExpenseResource extends Resource
                                                                         
                                     FileUpload::make('file')
                                         ->label('الملف')
-                                        ->disk('public')
-                                        ->directory('uploads/expenses/invoices')
-                                        ->visibility('public')
-                                        ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'])
+                                        ->directory('expense--file')
                                         ->columnSpanFull()
-                                        ->maxSize(5120)
-                                        ->downloadable()
-                                        ->openable()
-                                        ->previewable()
-                                        ->imagePreviewHeight('250')
-                                        ->uploadProgressIndicatorPosition('center')
-                                        ->helperText('يمكنك رفع ملف PDF أو صورة (الحد الأقصى: 5MB)')
                                         ->required(),
                                 ])->columns(2),
                         ])
