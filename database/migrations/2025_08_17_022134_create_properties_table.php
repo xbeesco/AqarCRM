@@ -17,8 +17,8 @@ return new class extends Migration
                 $table->id();
                 $table->string('name');
                 $table->foreignId('owner_id')->constrained('users');
-                $table->foreignId('type_id')->nullable()->constrained('property_types');
-                $table->foreignId('status_id')->nullable()->constrained('property_statuses');
+                $table->unsignedBigInteger('type_id')->nullable(); // تم إزالة foreign key مؤقتاً
+                $table->unsignedBigInteger('status_id')->nullable(); // تم إزالة foreign key مؤقتاً
                 $table->foreignId('location_id')->nullable()->constrained('locations');
                 $table->string('address');
                 $table->string('postal_code')->nullable();
