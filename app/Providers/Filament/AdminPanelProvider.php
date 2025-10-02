@@ -33,6 +33,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->profile()
             ->colors([
                 'primary' => Color::Amber,
             ])
@@ -72,14 +73,17 @@ class AdminPanelProvider extends PanelProvider
                                     \App\Filament\Resources\PropertyResource::getNavigationItems()),
                             ]),
                         NavigationGroup::make('المستخدمين')
-                            ->items([
+                            ->items(array_filter([
                                 ...array_map(fn($item) => $item->icon('heroicon-o-users'), 
                                     \App\Filament\Resources\TenantResource::getNavigationItems()),
                                 ...array_map(fn($item) => $item->icon('heroicon-o-key'), 
                                     \App\Filament\Resources\OwnerResource::getNavigationItems()),
-                                ...array_map(fn($item) => $item->icon('heroicon-o-briefcase'), 
-                                    \App\Filament\Resources\EmployeeResource::getNavigationItems()),
-                            ]),
+                                // عرض الموظفين فقط للمدير والمدير العام
+                                ...(in_array(auth()->user()?->type, ['super_admin', 'admin']) 
+                                    ? array_map(fn($item) => $item->icon('heroicon-o-briefcase'), 
+                                        \App\Filament\Resources\EmployeeResource::getNavigationItems())
+                                    : []),
+                            ])),
                         NavigationGroup::make('التأسيس')
                             ->items([
                                 ...array_map(fn($item) => $item->icon('heroicon-o-map-pin'), 

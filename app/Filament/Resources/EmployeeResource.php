@@ -198,8 +198,7 @@ class EmployeeResource extends Resource
                 EditAction::make()
                     ->label('تعديل')
                     ->icon('heroicon-o-pencil-square')
-                    ->visible(fn ($record) => auth()->user()->can('update', $record))
-                    ->authorize(fn ($record) => auth()->user()->can('update', $record)),
+                    ->visible(fn ($record) => static::canEdit($record)),
             ])
             ->toolbarActions([])
             ->defaultSort('created_at', 'desc')
