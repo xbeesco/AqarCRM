@@ -15,11 +15,7 @@ use Filament\Actions\Action;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Models\Setting;
-use App\Models\UnitContract;
-use App\Models\PropertyContract;
-use App\Models\CollectionPayment;
-use App\Models\SupplyPayment;
-use App\Models\Expense;
+use App\Services\SystemPurgeService;
 use App\Helpers\DateHelper;
 use BackedEnum;
 
@@ -117,8 +113,10 @@ class SystemManagement extends Page implements HasSchemas
                         Select::make('cleanup_type')
                             ->label('حذف بيانات النظام')
                             ->options([
-                                'financial' => 'الماليات فقط (دفعات المستأجرين + دفعات الملاك + المصروفات)',
-                                'all' => 'كل البيانات (العقود + الدفعات + المصروفات)',
+                                'financial' => 'حذف البيانات المالية فقط (دفعات المستأجرين + دفعات الملاك + المصروفات)',
+                                'financial_contracts' => 'حذف البيانات المالية + التعاقدات (عقود الوحدات + عقود العقارات)',
+                                'financial_contracts_properties' => 'حذف البيانات المالية + التعاقدات + العقارات (العقارات + الوحدات + المستأجرين + الملاك)',
+                                'all' => 'حذف كافة البيانات (الماليات + التعاقدات + العقارات + التأسيس)',
                             ])
                             ->default('financial')
                             ->required()
@@ -155,16 +153,18 @@ class SystemManagement extends Page implements HasSchemas
                 ->action('executeCleanup')
                 ->requiresConfirmation()
                 ->modalHeading('⚠️ تأكيد نهائي للحذف')
-                ->modalDescription(fn () => 
-                    ($this->cleanupData['cleanup_type'] ?? 'financial') === 'financial'
-                        ? '⚠️ سيتم حذف جميع دفعات المستأجرين ودفعات الملاك والمصروفات نهائياً. هذا الإجراء لا يمكن التراجع عنه!'
-                        : '⚠️⚠️⚠️ سيتم حذف جميع العقود والدفعات والمصروفات نهائياً. هذا الإجراء خطير جداً ولا يمكن التراجع عنه!'
-                )
-                ->modalSubmitActionLabel(fn () => 
-                    ($this->cleanupData['cleanup_type'] ?? 'financial') === 'financial'
-                        ? 'نعم، امسح البيانات المالية نهائياً'
-                        : 'نعم، امسح كل شيء نهائياً'
-                )
+                ->modalDescription(fn () => match ($this->cleanupData['cleanup_type'] ?? 'financial') {
+                    'financial' => '⚠️ سيتم حذف جميع دفعات المستأجرين ودفعات الملاك والمصروفات نهائياً. هذا الإجراء لا يمكن التراجع عنه!',
+                    'financial_contracts' => '⚠️ سيتم حذف الماليات بالإضافة إلى جميع عقود الوحدات وعقود العقارات نهائياً.',
+                    'financial_contracts_properties' => '⚠️ سيتم حذف الماليات + العقود + العقارات والوحدات، وسيتم حذف الملاك والمستأجرين (كمستخدمين).',
+                    default => '⚠️⚠️⚠️ سيتم حذف كافة البيانات (الماليات + العقود + العقارات + بيانات التأسيس). هذا الإجراء خطير جداً ولا يمكن التراجع عنه!'
+                })
+                ->modalSubmitActionLabel(fn () => match ($this->cleanupData['cleanup_type'] ?? 'financial') {
+                    'financial' => 'نعم، امسح البيانات المالية نهائياً',
+                    'financial_contracts' => 'نعم، امسح الماليات والتعاقدات',
+                    'financial_contracts_properties' => 'نعم، امسح الماليات + التعاقدات + العقارات',
+                    default => 'نعم، امسح كافة البيانات'
+                })
                 ->modalIcon('heroicon-o-exclamation-triangle')
                 ->modalIconColor('danger')
                 ->modalCancelActionLabel('إلغاء'),
@@ -175,25 +175,23 @@ class SystemManagement extends Page implements HasSchemas
     {
         try {
             $data = $this->cleanupForm->getState();
-            
-            DB::transaction(function () use ($data) {
-                $cleanupType = $data['cleanup_type'] ?? 'financial';
-                
-                if ($cleanupType === 'financial') {
-                    $this->cleanFinancialData();
-                } else {
-                    $this->cleanAllDataCompletely();
-                }
-            });
-            
             $cleanupType = $data['cleanup_type'] ?? 'financial';
-            $message = $cleanupType === 'financial' 
-                ? 'تم حذف جميع البيانات المالية بنجاح'
-                : 'تم حذف جميع العقود والدفعات والمصروفات بنجاح';
+
+            // Execute centralized purge service
+            $service = new SystemPurgeService();
+            $summary = $service->purge($cleanupType);
+            
+            $message = match ($cleanupType) {
+                'financial' => 'تم حذف جميع البيانات المالية بنجاح',
+                'financial_contracts' => 'تم حذف الماليات وجميع التعاقدات بنجاح',
+                'financial_contracts_properties' => 'تم حذف الماليات + التعاقدات + العقارات والملاك والمستأجرين بنجاح',
+                default => 'تم حذف كافة البيانات (الماليات + التعاقدات + العقارات + التأسيس) بنجاح',
+            };
             
             logger()->info('System Data Cleanup Executed', [
                 'user' => Auth::user()->email,
                 'cleanup_type' => $cleanupType,
+                'summary' => $summary,
                 'timestamp' => now(),
             ]);
             
@@ -271,30 +269,6 @@ class SystemManagement extends Page implements HasSchemas
                 ->duration(5000)
                 ->send();
         }
-    }
-
-    /**
-     * مسح البيانات المالية فقط
-     */
-    private function cleanFinancialData(): void
-    {
-        // مسح الدفعات والمصروفات فقط
-        CollectionPayment::query()->delete();  // دفعات المستأجرين
-        SupplyPayment::query()->delete();      // دفعات الملاك
-        Expense::query()->delete();            // المصروفات
-    }
-    
-    /**
-     * مسح جميع البيانات بالكامل
-     */
-    private function cleanAllDataCompletely(): void
-    {
-        // 1. مسح الجداول التابعة أولاً
-        $this->cleanFinancialData();
-        
-        // 2. مسح الجداول الرئيسية
-        UnitContract::query()->delete();       // عقود الوحدات
-        PropertyContract::query()->delete();   // عقود الملاك
     }
 
 }
