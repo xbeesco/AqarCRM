@@ -8,6 +8,25 @@ use App\Models\UnitContract;
 class UnitContractPolicy extends BasePolicy
 {
     /**
+     * Override before() to prevent super_admin from updating/deleting contracts
+     * Contracts are immutable records that no one should modify or delete
+     */
+    public function before(User $user, string $ability): ?bool
+    {
+        // Block update and delete for everyone, including super_admin
+        if (in_array($ability, ['update', 'delete', 'forceDelete'])) {
+            return null; // Let the specific policy method decide (which will return false)
+        }
+
+        // For all other abilities, super_admin has full access
+        if ($user->type === 'super_admin') {
+            return true;
+        }
+
+        return null;
+    }
+
+    /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
@@ -45,35 +64,27 @@ class UnitContractPolicy extends BasePolicy
 
     /**
      * Determine whether the user can update the model.
-     * ⚠️ Only super_admin can update contracts
+     * ⚠️ No one can update contracts - contracts are immutable
      */
     public function update(User $user, UnitContract $contract): bool
     {
-        // Super admin handled in before() method
-        
-        // Log attempt for non-super admins
-        if ($user->type !== 'super_admin') {
-            $this->logUnauthorizedAccess($user, 'update_unit_contract', $contract);
-        }
-        
-        // Others cannot update
+        // Log the attempt
+        $this->logUnauthorizedAccess($user, 'update_unit_contract', $contract);
+
+        // No one can update contracts
         return false;
     }
 
     /**
      * Determine whether the user can delete the model.
-     * ⚠️ Only super_admin can delete contracts
+     * ⚠️ No one can delete contracts - contracts are permanent records
      */
     public function delete(User $user, UnitContract $contract): bool
     {
-        // Super admin handled in before() method
-        
-        // Log attempt for non-super admins
-        if ($user->type !== 'super_admin') {
-            $this->logUnauthorizedAccess($user, 'delete_unit_contract', $contract);
-        }
-        
-        // Others cannot delete
+        // Log the attempt
+        $this->logUnauthorizedAccess($user, 'delete_unit_contract', $contract);
+
+        // No one can delete contracts
         return false;
     }
 
@@ -120,7 +131,17 @@ class UnitContractPolicy extends BasePolicy
      */
     public function renew(User $user, UnitContract $contract): bool
     {
-        return ($this->isAdmin($user) || $this->isEmployee($user)) 
+        return ($this->isAdmin($user) || $this->isEmployee($user))
             && in_array($contract->contract_status, ['active', 'expired']);
+    }
+
+    /**
+     * Determine whether the user can reschedule payments.
+     * Admins and employees can reschedule payments
+     */
+    public function reschedule(User $user, UnitContract $contract): bool
+    {
+        return ($this->isAdmin($user) || $this->isEmployee($user))
+            && $contract->canReschedule();
     }
 }

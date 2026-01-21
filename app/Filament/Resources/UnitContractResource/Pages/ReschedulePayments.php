@@ -42,19 +42,19 @@ class ReschedulePayments extends Page implements HasForms
     {
         $this->record = $record;
         
-        // التحقق من الصلاحيات
-        if (auth()->user()->type !== 'super_admin') {
+        // التحقق من الصلاحيات باستخدام Policy
+        if (!auth()->user()->can('reschedule', $record)) {
             abort(403, 'غير مصرح لك بإعادة جدولة الدفعات');
         }
-        
-        // التحقق من إمكانية إعادة الجدولة
+
+        // التحقق من إمكانية إعادة الجدولة (للحالات الإضافية)
         if (!$record->canReschedule()) {
             Notification::make()
                 ->title('لا يمكن إعادة جدولة هذا العقد')
                 ->body('العقد غير نشط أو لا توجد دفعات')
                 ->danger()
                 ->send();
-                
+
             redirect()->route('filament.admin.resources.unit-contracts.index');
         }
         
