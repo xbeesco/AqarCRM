@@ -386,7 +386,7 @@ class UnitContractResource extends Resource
                     ->icon('heroicon-o-calendar')
                     ->color('warning')
                     ->url(fn ($record) => $record ? route('filament.admin.resources.unit-contracts.reschedule', $record) : '#')
-                    ->visible(fn ($record) => $record && $record->canReschedule() && auth()->user()?->type === 'super_admin'),
+                    ->visible(fn ($record) => $record && $record->canReschedule()),
                 EditAction::make()
                     ->label('تعديل')
                     ->icon('heroicon-o-pencil-square')->visible(fn () => auth()->user()?->type === 'super_admin'),
