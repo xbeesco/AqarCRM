@@ -2,18 +2,16 @@
 
 namespace App\Models;
 
+use App\Enums\UserType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Enums\UserType;
-use App\Traits\AutoGeneratesCredentials;
 
 class Tenant extends User
 {
-    use HasFactory, SoftDeletes, AutoGeneratesCredentials;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'users';
-
 
     /**
      * Boot the model.
@@ -49,8 +47,8 @@ class Tenant extends User
     {
         // return $this->hasOne(UnitContract::class, 'tenant_id')
         return $this->hasOne(\App\Models\UnitContract::class, 'tenant_id')
-                    ->where('contract_status', 'active')
-                    ->latest();
+            ->where('contract_status', 'active')
+            ->latest();
     }
 
     /**
@@ -62,7 +60,7 @@ class Tenant extends User
         // return $this->hasMany(UnitContract::class, 'tenant_id');
         return $this->hasMany(\App\Models\UnitContract::class, 'tenant_id');
     }
-    
+
     /**
      * Alias for unit contracts (compatibility)
      * Note: UnitContract model needs to be created
@@ -82,7 +80,7 @@ class Tenant extends User
         // return $this->hasMany(CollectionPayment::class, 'tenant_id')->orderBy('due_date_start', 'desc');
         return $this->hasMany(\App\Models\CollectionPayment::class, 'tenant_id')->orderBy('due_date_start', 'desc');
     }
-    
+
     /**
      * Alias for collection payments
      * Note: CollectionPayment model needs to be created
@@ -165,8 +163,8 @@ class Tenant extends User
     public function isInGoodStanding()
     {
         $outstandingPayments = $this->paymentHistory()
-                                   ->overduePayments()
-                                   ->count();
+            ->overduePayments()
+            ->count();
 
         return $outstandingPayments === 0;
     }

@@ -2,15 +2,14 @@
 
 namespace App\Models;
 
+use App\Enums\UserType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Enums\UserType;
-use App\Traits\AutoGeneratesCredentials;
 
 class Owner extends User
 {
-    use HasFactory, SoftDeletes, AutoGeneratesCredentials;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'users';
 
