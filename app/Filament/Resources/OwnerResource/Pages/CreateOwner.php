@@ -13,5 +13,4 @@ class CreateOwner extends CreateRecord
     {
         return $this->getResource()::getUrl('index');
     }
-
 }

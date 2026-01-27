@@ -21,5 +21,4 @@ class EditOwner extends EditRecord
     {
         return $this->getResource()::getUrl('index');
     }
-
 }
