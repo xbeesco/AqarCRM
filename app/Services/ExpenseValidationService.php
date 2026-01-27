@@ -9,39 +9,39 @@ use Carbon\Carbon;
 class ExpenseValidationService
 {
     /**
-     * التحقق من إمكانية إضافة نفقة في تاريخ معين لعقار
-     * يُظهر خطأ إذا:
-     * 1. لا توجد دفعة مالك في الفترة المحددة
-     * 2. أو توجد دفعة مالك وتم دفعها بالفعل
+     * Validate if an expense can be added for a property on a specific date.
+     * Returns an error message if:
+     * 1. No supply payment exists for the given period
+     * 2. A supply payment exists but has already been paid
      */
     public function validateExpenseDate($propertyId, $date, $excludeExpenseId = null): ?string
     {
-        if (!$propertyId || !$date) {
+        if (! $propertyId || ! $date) {
             return null;
         }
 
         $expenseDate = Carbon::parse($date);
 
-        // البحث عن أي دفعة مالك في نفس الفترة (مدفوعة أو غير مدفوعة)
+        // Find any supply payment in the same period (paid or unpaid)
         $supplyPayment = SupplyPayment::query()
             ->whereHas('propertyContract', function ($q) use ($propertyId) {
                 $q->where('property_id', $propertyId);
             })
             ->where(function ($q) use ($expenseDate) {
-                $q->whereRaw("JSON_EXTRACT(invoice_details, '$.period_start') <= ?", [$expenseDate->format('Y-m-d')])
-                  ->whereRaw("JSON_EXTRACT(invoice_details, '$.period_end') >= ?", [$expenseDate->format('Y-m-d')]);
+                $q->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(invoice_details, '$.period_start')) <= ?", [$expenseDate->format('Y-m-d')])
+                    ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(invoice_details, '$.period_end')) >= ?", [$expenseDate->format('Y-m-d')]);
             })
             ->first();
 
-        // إذا لم توجد دفعة أصلاً
-        if (!$supplyPayment) {
+        // If no supply payment exists for this period
+        if (! $supplyPayment) {
             return sprintf(
                 'لا توجد دفعة مالك  تناسب هذا التاريخ لهذا العقار',
                 $expenseDate->format('Y-m-d')
             );
         }
 
-        // إذا وُجدت دفعة وتم دفعها
+        // If supply payment exists and is already paid
         if ($supplyPayment->paid_date) {
             return sprintf(
                 'دفعة المالك لهذه الفترة تم توريدها بالفعل',
@@ -50,23 +50,23 @@ class ExpenseValidationService
             );
         }
 
-        // إذا وُجدت دفعة ولم يتم دفعها - السماح بإضافة النفقة
+        // If supply payment exists and is not yet paid - allow adding expense
         return null;
     }
 
     /**
-     * التحقق من إمكانية إضافة نفقة لوحدة معينة في تاريخ معين
-     * يحصل على العقار من الوحدة ثم يتحقق من دفعات المالك
+     * Validate if an expense can be added for a specific unit on a given date.
+     * Gets the property from the unit and validates against supply payments.
      */
     public function validateExpenseDateForUnit($unitId, $date, $excludeExpenseId = null): ?string
     {
-        if (!$unitId || !$date) {
+        if (! $unitId || ! $date) {
             return null;
         }
 
-        // الحصول على العقار من الوحدة
+        // Get the property from the unit
         $unit = Unit::find($unitId);
-        if (!$unit) {
+        if (! $unit) {
             return 'الوحدة المختارة غير موجودة';
         }
 
@@ -74,11 +74,11 @@ class ExpenseValidationService
     }
 
     /**
-     * التحقق الشامل للنفقة بناءً على نوعها (عقار أو وحدة)
+     * Comprehensive expense validation based on type (property or unit).
      */
     public function validateExpense($expenseFor, $propertyId, $unitId, $date, $excludeExpenseId = null): ?string
     {
-        if (!$expenseFor || !$date) {
+        if (! $expenseFor || ! $date) {
             return null;
         }
 
@@ -87,9 +87,10 @@ class ExpenseValidationService
                 return $this->validateExpenseDate($propertyId, $date, $excludeExpenseId);
 
             case 'unit':
-                if (!$unitId) {
+                if (! $unitId) {
                     return 'يجب اختيار وحدة';
                 }
+
                 return $this->validateExpenseDateForUnit($unitId, $date, $excludeExpenseId);
 
             default:
@@ -98,22 +99,24 @@ class ExpenseValidationService
     }
 
     /**
-     * التحقق من إمكانية تعديل نفقة موجودة
+     * Check if an existing expense can be edited.
      */
     public function canEditExpense($expense): bool
     {
-        if (!$expense) {
+        if (! $expense) {
             return false;
         }
 
-        // إذا كانت النفقة خاصة بعقار
+        // If expense is for a property
         if ($expense->subject_type === 'App\Models\Property') {
             $error = $this->validateExpenseDate($expense->subject_id, $expense->date, $expense->id);
+
             return $error === null;
         }
-        // إذا كانت النفقة خاصة بوحدة
+        // If expense is for a unit
         elseif ($expense->subject_type === 'App\Models\Unit') {
             $error = $this->validateExpenseDateForUnit($expense->subject_id, $expense->date, $expense->id);
+
             return $error === null;
         }
 
