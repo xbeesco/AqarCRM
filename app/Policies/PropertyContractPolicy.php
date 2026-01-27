@@ -103,13 +103,4 @@ class PropertyContractPolicy extends BasePolicy
     {
         return $this->isAdmin($user) && $contract->contract_status === 'active';
     }
-
-    /**
-     * Determine whether the user can approve the contract.
-     * Only admins can approve contracts
-     */
-    public function approve(User $user, PropertyContract $contract): bool
-    {
-        return $this->isAdmin($user) && $contract->contract_status === 'draft';
-    }
 }

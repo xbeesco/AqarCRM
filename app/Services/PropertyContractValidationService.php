@@ -8,123 +8,121 @@ use Carbon\Carbon;
 class PropertyContractValidationService
 {
     /**
-     * التحقق من تاريخ البداية فقط
-     * يُظهر خطأ فقط إذا كان التاريخ نفسه يقع داخل عقد آخر
+     * Validate start date does not fall within existing contract.
      */
     public function validateStartDate($propertyId, $startDate, $excludeId = null): ?string
     {
-        if (!$propertyId || !$startDate) {
+        if (! $propertyId || ! $startDate) {
             return null;
         }
 
         $startDate = Carbon::parse($startDate);
-        
-        // البحث عن عقود تحتوي على تاريخ البداية هذا
+
+        // Find contracts containing this start date
         $query = PropertyContract::where('property_id', $propertyId)
             ->where('start_date', '<=', $startDate)
             ->where('end_date', '>=', $startDate);
-            
+
         if ($excludeId) {
             $query->where('id', '!=', $excludeId);
         }
-        
+
         $overlapping = $query->first();
-        
+
         if ($overlapping) {
             return sprintf(
-                'تاريخ البداية يقع داخل عقد آخر من %s إلى %s',
+                'Start date falls within another contract from %s to %s',
                 $overlapping->start_date->format('Y-m-d'),
                 $overlapping->end_date->format('Y-m-d')
             );
         }
-        
+
         return null;
     }
-    
+
     /**
-     * التحقق من المدة فقط
-     * يُظهر خطأ إذا كانت المدة ستؤدي لتداخل مع نهاية العقد
+     * Validate duration does not cause overlap with end date.
      */
     public function validateDuration($propertyId, $startDate, $duration, $excludeId = null): ?string
     {
-        if (!$propertyId || !$startDate || !$duration) {
+        if (! $propertyId || ! $startDate || ! $duration) {
             return null;
         }
-        
+
         $startDate = Carbon::parse($startDate);
-        $endDate = $startDate->copy()->addMonths((int)$duration)->subDay();
-        
-        // البحث عن عقود يتعارض معها تاريخ النهاية المحسوب
+        $endDate = $startDate->copy()->addMonths((int) $duration)->subDay();
+
+        // Find contracts that conflict with calculated end date
         $query = PropertyContract::where('property_id', $propertyId)
-            ->where(function($q) use ($startDate, $endDate) {
-                // العقد الجديد ينتهي داخل عقد آخر
-                $q->where(function($q1) use ($endDate) {
+            ->where(function ($q) use ($startDate, $endDate) {
+                // New contract ends within another contract
+                $q->where(function ($q1) use ($endDate) {
                     $q1->where('start_date', '<=', $endDate)
-                       ->where('end_date', '>=', $endDate);
+                        ->where('end_date', '>=', $endDate);
                 })
-                // أو العقد الجديد يحتوي على عقد آخر بالكامل
-                ->orWhere(function($q2) use ($startDate, $endDate) {
-                    $q2->where('start_date', '>=', $startDate)
-                       ->where('end_date', '<=', $endDate);
-                });
+                // Or new contract fully contains another contract
+                    ->orWhere(function ($q2) use ($startDate, $endDate) {
+                        $q2->where('start_date', '>=', $startDate)
+                            ->where('end_date', '<=', $endDate);
+                    });
             });
-            
+
         if ($excludeId) {
             $query->where('id', '!=', $excludeId);
         }
-        
+
         $overlapping = $query->first();
-        
+
         if ($overlapping) {
-            // تحديد نوع التداخل
+            // Determine overlap type
             if ($endDate >= $overlapping->start_date && $endDate <= $overlapping->end_date) {
                 return sprintf(
-                    'المدة ستجعل العقد ينتهي في %s وهو يتعارض مع عقد آخر من %s إلى %s',
+                    'Duration causes contract to end on %s which conflicts with contract from %s to %s',
                     $endDate->format('Y-m-d'),
                     $overlapping->start_date->format('Y-m-d'),
                     $overlapping->end_date->format('Y-m-d')
                 );
             } else {
                 return sprintf(
-                    'المدة ستجعل العقد يغطي عقداً آخر بالكامل من %s إلى %s',
+                    'Duration causes contract to fully contain another contract from %s to %s',
                     $overlapping->start_date->format('Y-m-d'),
                     $overlapping->end_date->format('Y-m-d')
                 );
             }
         }
-        
+
         return null;
     }
-    
+
     /**
-     * التحقق الكامل للتوافق (للاستخدام في Model/Observer)
+     * Full availability validation for Model/Observer use.
      */
     public function validateFullAvailability($propertyId, $startDate, $endDate, $excludeId = null): ?string
     {
         $query = PropertyContract::where('property_id', $propertyId)
             ->where(function ($q) use ($startDate, $endDate) {
                 $q->where(function ($q1) use ($startDate, $endDate) {
-                    // أي نوع من التداخل
+                    // Any type of overlap
                     $q1->where('start_date', '<=', $endDate)
-                       ->where('end_date', '>=', $startDate);
+                        ->where('end_date', '>=', $startDate);
                 });
             });
-        
+
         if ($excludeId) {
             $query->where('id', '!=', $excludeId);
         }
-        
+
         $overlapping = $query->first();
-        
+
         if ($overlapping) {
             return sprintf(
-                'العقار محجوز بالعقد رقم %s من %s إلى %s',
+                'Property is reserved by contract %s from %s to %s',
                 $overlapping->contract_number,
                 $overlapping->start_date->format('Y-m-d'),
                 $overlapping->end_date->format('Y-m-d')
             );
         }
-        
+
         return null;
     }
 }

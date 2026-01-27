@@ -11,7 +11,6 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Select as FilterSelect;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
@@ -74,7 +73,7 @@ class PropertyContractResource extends Resource
                                     $validationService = app(\App\Services\PropertyContractValidationService::class);
                                     $excludeId = $record ? $record->id : null;
 
-                                    // التحقق من تاريخ البداية فقط
+                                    // Validate start date only
                                     $error = $validationService->validateStartDate($propertyId, $value, $excludeId);
                                     if ($error) {
                                         $fail($error);
@@ -97,7 +96,7 @@ class PropertyContractResource extends Resource
                             })
                             ->rules([
                                 fn ($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
-                                    // التحقق من توافق المدة مع تكرار الدفع
+                                    // Validate duration matches frequency
                                     $frequency = $get('payment_frequency') ?? 'monthly';
                                     if (! \App\Services\PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
                                         $periodName = match ($frequency) {
@@ -112,7 +111,7 @@ class PropertyContractResource extends Resource
                                         return;
                                     }
 
-                                    // التحقق من عدم التداخل مع عقود أخرى
+                                    // Validate no overlap with other contracts
                                     $propertyId = $get('property_id');
                                     $startDate = $get('start_date');
 
@@ -120,7 +119,7 @@ class PropertyContractResource extends Resource
                                         $validationService = app(\App\Services\PropertyContractValidationService::class);
                                         $excludeId = $record ? $record->id : null;
 
-                                        // التحقق من المدة وتأثيرها على النهاية
+                                        // Validate duration and its effect on end date
                                         $error = $validationService->validateDuration($propertyId, $startDate, $value, $excludeId);
                                         if ($error) {
                                             $fail($error);
@@ -239,7 +238,7 @@ class PropertyContractResource extends Resource
                 Filter::make('owner')
                     ->label('المالك')
                     ->form([
-                        FilterSelect::make('owner_id')
+                        Select::make('owner_id')
                             ->label('المالك')
                             ->options(function () {
                                 return \App\Models\User::where('type', 'owner')
