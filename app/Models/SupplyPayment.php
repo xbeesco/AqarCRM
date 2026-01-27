@@ -5,12 +5,13 @@ namespace App\Models;
 use App\Services\PaymentNumberGenerator;
 use App\Services\SupplyPaymentService;
 use App\Traits\HasPaymentNumber;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SupplyPayment extends Model
 {
-    use HasPaymentNumber;
+    use HasPaymentNumber, HasFactory;
 
     /**
      * Get the payment number prefix.
