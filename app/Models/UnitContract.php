@@ -62,7 +62,7 @@ class UnitContract extends Model
             // Generate contract number if not set
             if (empty($contract->contract_number)) {
                 // Use millisecond timestamp to ensure uniqueness
-                $contract->contract_number = 'UC-'.round(microtime(true) * 1000);
+                $contract->contract_number = 'UC-' . round(microtime(true) * 1000);
             }
 
             // Calculate end_date if not set
@@ -134,6 +134,14 @@ class UnitContract extends Model
      * Relationship: Contract has many collection payments.
      */
     public function collectionPayments()
+    {
+        return $this->hasMany(CollectionPayment::class, 'unit_contract_id');
+    }
+
+    /**
+     * Relationship: Contract has many payments (alias for collectionPayments).
+     */
+    public function payments()
     {
         return $this->hasMany(CollectionPayment::class, 'unit_contract_id');
     }
@@ -241,11 +249,35 @@ class UnitContract extends Model
     }
 
     /**
+     * Get status label (method wrapper for accessor).
+     */
+    public function getStatusLabel(): string
+    {
+        return $this->status_label;
+    }
+
+    /**
+     * Get status color (method wrapper for accessor).
+     */
+    public function getStatusColor(): string
+    {
+        return $this->status_color;
+    }
+
+    /**
      * Get remaining days attribute.
      */
     public function getRemainingDaysAttribute(): int
     {
         return app(UnitContractService::class)->getRemainingDays($this);
+    }
+
+    /**
+     * Get remaining days (method wrapper for accessor).
+     */
+    public function getRemainingDays(): int
+    {
+        return $this->remaining_days;
     }
 
     /**
