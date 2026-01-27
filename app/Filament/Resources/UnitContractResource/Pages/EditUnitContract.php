@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\UnitContractResource\Pages;
 
 use App\Filament\Resources\UnitContractResource;
-use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
 class EditUnitContract extends EditRecord
@@ -19,20 +18,20 @@ class EditUnitContract extends EditRecord
     {
         return $this->getResource()::getUrl('index');
     }
-    
+
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        // حساب عدد الدفعات الصحيح قبل الحفظ
+        // Calculate correct payments count before save
         $data['payments_count'] = \App\Services\PropertyContractService::calculatePaymentsCount(
             $data['duration_months'] ?? 0,
             $data['payment_frequency'] ?? 'monthly'
         );
-        
-        // التأكد من أن القيمة رقمية
-        if (!is_numeric($data['payments_count'])) {
+
+        // Ensure value is numeric
+        if (! is_numeric($data['payments_count'])) {
             $data['payments_count'] = 0;
         }
-        
+
         return $data;
     }
 }

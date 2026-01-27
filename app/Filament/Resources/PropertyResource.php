@@ -3,46 +3,36 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\PropertyResource\Pages;
-use App\Models\Property;
-use App\Models\PropertyType;
-use App\Models\PropertyStatus;
-use App\Models\PropertyFeature;
-use Filament\Forms;
-use Filament\Schemas\Schema;
-use Filament\Resources\Resource;
-use Filament\Tables;
-use Filament\Tables\Columns\Column;
-use Filament\Tables\Table;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Grid;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\CheckboxList;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Toggle;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
-use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\Action;
-use Filament\GlobalSearch\GlobalSearchResult;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 use App\Models\CollectionPayment;
-use App\Models\PropertyRepair;
+use App\Models\Property;
+use App\Models\PropertyStatus;
+use App\Models\PropertyType;
 use App\Models\UnitContract;
 use Carbon\Carbon;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
+use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\GlobalSearch\GlobalSearchResult;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 class PropertyResource extends Resource
 {
     protected static ?string $model = Property::class;
-    
+
     protected static ?string $navigationLabel = 'العقارات';
-    
+
     protected static ?string $modelLabel = 'عقار';
-    
+
     protected static ?string $pluralModelLabel = 'العقارات';
 
     public static function form(Schema $schema): Schema
@@ -55,7 +45,7 @@ class PropertyResource extends Resource
                             ->label('اسم العقار')
                             ->required()
                             ->columnSpan(1),
-                            
+
                         Select::make('owner_id')
                             ->label('المالك')
                             ->relationship('owner', 'name')
@@ -64,14 +54,14 @@ class PropertyResource extends Resource
                             ->required()
                             ->columnSpan(1),
                     ]),
-                    
+
                     Grid::make(2)->schema([
                         Select::make('status_id')
                             ->label('حالة العقار')
                             ->options(PropertyStatus::where('is_active', true)->orderBy('sort_order')->pluck('name_ar', 'id'))
                             ->searchable()
                             ->required(),
-                            
+
                         Select::make('type_id')
                             ->label('نوع العقار')
                             ->options(PropertyType::all()->pluck('name_ar', 'id'))
@@ -79,7 +69,7 @@ class PropertyResource extends Resource
                             ->required(),
                     ]),
                 ]),
-                
+
             Section::make('الموقع والعنوان')
                 ->schema([
                     Select::make('location_id')
@@ -88,39 +78,39 @@ class PropertyResource extends Resource
                         ->searchable()
                         ->allowHtml()
                         ->nullable(),
-                        
+
                     Grid::make(2)->schema([
                         TextInput::make('address')
                             ->label('رقم المبنى واسم الشارع')
                             ->required()
                             ->columnSpan(1),
-                            
+
                         TextInput::make('postal_code')
                             ->label('الرمز البريدي')
                             ->numeric()
                             ->columnSpan(1),
                     ]),
                 ]),
-                
+
             Section::make('تفاصيل إضافية')
-                ->ColumnSpanFull()
+                ->columnSpanFull()
                 ->schema([
                     Grid::make(4)->schema([
                         TextInput::make('parking_spots')
                             ->label('عدد المواقف')
                             ->numeric()
                             ->nullable(),
-                            
+
                         TextInput::make('elevators')
                             ->label('عدد المصاعد')
                             ->numeric()
                             ->nullable(),
-                            
+
                         TextInput::make('floors_count')
                             ->label('عدد الطوابق')
                             ->numeric()
                             ->nullable(),
-                            
+
                         TextInput::make('build_year')
                             ->label('سنة البناء')
                             ->numeric()
@@ -128,7 +118,7 @@ class PropertyResource extends Resource
                             ->maxValue(date('Y'))
                             ->nullable(),
                     ]),
-                    
+
                     Grid::make(2)->schema([
                         CheckboxList::make('features')
                             ->label('المميزات')
@@ -148,17 +138,21 @@ class PropertyResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query) {
+                $query->with(['owner', 'location.parent.parent.parent'])
+                    ->withCount('units as total_units');
+            })
             ->columns([
                 TextColumn::make('name')
                     ->label('اسم العقار')
                     ->searchable()
                     ->sortable(),
-                    
+
                 TextColumn::make('owner.name')
                     ->label('اسم المالك')
                     ->searchable()
                     ->sortable(),
-                    
+
                 TextColumn::make('total_units')
                     ->label('الوحدات')
                     ->default(0)
@@ -169,19 +163,18 @@ class PropertyResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->getStateUsing(function ($record) {
-                        if (!$record->location) {
+                        if (! $record->location) {
                             return '-';
                         }
-                        
-                        // Build full path from current location to root
+
                         $path = [];
                         $current = $record->location;
-                        
+
                         while ($current) {
                             array_unshift($path, $current->name);
                             $current = $current->parent;
                         }
-                        
+
                         return implode(' > ', $path);
                     }),
             ])
@@ -217,16 +210,16 @@ class PropertyResource extends Resource
     }
 
     protected static ?string $recordTitleAttribute = 'name';
-    
+
     public static function getGloballySearchableAttributes(): array
     {
         return [
-            'name', 
-            'address', 
+            'name',
+            'address',
             'postal_code',
             'parking_spots',
             'elevators',
-            'build_year',  // تصحيح الاسم
+            'build_year',
             'floors_count',
             'notes',
             'owner.name',
@@ -240,39 +233,35 @@ class PropertyResource extends Resource
             'propertyStatus.name_ar',
             'propertyStatus.name_en',
             'created_at',
-            'updated_at'
+            'updated_at',
         ];
     }
-    
+
     public static function getGlobalSearchEloquentQuery(): Builder
     {
         return parent::getGlobalSearchEloquentQuery()
             ->with(['owner', 'location', 'propertyType', 'propertyStatus']);
     }
-    
+
     public static function getGlobalSearchResults(string $search): Collection
     {
         $search = trim($search);
-        
-        // Remove Arabic hamza variations for better search
+
+        // Normalize Arabic characters for better search
         $normalizedSearch = str_replace(['أ', 'إ', 'آ'], 'ا', $search);
         $normalizedSearch = str_replace(['ة'], 'ه', $normalizedSearch);
-        
+
         return static::getGlobalSearchEloquentQuery()
             ->where(function (Builder $query) use ($search, $normalizedSearch) {
-                // إضافة التطبيع الكامل
                 $searchWithoutSpaces = str_replace(' ', '', $normalizedSearch);
-                $normalizedSearch2 = str_replace(['ى'], 'ي', $normalizedSearch);
-                
-                // Search in property fields - مع كل أشكال البحث
+
                 $query->where('name', 'LIKE', "%{$normalizedSearch}%")
                     ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%")
                     ->orWhere('address', 'LIKE', "%{$normalizedSearch}%")
                     ->orWhere('address', 'LIKE', "%{$searchWithoutSpaces}%")
                     ->orWhere('postal_code', 'LIKE', "%{$search}%")
                     ->orWhere('notes', 'LIKE', "%{$normalizedSearch}%");
-                
-                // البحث في الأعمدة الرقمية - حتى لو رقم واحد
+
                 if (is_numeric($search)) {
                     $query->orWhere('parking_spots', 'LIKE', "%{$search}%")
                         ->orWhere('elevators', 'LIKE', "%{$search}%")
@@ -280,44 +269,44 @@ class PropertyResource extends Resource
                         ->orWhere('floors_count', 'LIKE', "%{$search}%")
                         ->orWhere('id', $search);
                 }
-                
+
                 // Search in owner
                 $query->orWhereHas('owner', function ($q) use ($search, $normalizedSearch) {
                     $q->where('name', 'LIKE', "%{$normalizedSearch}%")
-                      ->orWhere('email', 'LIKE', "%{$search}%")
-                      ->orWhere('phone', 'LIKE', "%{$search}%");
+                        ->orWhere('email', 'LIKE', "%{$search}%")
+                        ->orWhere('phone', 'LIKE', "%{$search}%");
                 });
-                
+
                 // Search in location
                 $query->orWhereHas('location', function ($q) use ($search, $normalizedSearch) {
                     $q->where('name', 'LIKE', "%{$normalizedSearch}%")
-                      ->orWhere('name_ar', 'LIKE', "%{$normalizedSearch}%")
-                      ->orWhere('name_en', 'LIKE', "%{$search}%");
+                        ->orWhere('name_ar', 'LIKE', "%{$normalizedSearch}%")
+                        ->orWhere('name_en', 'LIKE', "%{$search}%");
                 });
-                
+
                 // Search in property type
                 $query->orWhereHas('propertyType', function ($q) use ($search, $normalizedSearch) {
                     $q->where('name_ar', 'LIKE', "%{$normalizedSearch}%")
-                      ->orWhere('name_en', 'LIKE', "%{$search}%");
+                        ->orWhere('name_en', 'LIKE', "%{$search}%");
                 });
-                
+
                 // Search in property status
                 $query->orWhereHas('propertyStatus', function ($q) use ($search, $normalizedSearch) {
                     $q->where('name_ar', 'LIKE', "%{$normalizedSearch}%")
-                      ->orWhere('name_en', 'LIKE', "%{$search}%");
+                        ->orWhere('name_en', 'LIKE', "%{$search}%");
                 });
-                
+
                 // Search in dates (multiple formats)
                 if (preg_match('/\d{4}/', $search)) {
                     $query->orWhereYear('created_at', $search)
-                          ->orWhereYear('updated_at', $search);
+                        ->orWhereYear('updated_at', $search);
                 }
-                
+
                 if (preg_match('/\d{1,2}[-\/]\d{1,2}/', $search)) {
                     $dateParts = preg_split('/[-\/]/', $search);
                     if (count($dateParts) == 2) {
                         $query->orWhereMonth('created_at', $dateParts[1])
-                              ->whereDay('created_at', $dateParts[0]);
+                            ->whereDay('created_at', $dateParts[0]);
                     }
                 }
             })
@@ -338,70 +327,39 @@ class PropertyResource extends Resource
                 );
             });
     }
-    
+
+    /**
+     * Get property statistics for infolist display.
+     */
     private static function getPropertyStatistics(Property $property): array
     {
-        $startOfMonth = Carbon::now()->startOfMonth();
-        $endOfMonth = Carbon::now()->endOfMonth();
-        
-        // إحصائيات الوحدات
         $totalUnits = $property->units()->count();
-        $occupiedUnits = $property->units()
-            ->whereHas('contracts', function ($query) {
-                $query->where('contract_status', 'active')
-                    ->whereDate('start_date', '<=', now())
-                    ->whereDate('end_date', '>=', now());
-            })
-            ->count();
-        
-        // الإيرادات
-        $monthlyRevenue = $property->units()
-            ->whereHas('contracts', function ($query) {
-                $query->where('contract_status', 'active')
-                    ->whereDate('start_date', '<=', now())
-                    ->whereDate('end_date', '>=', now());
-            })
-            ->sum('rent_price');
-            
+        $occupiedUnits = $property->units()->whereHas('activeContract')->count();
+        $vacantUnits = $totalUnits - $occupiedUnits;
+        $occupancyRate = $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100, 2) : 0;
+
+        $monthlyRevenue = UnitContract::where('property_id', $property->id)
+            ->active()
+            ->sum('monthly_rent');
+
         $yearlyRevenue = CollectionPayment::where('property_id', $property->id)
-            ->whereYear('paid_date', now()->year)
-            ->whereHas('paymentStatus', function ($query) {
-                $query->where('is_paid_status', true);
-            })
+            ->collectedPayments()
+            ->whereYear('collection_date', Carbon::now()->year)
             ->sum('total_amount');
-            
-        // المستحقات
+
         $pendingPayments = CollectionPayment::where('property_id', $property->id)
-            ->where('due_date_start', '<=', now())
-            ->whereHas('paymentStatus', function ($query) {
-                $query->where('is_paid_status', false);
-            })
+            ->where('due_date_start', '<=', Carbon::now())
+            ->whereNull('collection_date')
             ->sum('total_amount');
-            
-        // الصيانة
-        $maintenanceCosts = PropertyRepair::where('property_id', $property->id)
-            ->whereYear('completion_date', now()->year)
-            ->where('status', 'completed')
-            ->sum('total_cost');
-            
-        // العقود النشطة
-        $activeContracts = UnitContract::whereHas('unit', function ($query) use ($property) {
-                $query->where('property_id', $property->id);
-            })
-            ->where('contract_status', 'active')
-            ->count();
-            
+
         return [
             'total_units' => $totalUnits,
             'occupied_units' => $occupiedUnits,
-            'vacant_units' => $totalUnits - $occupiedUnits,
-            'occupancy_rate' => $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100, 1) : 0,
+            'vacant_units' => $vacantUnits,
+            'occupancy_rate' => $occupancyRate,
             'monthly_revenue' => $monthlyRevenue,
             'yearly_revenue' => $yearlyRevenue,
             'pending_payments' => $pendingPayments,
-            'maintenance_costs' => $maintenanceCosts,
-            'active_contracts' => $activeContracts,
-            'net_income' => $yearlyRevenue - $maintenanceCosts,
         ];
     }
 }

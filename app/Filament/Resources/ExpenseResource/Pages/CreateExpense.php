@@ -25,22 +25,22 @@ class CreateExpense extends CreateRecord
         if (isset($data['expense_for']) && isset($data['property_id'])) {
             switch ($data['expense_for']) {
                 case 'property':
-                    // نفقة عامة للعقار - حفظ العقار نفسه كـ subject
+                    // General expense for property - save property as subject
                     $data['subject_type'] = 'App\Models\Property';
                     $data['subject_id'] = $data['property_id'];
                     break;
-                    
+
                 case 'unit':
                     if (isset($data['unit_id']) && $data['unit_id'] !== '0') {
-                        // نفقة خاصة بوحدة - حفظ الوحدة كـ subject
+                        // Unit-specific expense - save unit as subject
                         $data['subject_type'] = 'App\Models\Unit';
                         $data['subject_id'] = $data['unit_id'];
                     } else {
-                        // إذا لم يتم اختيار وحدة صحيحة، اجعلها نفقة عامة للعقار
+                        // If no valid unit selected, fall back to property expense
                         $data['subject_type'] = 'App\Models\Property';
                         $data['subject_id'] = $data['property_id'];
-                        
-                        // إرسال تنبيه للمستخدم
+
+                        // Notify user about the fallback
                         \Filament\Notifications\Notification::make()
                             ->warning()
                             ->title('تنبيه')

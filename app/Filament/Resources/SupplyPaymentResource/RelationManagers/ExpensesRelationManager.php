@@ -2,7 +2,10 @@
 
 namespace App\Filament\Resources\SupplyPaymentResource\RelationManagers;
 
+use App\Models\Expense;
+use App\Models\Unit;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -18,13 +21,12 @@ class ExpensesRelationManager extends RelationManager
 
     public function table(Table $table): Table
     {
-        // الحصول على دفعة التوريد الحالية
         $supplyPayment = $this->ownerRecord;
         $supplyPaymentService = app(\App\Services\SupplyPaymentService::class);
         $expenses = $supplyPaymentService->getExpensesDetails($supplyPayment);
 
         return $table
-            ->query(fn () => \App\Models\Expense::query()
+            ->query(fn () => Expense::query()
                 ->whereIn('id', $expenses->pluck('id'))
             )
             ->columns([
@@ -32,15 +34,18 @@ class ExpensesRelationManager extends RelationManager
                     ->label('التاريخ')
                     ->date('Y-m-d')
                     ->sortable(),
+
                 TextColumn::make('type')
                     ->label('النوع')
-                    ->getStateUsing(fn (\App\Models\Expense $record): string => $record->type_name)
+                    ->getStateUsing(fn (Expense $record): string => $record->type_name)
                     ->badge()
-                    ->color(fn (\App\Models\Expense $record): string => $record->type_color),
+                    ->color(fn (Expense $record): string => $record->type_color),
+
                 TextColumn::make('desc')
                     ->label('الوصف')
                     ->wrap()
                     ->limit(50),
+
                 TextColumn::make('subject')
                     ->label('مرتبطة بـ')
                     ->state(function ($record) {
@@ -48,8 +53,7 @@ class ExpensesRelationManager extends RelationManager
                         if ($type === 'Property') {
                             return $record->subject?->name ?? 'العقار';
                         } elseif ($type === 'Unit') {
-                            // جلب الوحدة مع معلوماتها
-                            $unit = \App\Models\Unit::find($record->subject_id);
+                            $unit = Unit::find($record->subject_id);
                             if ($unit) {
                                 return $unit->name;
                             }
@@ -61,11 +65,12 @@ class ExpensesRelationManager extends RelationManager
                     })
                     ->badge()
                     ->color(fn ($record) => class_basename($record->subject_type) === 'Property' ? 'primary' : 'warning'),
+
                 TextColumn::make('cost')
                     ->label('المبلغ')
                     ->money('SAR')
                     ->color('danger')
-                    ->summarize(\Filament\Tables\Columns\Summarizers\Sum::make()
+                    ->summarize(Sum::make()
                         ->label('إجمالي المصروفات')
                         ->money('SAR')),
             ])

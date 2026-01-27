@@ -2,17 +2,17 @@
 
 namespace App\Filament\Resources\TenantResource\RelationManagers;
 
+use App\Models\UnitContract;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
-use Filament\Tables\Table;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\BadgeColumn;
-use App\Models\UnitContract;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
 
 class ContractsRelationManager extends RelationManager
 {
     protected static string $relationship = 'unitContracts';
-    
+
     protected static ?string $title = 'العقود';
 
     public function table(Table $table): Table
@@ -53,7 +53,7 @@ class ContractsRelationManager extends RelationManager
                         'danger' => 'expired',
                         'secondary' => 'terminated',
                     ])
-                    ->formatStateUsing(fn ($state) => match($state) {
+                    ->formatStateUsing(fn ($state) => match ($state) {
                         'draft' => 'مسودة',
                         'active' => 'نشط',
                         'pending' => 'قيد الانتظار',
@@ -64,16 +64,26 @@ class ContractsRelationManager extends RelationManager
                 TextColumn::make('remaining_days')
                     ->label('الأيام المتبقية')
                     ->state(function (UnitContract $record) {
-                        if ($record->contract_status !== 'active') return '-';
+                        if ($record->contract_status !== 'active') {
+                            return '-';
+                        }
                         $days = now()->diffInDays($record->end_date, false);
-                        return $days > 0 ? $days . ' يوم' : 'منتهي';
+
+                        return $days > 0 ? $days.' يوم' : 'منتهي';
                     })
                     ->badge()
                     ->color(function (UnitContract $record) {
-                        if ($record->contract_status !== 'active') return 'gray';
+                        if ($record->contract_status !== 'active') {
+                            return 'gray';
+                        }
                         $days = now()->diffInDays($record->end_date, false);
-                        if ($days <= 0) return 'danger';
-                        if ($days <= 30) return 'warning';
+                        if ($days <= 0) {
+                            return 'danger';
+                        }
+                        if ($days <= 30) {
+                            return 'warning';
+                        }
+
                         return 'success';
                     }),
             ])
@@ -89,7 +99,7 @@ class ContractsRelationManager extends RelationManager
                     ]),
             ])
             ->headerActions([
-                // يمكن إضافة أزرار إنشاء عقد جديد هنا إذا أردنا
+                // Can add buttons to create new contract here if needed
             ])
             ->actions([
                 \Filament\Actions\ViewAction::make(),

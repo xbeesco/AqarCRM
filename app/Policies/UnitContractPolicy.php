@@ -117,15 +117,6 @@ class UnitContractPolicy extends BasePolicy
     }
 
     /**
-     * Determine whether the user can approve the contract.
-     * Only admins can approve contracts
-     */
-    public function approve(User $user, UnitContract $contract): bool
-    {
-        return $this->isAdmin($user) && $contract->contract_status === 'draft';
-    }
-
-    /**
      * Determine whether the user can renew the contract.
      * Admins and employees can renew
      */

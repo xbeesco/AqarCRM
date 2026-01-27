@@ -2,8 +2,8 @@
 
 namespace App\Policies;
 
-use App\Models\User;
 use App\Models\Tenant;
+use App\Models\User;
 
 class TenantPolicy extends BasePolicy
 {
@@ -13,10 +13,12 @@ class TenantPolicy extends BasePolicy
     public function viewAny(User $user): bool
     {
         // Employees and above can view tenants
-        if (!in_array($user->type, ['super_admin', 'admin', 'employee'])) {
+        if (! in_array($user->type, ['super_admin', 'admin', 'employee'])) {
             $this->logUnauthorizedAccess($user, 'viewAny', Tenant::class);
+
             return false;
         }
+
         return true;
     }
 
@@ -29,13 +31,14 @@ class TenantPolicy extends BasePolicy
         if (in_array($user->type, ['super_admin', 'admin', 'employee'])) {
             return true;
         }
-        
+
         // Tenant can view their own profile
         if ($user->id === $model->id) {
             return true;
         }
-        
+
         $this->logUnauthorizedAccess($user, 'view', $model);
+
         return false;
     }
 
@@ -45,10 +48,12 @@ class TenantPolicy extends BasePolicy
     public function create(User $user): bool
     {
         // Only admins can create tenants
-        if (!$this->isAdmin($user)) {
+        if (! $this->isAdmin($user)) {
             $this->logUnauthorizedAccess($user, 'create', Tenant::class);
+
             return false;
         }
+
         return true;
     }
 
@@ -61,19 +66,21 @@ class TenantPolicy extends BasePolicy
         if ($this->isAdmin($user)) {
             return true;
         }
-        
+
         // Employees cannot update tenants
         if ($user->type === 'employee') {
             $this->logUnauthorizedAccess($user, 'update', $model);
+
             return false;
         }
-        
+
         // Tenant can update limited fields of their own profile
         if ($user->id === $model->id) {
             return true;
         }
-        
+
         $this->logUnauthorizedAccess($user, 'update', $model);
+
         return false;
     }
 
@@ -83,14 +90,15 @@ class TenantPolicy extends BasePolicy
     public function delete(User $user, Tenant $model): bool
     {
         // Only admins can delete tenants
-        if (!$this->isAdmin($user)) {
+        if (! $this->isAdmin($user)) {
             $this->logUnauthorizedAccess($user, 'delete', $model);
+
             return false;
         }
-        
+
         // TODO: Check if tenant has active contracts
         // Should not delete tenant with active lease
-        
+
         return true;
     }
 
@@ -103,13 +111,14 @@ class TenantPolicy extends BasePolicy
         if ($this->isAdmin($user)) {
             return true;
         }
-        
+
         // Tenant can view their own financial records
         if ($user->id === $model->id) {
             return true;
         }
-        
+
         $this->logUnauthorizedAccess($user, 'viewFinancialRecords', $model);
+
         return false;
     }
 
@@ -122,9 +131,10 @@ class TenantPolicy extends BasePolicy
         if (in_array($user->type, ['super_admin', 'admin', 'employee'])) {
             return true;
         }
-        
+
         // Tenant cannot manage their contracts directly (read-only access)
         $this->logUnauthorizedAccess($user, 'manageContracts', $model);
+
         return false;
     }
 
@@ -137,15 +147,17 @@ class TenantPolicy extends BasePolicy
         if ($this->isAdmin($user)) {
             return true;
         }
-        
+
         // Tenant can view their own payment records but not modify them
         // All payments must be processed by admin/employee
         if ($user->id === $model->id) {
             $this->logUnauthorizedAccess($user, 'makePayments', $model);
+
             return false;
         }
-        
+
         $this->logUnauthorizedAccess($user, 'makePayments', $model);
+
         return false;
     }
 }

@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\PropertyResource\Pages;
 
 use App\Filament\Resources\PropertyResource;
-use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
 class EditProperty extends EditRecord
@@ -12,8 +11,6 @@ class EditProperty extends EditRecord
 
     protected function getHeaderActions(): array
     {
-        return [
-            // Actions\DeleteAction::make(), // تم إلغاء زر الحذف
-        ];
+        return [];
     }
 }

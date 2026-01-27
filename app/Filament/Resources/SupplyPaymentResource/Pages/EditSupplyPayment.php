@@ -3,9 +3,8 @@
 namespace App\Filament\Resources\SupplyPaymentResource\Pages;
 
 use App\Filament\Resources\SupplyPaymentResource;
-use Filament\Resources\Pages\EditRecord;
 use Filament\Actions\ViewAction;
-use Filament\Actions\DeleteAction;
+use Filament\Resources\Pages\EditRecord;
 
 class EditSupplyPayment extends EditRecord
 {
@@ -17,23 +16,24 @@ class EditSupplyPayment extends EditRecord
             ViewAction::make(),
         ];
     }
-    
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
     }
-    
+
     public function getMaxContentWidth(): ?string
     {
-        return 'full'; // يجعل المحتوى يأخذ العرض الكامل
+        return 'full';
     }
-    
-    // منع التعديل المباشر - إعادة التوجيه إلى صفحة العرض
-    public function mount(int | string $record): void
+
+    /**
+     * Redirect to view page instead of edit.
+     */
+    public function mount(int|string $record): void
     {
         parent::mount($record);
-        
-        // إعادة التوجيه إلى صفحة العرض بدلاً من التعديل
+
         $this->redirect($this->getResource()::getUrl('view', ['record' => $record]));
     }
 }

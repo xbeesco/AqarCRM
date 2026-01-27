@@ -3,30 +3,29 @@
 namespace App\Filament\Resources\TenantResource\Pages;
 
 use App\Filament\Resources\TenantResource;
-use Filament\Resources\Pages\ViewRecord;
 use Filament\Actions\EditAction;
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Grid;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Resources\Pages\ViewRecord;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
 
 class ViewTenant extends ViewRecord
 {
     protected static string $resource = TenantResource::class;
-    
+
     protected static ?string $title = 'عرض المستأجر';
-    
+
     public function infolist(Schema $schema): Schema
     {
         $tenant = $this->record;
-        
-        // الحصول على العقد النشط
+
         $activeContract = \App\Models\UnitContract::where('tenant_id', $tenant->id)
             ->where('contract_status', 'active')
             ->with(['unit.property'])
             ->first();
-        
+
         return $schema
             ->schema([
                 Section::make('معلومات المستأجر')
@@ -56,7 +55,7 @@ class ViewTenant extends ViewRecord
                                     ->placeholder('غير محددة'),
                             ]),
                     ]),
-                    
+
                 Section::make('معلومات العقد الحالي')
                     ->schema([
                         Grid::make(3)
@@ -72,7 +71,7 @@ class ViewTenant extends ViewRecord
                                     ->icon('heroicon-o-home'),
                                 TextEntry::make('monthly_rent')
                                     ->label('الإيجار الشهري')
-                                    ->state($activeContract ? number_format($activeContract->monthly_rent, 2) . ' ريال' : '-')
+                                    ->state($activeContract ? number_format($activeContract->monthly_rent, 2).' ريال' : '-')
                                     ->color('warning')
                                     ->weight(FontWeight::Bold),
                                 TextEntry::make('contract_start')
@@ -85,60 +84,73 @@ class ViewTenant extends ViewRecord
                                     ->date('Y-m-d'),
                                 TextEntry::make('remaining_days')
                                     ->label('الأيام المتبقية')
-                                    ->state(function() use ($activeContract) {
-                                        if (!$activeContract) return '-';
+                                    ->state(function () use ($activeContract) {
+                                        if (! $activeContract) {
+                                            return '-';
+                                        }
                                         $days = now()->diffInDays($activeContract->end_date, false);
-                                        return $days > 0 ? $days . ' يوم' : 'منتهي';
+
+                                        return $days > 0 ? $days.' يوم' : 'منتهي';
                                     })
                                     ->badge()
-                                    ->color(function() use ($activeContract) {
-                                        if (!$activeContract) return 'gray';
+                                    ->color(function () use ($activeContract) {
+                                        if (! $activeContract) {
+                                            return 'gray';
+                                        }
                                         $days = now()->diffInDays($activeContract->end_date, false);
-                                        if ($days <= 0) return 'danger';
-                                        if ($days <= 30) return 'warning';
+                                        if ($days <= 0) {
+                                            return 'danger';
+                                        }
+                                        if ($days <= 30) {
+                                            return 'warning';
+                                        }
+
                                         return 'success';
                                     }),
                             ]),
                     ])
                     ->visible($activeContract !== null),
-                    
+
                 Section::make('الإحصائيات المالية')
                     ->schema([
                         Grid::make(4)
                             ->schema([
                                 TextEntry::make('total_paid')
                                     ->label('إجمالي المدفوع')
-                                    ->state(function() use ($tenant) {
+                                    ->state(function () use ($tenant) {
                                         $total = \App\Models\CollectionPayment::where('tenant_id', $tenant->id)
                                             ->collectedPayments()
                                             ->sum('total_amount');
-                                        return number_format($total, 2) . ' ريال';
+
+                                        return number_format($total, 2).' ريال';
                                     })
                                     ->color('success')
                                     ->weight(FontWeight::Bold)
                                     ->size('lg'),
                                 TextEntry::make('pending_payments')
                                     ->label('مدفوعات مستحقة')
-                                    ->state(function() use ($tenant) {
+                                    ->state(function () use ($tenant) {
                                         $total = \App\Models\CollectionPayment::where('tenant_id', $tenant->id)
                                             ->dueForCollection()
                                             ->sum('total_amount');
-                                        return number_format($total, 2) . ' ريال';
+
+                                        return number_format($total, 2).' ريال';
                                     })
                                     ->color('warning'),
                                 TextEntry::make('overdue_payments')
                                     ->label('مدفوعات متأخرة')
-                                    ->state(function() use ($tenant) {
+                                    ->state(function () use ($tenant) {
                                         $total = \App\Models\CollectionPayment::where('tenant_id', $tenant->id)
                                             ->overduePayments()
                                             ->sum('total_amount');
-                                        return number_format($total, 2) . ' ريال';
+
+                                        return number_format($total, 2).' ريال';
                                     })
                                     ->color('danger')
                                     ->weight(FontWeight::Bold),
                                 TextEntry::make('payment_count')
                                     ->label('عدد الدفعات')
-                                    ->state(function() use ($tenant) {
+                                    ->state(function () use ($tenant) {
                                         return \App\Models\CollectionPayment::where('tenant_id', $tenant->id)->count();
                                     })
                                     ->badge()
@@ -147,14 +159,14 @@ class ViewTenant extends ViewRecord
                     ]),
             ]);
     }
-    
+
     protected function getHeaderActions(): array
     {
         return [
             EditAction::make()->label('تعديل'),
         ];
     }
-    
+
     public function getRelationManagers(): array
     {
         return [

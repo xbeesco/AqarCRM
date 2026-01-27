@@ -2,12 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\PropertyContract;
-use App\Models\User;
 use App\Models\Property;
-use Illuminate\Support\Facades\DB;
+use App\Models\PropertyContract;
 use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class PropertyContractService
 {
@@ -18,9 +16,9 @@ class PropertyContractService
     {
         return DB::transaction(function () use ($data) {
             $data['created_by'] = Auth::id();
-            
+
             $contract = PropertyContract::create($data);
-            
+
             // Log contract creation
             activity()
                 ->performedOn($contract)
@@ -32,49 +30,6 @@ class PropertyContractService
     }
 
     /**
-     * Activate a draft contract.
-     */
-    public function activateContract(int $contractId): PropertyContract
-    {
-        return DB::transaction(function () use ($contractId) {
-            $contract = PropertyContract::findOrFail($contractId);
-
-            // Validate contract can be activated
-            if ($contract->contract_status !== 'draft') {
-                throw new \Exception('Only draft contracts can be activated');
-            }
-
-            // Check property is not under another active contract
-            $existingActiveContract = PropertyContract::where('property_id', $contract->property_id)
-                ->where('contract_status', 'active')
-                ->where('id', '!=', $contract->id)
-                ->exists();
-
-            if ($existingActiveContract) {
-                throw new \Exception('Property is already under an active contract');
-            }
-
-            // Activate the contract
-            $contract->update([
-                'contract_status' => 'active',
-                'approved_by' => Auth::id(),
-                'approved_at' => now(),
-            ]);
-
-            // Update property status if needed (use status_id)
-            $managedStatusId = \App\Models\PropertyStatus::where('slug', 'managed')->first()?->id ?? 2;
-            $contract->property->update(['status_id' => $managedStatusId]);
-
-            // Log activation
-            activity()
-                ->performedOn($contract)
-                ->log('Property contract activated');
-
-            return $contract->fresh();
-        });
-    }
-
-    /**
      * Renew an existing contract.
      */
     public function renewContract(int $contractId, int $newDurationMonths, array $additionalData = []): PropertyContract
@@ -82,7 +37,7 @@ class PropertyContractService
         return DB::transaction(function () use ($contractId, $newDurationMonths, $additionalData) {
             $oldContract = PropertyContract::findOrFail($contractId);
 
-            if (!$oldContract->canRenew()) {
+            if (! $oldContract->canRenew()) {
                 throw new \Exception('Contract is not eligible for renewal');
             }
 
@@ -108,7 +63,7 @@ class PropertyContractService
             // Mark old contract as renewed
             $oldContract->update([
                 'contract_status' => 'renewed',
-                'notes' => $oldContract->notes . "\n\nRenewed with contract: " . $newContract->contract_number,
+                'notes' => $oldContract->notes."\n\nRenewed with contract: ".$newContract->contract_number,
             ]);
 
             // Log renewal
@@ -172,7 +127,7 @@ class PropertyContractService
                 $renewed++;
             } catch (\Exception $e) {
                 // Log error but continue with other contracts
-                \Log::error("Failed to auto-renew contract {$contract->contract_number}: " . $e->getMessage());
+                \Log::error("Failed to auto-renew contract {$contract->contract_number}: ".$e->getMessage());
             }
         }
 
@@ -229,44 +184,44 @@ class PropertyContractService
     }
 
     /**
-     * حساب عدد الدفعات بناءً على مدة العقد وتكرار التوريد
+     * Calculate payments count based on duration and frequency.
      */
     public static function calculatePaymentsCount(int $durationMonths, string $paymentFrequency): int|string
     {
         $monthsPerPayment = self::getMonthsPerPayment($paymentFrequency);
-        
+
         if ($monthsPerPayment === 0) {
             return 0;
         }
-        
-        // التحقق من أن القسمة تعطي رقم صحيح
+
+        // Check division yields integer
         if ($durationMonths % $monthsPerPayment !== 0) {
-            return 'قسمة لا تصح';
+            return 'Invalid division';
         }
-        
+
         return $durationMonths / $monthsPerPayment;
     }
-    
+
     /**
-     * التحقق من صحة مدة العقد مع تكرار التوريد
+     * Validate duration is compatible with payment frequency.
      */
     public static function isValidDuration(int $durationMonths, string $paymentFrequency): bool
     {
         $monthsPerPayment = self::getMonthsPerPayment($paymentFrequency);
-        
+
         if ($monthsPerPayment === 0) {
             return false;
         }
-        
+
         return $durationMonths % $monthsPerPayment === 0;
     }
 
     /**
-     * الحصول على عدد الأشهر لكل دفعة
+     * Get months per payment based on frequency.
      */
     public static function getMonthsPerPayment(string $paymentFrequency): int
     {
-        return match($paymentFrequency) {
+        return match ($paymentFrequency) {
             'monthly' => 1,
             'quarterly' => 3,
             'semi_annually' => 6,

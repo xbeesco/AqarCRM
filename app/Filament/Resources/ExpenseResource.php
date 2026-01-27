@@ -6,13 +6,8 @@ use App\Filament\Resources\ExpenseResource\Pages;
 use App\Models\Expense;
 use App\Models\Property;
 use App\Models\Unit;
-use Filament\Forms\Components\Placeholder;
-use Filament\Resources\Resource;
-use Filament\Tables;
-use Filament\Tables\Table;
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Grid;
+use Closure;
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -20,28 +15,27 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
-use Filament\Schemas\Components\Utilities\Set;
-use Closure;
 
 class ExpenseResource extends Resource
 {
     protected static ?string $model = Expense::class;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
-    
+
     protected static ?string $navigationLabel = 'النفقات';
-    
+
     protected static ?string $modelLabel = 'نفقة';
-    
+
     protected static ?string $pluralModelLabel = 'النفقات';
 
     protected static string|\UnitEnum|null $navigationGroup = 'الماليات';
@@ -83,7 +77,7 @@ class ExpenseResource extends Resource
                                     ->with('owner')
                                     ->get()
                                     ->mapWithKeys(fn ($property) => [
-                                        $property->id => $property->name . ' - ' . $property->owner->name
+                                        $property->id => $property->name.' - '.$property->owner->name,
                                     ])
                                     ->toArray()
                                 )
@@ -94,7 +88,7 @@ class ExpenseResource extends Resource
                                 ->afterStateUpdated(function (Set $set, $get, $state) {
                                     // Clear unit selection when property changes
                                     $set('unit_id', null);
-                                    // إعادة التحقق من التاريخ عند تغيير العقار
+                                    // Revalidate date when property changes
                                     if ($get('date')) {
                                         $set('date', $get('date'));
                                     }
@@ -114,7 +108,7 @@ class ExpenseResource extends Resource
                                     if ($state !== 'unit') {
                                         $set('unit_id', null);
                                     } else {
-                                        // إذا اختار وحدة معينة ولكن العقار ليس له وحدات، غيّر الاختيار للعقار ككل
+                                        // If user selects "specific unit" but property has no units, revert to "whole property"
                                         $propertyId = $get('property_id');
                                         if ($propertyId) {
                                             $unitsCount = Unit::where('property_id', $propertyId)->count();
@@ -143,47 +137,48 @@ class ExpenseResource extends Resource
 
                             Select::make('unit_id')
                                 ->label('الوحدة')
-                                ->placeholder(fn ($get): string => 
-                                    !$get('property_id') ? 'اختر العقار أولاً' : 'اختر الوحدة'
+                                ->placeholder(fn ($get): string => ! $get('property_id') ? 'اختر العقار أولاً' : 'اختر الوحدة'
                                 )
                                 ->options(function ($get): array {
                                     $propertyId = $get('property_id');
-                                    if (!$propertyId) {
+                                    if (! $propertyId) {
                                         return [];
                                     }
                                     $units = Unit::where('property_id', $propertyId)
                                         ->get()
                                         ->pluck('name', 'id')
                                         ->toArray();
-                                    
+
                                     if (empty($units)) {
                                         return ['0' => 'لا توجد وحدات متاحة لهذا العقار'];
                                     }
-                                    
+
                                     return $units;
                                 })
                                 ->disabled(function ($get): bool {
                                     if ($get('expense_for') !== 'unit') {
                                         return true;
                                     }
-                                    if (!$get('property_id')) {
+                                    if (! $get('property_id')) {
                                         return true;
                                     }
                                     $unitsCount = Unit::where('property_id', $get('property_id'))->count();
+
                                     return $unitsCount === 0;
                                 })
                                 ->helperText(function ($get): ?string {
                                     if ($get('expense_for') !== 'unit') {
                                         return null;
                                     }
-                                    if (!$get('property_id')) {
+                                    if (! $get('property_id')) {
                                         return 'اختر العقار أولاً';
                                     }
                                     $unitsCount = Unit::where('property_id', $get('property_id'))->count();
                                     if ($unitsCount === 0) {
                                         return '⚠️ لا توجد وحدات مضافة لهذا العقار';
                                     }
-                                    return 'عدد الوحدات المتاحة: ' . $unitsCount;
+
+                                    return 'عدد الوحدات المتاحة: '.$unitsCount;
                                 })
                                 ->searchable()
                                 ->preload()
@@ -191,14 +186,14 @@ class ExpenseResource extends Resource
                                 ->visible(fn ($get): bool => $get('expense_for') === 'unit')
                                 ->required(fn ($get): bool => $get('expense_for') === 'unit' && Unit::where('property_id', $get('property_id'))->exists())
                                 ->rules([
-                                    fn ($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
-                                        if ($get('expense_for') === 'unit' && !$value) {
+                                    fn ($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                        if ($get('expense_for') === 'unit' && ! $value) {
                                             $propertyId = $get('property_id');
                                             if ($propertyId && Unit::where('property_id', $propertyId)->exists()) {
                                                 $fail('يجب اختيار وحدة');
                                             }
                                         }
-                                        // التحقق من أن الوحدة المختارة تنتمي للعقار المختار
+                                        // Verify selected unit belongs to the selected property
                                         if ($value && $value !== '0' && $get('property_id')) {
                                             $unit = Unit::find($value);
                                             if ($unit && $unit->property_id != $get('property_id')) {
@@ -231,7 +226,7 @@ class ExpenseResource extends Resource
                                     fn ($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
                                         $propertyId = $get('property_id');
                                         $unitId = $get('unit_id');
-                                        if (!$propertyId || !$value) {
+                                        if (! $propertyId || ! $value) {
                                             return;
                                         }
 
@@ -239,7 +234,7 @@ class ExpenseResource extends Resource
                                         $excludeId = $record ? $record->id : null;
                                         $expenseFor = $get('expense_for') ?? 'property';
 
-                                        // استخدام نفس الطريقة مع المعاملات الصحيحة
+                                        // Validate expense date against supply payment periods
                                         $error = $validationService->validateExpense($expenseFor, $propertyId, $unitId, $value, $excludeId);
                                         if ($error) {
                                             $fail($error);
@@ -262,12 +257,12 @@ class ExpenseResource extends Resource
                                     TextInput::make('type')
                                         ->label('اسم الفاتورة')
                                         ->placeholder('مشتريات السباكة, دهانات المدخل, الخ ...'),
-                                                 
+
                                     TextInput::make('amount')
                                         ->label('المبلغ')
                                         ->numeric()
                                         ->prefix('ريال'),
-                                    
+
                                     FileUpload::make('file')
                                         ->label('الملف')
                                         ->directory('expense--file')
@@ -283,12 +278,12 @@ class ExpenseResource extends Resource
                                     TextInput::make('type')
                                         ->label('نوع العمل')
                                         ->Placeholder('تصليح كهرباء, سباكة, تنظيف, الخ ...'),
-                                                                        
+
                                     TextInput::make('amount')
                                         ->label('المبلغ')
                                         ->numeric()
                                         ->prefix('ريال'),
-                                    
+
                                     FileUpload::make('file')
                                         ->label('الملف')
                                         ->directory('expense--file')
@@ -310,7 +305,7 @@ class ExpenseResource extends Resource
 
                                     TextInput::make('entity')
                                         ->label('الجهة الحكومية'),
-                                                                        
+
                                     FileUpload::make('file')
                                         ->label('الملف')
                                         ->directory('expense--file')
@@ -353,7 +348,7 @@ class ExpenseResource extends Resource
 
                 TextColumn::make('docs_count')
                     ->label('الإثباتات')
-                    ->getStateUsing(fn (Expense $record): string => $record->docs_count . ' إثبات')
+                    ->getStateUsing(fn (Expense $record): string => $record->docs_count.' إثبات')
                     ->badge()
                     ->color('info'),
 
@@ -384,14 +379,14 @@ class ExpenseResource extends Resource
                                 ->preload()
                                 ->live()
                                 ->afterStateUpdated(fn ($set) => $set('unit_id', null)),
-                            
+
                             Select::make('unit_id')
                                 ->label('خاص بـ')
                                 ->native(true)
                                 ->placeholder('العقار نفسه')
                                 ->options(function ($get) {
                                     $propertyId = $get('property_id');
-                                    if (!$propertyId) {
+                                    if (! $propertyId) {
                                         return [];
                                     }
                                     $units = Unit::where('property_id', $propertyId)
@@ -400,21 +395,22 @@ class ExpenseResource extends Resource
 
                                     return $units;
                                 })
-                                ->visible(fn ($get) => (bool)$get('property_id')),
+                                ->visible(fn ($get) => (bool) $get('property_id')),
                         ]),
                     ])
                     ->query(function (EloquentBuilder $query, array $data): EloquentBuilder {
                         if (isset($data['property_id']) && $data['property_id']) {
                             if (isset($data['unit_id']) && $data['unit_id']) {
-                                // نفقات وحدة محددة
+                                // Expenses for a specific unit
                                 $query->where('subject_type', 'App\\Models\\Unit')
-                                      ->where('subject_id', $data['unit_id']);
+                                    ->where('subject_id', $data['unit_id']);
                             } else {
-                                // نفقات العقار ككل فقط (ليس الوحدات)
+                                // Expenses for the property itself only (not units)
                                 $query->where('subject_type', 'App\\Models\\Property')
-                                      ->where('subject_id', $data['property_id']);
+                                    ->where('subject_id', $data['property_id']);
                             }
                         }
+
                         return $query;
                     })
                     ->indicateUsing(function (array $data): array {
@@ -425,23 +421,24 @@ class ExpenseResource extends Resource
                                 if (isset($data['unit_id']) && $data['unit_id']) {
                                     $unit = Unit::find($data['unit_id']);
                                     if ($unit) {
-                                        $indicators['filter'] = 'العقار: ' . $property->name . ' - خاص بـ: ' . $unit->name;
+                                        $indicators['filter'] = 'العقار: '.$property->name.' - خاص بـ: '.$unit->name;
                                     }
                                 } else {
-                                    $indicators['filter'] = 'العقار: ' . $property->name . ' (العقار ككل)';
+                                    $indicators['filter'] = 'العقار: '.$property->name.' (العقار ككل)';
                                 }
                             }
                         }
+
                         return $indicators;
                     }),
 
-                // الصف الثاني: نوع النفقة
+                // Expense type filter
                 SelectFilter::make('type')
                     ->label('نوع النفقة')
                     ->options(Expense::TYPES)
                     ->multiple(),
 
-                // الصف الثالث: الفترة (الشهر والسنة)
+                // Period filter (month and year)
                 Filter::make('period')
                     ->label('الفترة')
                     ->form([
@@ -461,6 +458,7 @@ class ExpenseResource extends Resource
                         if (isset($data['this_year']) && $data['this_year']) {
                             $query->thisYear();
                         }
+
                         return $query;
                     })
                     ->indicateUsing(function (array $data): array {
@@ -471,10 +469,11 @@ class ExpenseResource extends Resource
                         if (isset($data['this_year']) && $data['this_year']) {
                             $indicators['this_year'] = 'هذا العام';
                         }
+
                         return $indicators;
                     }),
 
-                // الصف الرابع: نطاق التاريخ (من - إلى)
+                // Date range filter (from - to)
                 Filter::make('date_range')
                     ->label('نطاق التاريخ')
                     ->form([
@@ -499,11 +498,12 @@ class ExpenseResource extends Resource
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if (isset($data['from_date']) && $data['from_date']) {
-                            $indicators['from_date'] = 'من: ' . \Carbon\Carbon::parse($data['from_date'])->format('Y-m-d');
+                            $indicators['from_date'] = 'من: '.\Carbon\Carbon::parse($data['from_date'])->format('Y-m-d');
                         }
                         if (isset($data['to_date']) && $data['to_date']) {
-                            $indicators['to_date'] = 'إلى: ' . \Carbon\Carbon::parse($data['to_date'])->format('Y-m-d');
+                            $indicators['to_date'] = 'إلى: '.\Carbon\Carbon::parse($data['to_date'])->format('Y-m-d');
                         }
+
                         return $indicators;
                     }),
             ])
@@ -520,7 +520,6 @@ class ExpenseResource extends Resource
             //
         ];
     }
-
 
     public static function getPages(): array
     {

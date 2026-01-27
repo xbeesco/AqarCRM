@@ -2,14 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\SupplyPayment;
-use App\Models\PropertyContract;
-use App\Models\Unit;
 use App\Models\Expense;
 use App\Models\Property;
-use Carbon\Carbon;
+use App\Models\SupplyPayment;
+use App\Models\Unit;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\DB;
 
 class SupplyPaymentService
 {
@@ -21,17 +18,17 @@ class SupplyPaymentService
     }
 
     /**
-     * توليد رقم فريد لدفعة التوريد
+     * Generate unique payment number.
+     *
+     * @deprecated Use SupplyPayment::generateNewPaymentNumber() or let the model auto-generate the number
      */
     public function generatePaymentNumber(): string
     {
-        $year = date('Y');
-        $count = SupplyPayment::whereYear('created_at', $year)->count() + 1;
-        return 'SUPPLY-' . $year . '-' . str_pad($count, 6, '0', STR_PAD_LEFT);
+        return SupplyPayment::generateNewPaymentNumber();
     }
 
     /**
-     * حساب المبلغ الصافي
+     * Calculate net amount.
      */
     public function calculateNetAmount(SupplyPayment $payment): float
     {
@@ -39,7 +36,7 @@ class SupplyPaymentService
     }
 
     /**
-     * حساب العمولة
+     * Calculate commission amount.
      */
     public function calculateCommission(SupplyPayment $payment): float
     {
@@ -47,17 +44,14 @@ class SupplyPaymentService
     }
 
     /**
-     * حساب قيمة دفعة التوريد بناءً على المدى الزمني
-     * يحسب إجمالي المبالغ المحصلة خلال الفترة مع خصم العمولة والمصروفات
+     * Calculate supply payment amounts based on period.
      */
     public function calculateAmountsFromPeriod(SupplyPayment $payment): array
     {
-        // استخراج المدى الزمني من invoice_details (يتضمن فترة السماح بالفعل)
         $invoiceDetails = $payment->invoice_details ?? [];
-        $periodStart = $invoiceDetails['period_start'] ?? $payment->month_year . '-01';
+        $periodStart = $invoiceDetails['period_start'] ?? $payment->month_year.'-01';
         $periodEnd = $invoiceDetails['period_end'] ?? date('Y-m-t', strtotime($periodStart));
 
-        // 1. حساب إجمالي المبالغ المحصلة خلال الفترة باستخدام خدمة تخصيص الدفعات
         $collectionData = $this->paymentAssignmentService->calculateCollectedAmountsForPeriod(
             $payment->propertyContract->property_id,
             $periodStart,
@@ -67,17 +61,14 @@ class SupplyPaymentService
         $collectedAmount = $collectionData['total_amount'];
         $collectionsCount = $collectionData['payments_count'];
 
-        // 2. حساب العمولة
         $commissionAmount = round($collectedAmount * ($payment->commission_rate / 100), 2);
 
-        // 3. حساب المصروفات خلال الفترة (للعقار والوحدات التابعة له)
         $expenses = $this->calculateExpensesForPeriod(
             $payment->propertyContract->property_id,
             $periodStart,
             $periodEnd
         );
 
-        // 4. حساب المبلغ الصافي
         $netAmount = $collectedAmount - $commissionAmount - $expenses;
 
         return [
@@ -87,29 +78,26 @@ class SupplyPaymentService
             'net_amount' => $netAmount,
             'period_start' => $periodStart,
             'period_end' => $periodEnd,
-            'collections_count' => $collectionsCount
+            'collections_count' => $collectionsCount,
         ];
     }
 
     /**
-     * حساب المصروفات للفترة المحددة
+     * Calculate expenses for a given period.
      */
     protected function calculateExpensesForPeriod(int $propertyId, string $periodStart, string $periodEnd): float
     {
-        // جلب معرفات الوحدات التابعة للعقار
         $unitIds = Unit::where('property_id', $propertyId)
             ->pluck('id')
             ->toArray();
 
-        // حساب مصروفات العقار
         $propertyExpenses = Expense::where('subject_type', Property::class)
             ->where('subject_id', $propertyId)
             ->whereBetween('date', [$periodStart, $periodEnd])
             ->sum('cost');
 
-        // حساب مصروفات الوحدات
         $unitExpenses = 0;
-        if (!empty($unitIds)) {
+        if (! empty($unitIds)) {
             $unitExpenses = Expense::where('subject_type', Unit::class)
                 ->whereIn('subject_id', $unitIds)
                 ->whereBetween('date', [$periodStart, $periodEnd])
@@ -120,13 +108,12 @@ class SupplyPaymentService
     }
 
     /**
-     * الحصول على دفعات التحصيل التفصيلية للفترة
+     * Get detailed collection payments for period.
      */
     public function getCollectionPaymentsDetails(SupplyPayment $payment): Collection
     {
-        // استخراج المدى الزمني
         $invoiceDetails = $payment->invoice_details ?? [];
-        $periodStart = $invoiceDetails['period_start'] ?? $payment->month_year . '-01';
+        $periodStart = $invoiceDetails['period_start'] ?? $payment->month_year.'-01';
         $periodEnd = $invoiceDetails['period_end'] ?? date('Y-m-t', strtotime($periodStart));
 
         return $this->paymentAssignmentService->getPaymentsForPeriod(
@@ -137,41 +124,37 @@ class SupplyPaymentService
     }
 
     /**
-     * الحصول على المصروفات التفصيلية للفترة
+     * Get detailed expenses for period.
      */
     public function getExpensesDetails(SupplyPayment $payment): Collection
     {
         $invoiceDetails = $payment->invoice_details ?? [];
-        $periodStart = $invoiceDetails['period_start'] ?? $payment->month_year . '-01';
+        $periodStart = $invoiceDetails['period_start'] ?? $payment->month_year.'-01';
         $periodEnd = $invoiceDetails['period_end'] ?? date('Y-m-t', strtotime($periodStart));
 
-        // جلب معرفات الوحدات التابعة للعقار
         $unitIds = Unit::where('property_id', $payment->propertyContract->property_id)
             ->pluck('id')
             ->toArray();
 
-        // جلب النفقات للعقار والوحدات معاً
-        return Expense::where(function($query) use ($payment, $unitIds) {
-                // نفقات العقار
-                $query->where(function($q) use ($payment) {
-                    $q->where('subject_type', Property::class)
-                      ->where('subject_id', $payment->propertyContract->property_id);
-                })
-                // أو نفقات الوحدات
-                ->orWhere(function($q) use ($unitIds) {
-                    if (!empty($unitIds)) {
+        return Expense::where(function ($query) use ($payment, $unitIds) {
+            $query->where(function ($q) use ($payment) {
+                $q->where('subject_type', Property::class)
+                    ->where('subject_id', $payment->propertyContract->property_id);
+            })
+                ->orWhere(function ($q) use ($unitIds) {
+                    if (! empty($unitIds)) {
                         $q->where('subject_type', Unit::class)
-                          ->whereIn('subject_id', $unitIds);
+                            ->whereIn('subject_id', $unitIds);
                     }
                 });
-            })
+        })
             ->whereBetween('date', [$periodStart, $periodEnd])
             ->orderBy('date', 'desc')
             ->get();
     }
 
     /**
-     * اعتماد دفعة التوريد
+     * Approve a supply payment.
      */
     public function approve(SupplyPayment $payment, int $approverId): bool
     {
@@ -185,7 +168,7 @@ class SupplyPaymentService
     }
 
     /**
-     * رفض دفعة التوريد
+     * Reject a supply payment.
      */
     public function reject(SupplyPayment $payment, int $approverId, ?string $reason = null): bool
     {
@@ -200,7 +183,7 @@ class SupplyPaymentService
     }
 
     /**
-     * معالجة الدفع
+     * Process payment with bank reference.
      */
     public function processPayment(SupplyPayment $payment, ?string $bankTransferReference = null): bool
     {
@@ -213,14 +196,14 @@ class SupplyPaymentService
     }
 
     /**
-     * الحصول على تفصيل الخصومات
+     * Get deduction breakdown.
      */
     public function getDeductionBreakdown(SupplyPayment $payment): array
     {
         return [
             'commission' => [
                 'amount' => $payment->commission_amount,
-                'rate' => $payment->commission_rate . '%',
+                'rate' => $payment->commission_rate.'%',
                 'description' => 'عمولة الإدارة',
             ],
             'maintenance' => [
@@ -231,12 +214,12 @@ class SupplyPaymentService
                 'amount' => $payment->other_deductions,
                 'description' => 'خصومات أخرى',
                 'details' => $payment->deduction_details,
-            ]
+            ],
         ];
     }
 
     /**
-     * التحقق من وجود دفعات سابقة غير مؤكدة لنفس العقد
+     * Check if there are pending previous payments for the same contract.
      */
     public function hasPendingPreviousPayments(SupplyPayment $payment): bool
     {
@@ -247,7 +230,7 @@ class SupplyPaymentService
     }
 
     /**
-     * الحصول على الدفعات السابقة غير المؤكدة لنفس العقد
+     * Get pending previous payments for the same contract.
      */
     public function getPendingPreviousPayments(SupplyPayment $payment): Collection
     {
@@ -259,11 +242,10 @@ class SupplyPaymentService
     }
 
     /**
-     * تأكيد دفعة التوريد مع جميع الفحوصات المطلوبة
+     * Confirm supply payment with all required checks.
      */
     public function confirmSupplyPayment(SupplyPayment $payment, int $userId): array
     {
-        // التحقق من الدفعات السابقة
         if ($this->hasPendingPreviousPayments($payment)) {
             $pendingPayments = $this->getPendingPreviousPayments($payment);
 
@@ -273,24 +255,21 @@ class SupplyPaymentService
                 'pending_payments' => $pendingPayments,
                 'details' => $pendingPayments->map(function ($p) {
                     $amounts = $this->calculateAmountsFromPeriod($p);
+
                     return [
                         'payment_number' => $p->payment_number,
                         'month_year' => $p->month_year,
                         'due_date' => $p->due_date->format('Y-m-d'),
                         'net_amount' => $amounts['net_amount'],
-                        'status' => $p->supply_status // استخدام الـ accessor للحالة الديناميكية
+                        'status' => $p->supply_status,
                     ];
-                })
+                }),
             ];
         }
 
-        // حساب المبالغ
         $amounts = $this->calculateAmountsFromPeriod($payment);
-
-        // تحديد نوع العملية
         $isSettlement = $amounts['net_amount'] <= 0;
 
-        // تحديث الدفعة
         $payment->update([
             'gross_amount' => $amounts['gross_amount'],
             'commission_amount' => $amounts['commission_amount'],
@@ -300,7 +279,6 @@ class SupplyPaymentService
             'collected_by' => $userId,
         ]);
 
-        // إعداد رسالة النجاح
         if ($isSettlement) {
             if ($amounts['net_amount'] < 0) {
                 $message = sprintf(
@@ -327,30 +305,27 @@ class SupplyPaymentService
             'message' => $message,
             'is_settlement' => $isSettlement,
             'payment' => $payment,
-            'amounts' => $amounts
+            'amounts' => $amounts,
         ];
     }
 
     /**
-     * التحقق من إمكانية تأكيد التوريد
+     * Check if payment can be confirmed.
      */
     public function canConfirmPayment(SupplyPayment $payment): array
     {
         $errors = [];
 
-        // التحقق من الحالة (باستخدام paid_date)
         if ($payment->paid_date !== null) {
             $errors[] = 'تم توريد هذه الدفعة مسبقاً';
         }
 
-        // التحقق من تاريخ الاستحقاق
-        if (!$payment->due_date) {
+        if (! $payment->due_date) {
             $errors[] = 'لا يوجد تاريخ استحقاق محدد';
         } elseif (now()->lt($payment->due_date)) {
             $errors[] = 'لم يحل موعد الاستحقاق بعد';
         }
 
-        // التحقق من الدفعات السابقة
         if ($this->hasPendingPreviousPayments($payment)) {
             $pendingCount = $this->getPendingPreviousPayments($payment)->count();
             $errors[] = "يوجد {$pendingCount} دفعة/دفعات سابقة لم يتم توريدها";
@@ -358,7 +333,100 @@ class SupplyPaymentService
 
         return [
             'can_confirm' => empty($errors),
-            'errors' => $errors
+            'errors' => $errors,
+        ];
+    }
+
+    /**
+     * Get categorized collection payments.
+     */
+    public function getCategorizedCollectionPayments(SupplyPayment $payment): array
+    {
+        $invoiceDetails = $payment->invoice_details ?? [];
+        $periodStart = $invoiceDetails['period_start'] ?? $payment->month_year.'-01';
+        $periodEnd = $invoiceDetails['period_end'] ?? date('Y-m-t', strtotime($periodStart));
+
+        return $this->paymentAssignmentService->getCategorizedPaymentsForPeriod(
+            $payment->propertyContract->property_id,
+            $periodStart,
+            $periodEnd
+        );
+    }
+
+    /**
+     * Get collection payments summary.
+     */
+    public function getCollectionPaymentsSummary(SupplyPayment $payment): array
+    {
+        $categorizedData = $this->getCategorizedCollectionPayments($payment);
+
+        $summary = [
+            'total_payments' => 0,
+            'total_amount' => 0,
+            'counted_payments' => 0,
+            'counted_amount' => $categorizedData['counted_total'],
+            'uncounted_payments' => 0,
+            'uncounted_amount' => $categorizedData['uncounted_total'],
+            'by_type' => [],
+        ];
+
+        foreach ($categorizedData['categories'] as $type => $category) {
+            $count = $category['payments']->count();
+            $total = $category['total'];
+
+            $summary['total_payments'] += $count;
+            $summary['total_amount'] += $total;
+
+            if ($category['counted']) {
+                $summary['counted_payments'] += $count;
+            } else {
+                $summary['uncounted_payments'] += $count;
+            }
+
+            $summary['by_type'][$type] = [
+                'name' => $category['name'],
+                'count' => $count,
+                'total' => $total,
+                'counted' => $category['counted'],
+            ];
+        }
+
+        return $summary;
+    }
+
+    /**
+     * Validate payment calculations.
+     */
+    public function validateCalculations(SupplyPayment $payment): array
+    {
+        $calculated = $this->calculateAmountsFromPeriod($payment);
+
+        $errors = [];
+
+        if ($payment->paid_date !== null) {
+            if (abs($payment->gross_amount - $calculated['gross_amount']) > 0.01) {
+                $errors[] = [
+                    'field' => 'gross_amount',
+                    'stored' => $payment->gross_amount,
+                    'calculated' => $calculated['gross_amount'],
+                    'difference' => $payment->gross_amount - $calculated['gross_amount'],
+                ];
+            }
+
+            if (abs($payment->net_amount - $calculated['net_amount']) > 0.01) {
+                $errors[] = [
+                    'field' => 'net_amount',
+                    'stored' => $payment->net_amount,
+                    'calculated' => $calculated['net_amount'],
+                    'difference' => $payment->net_amount - $calculated['net_amount'],
+                ];
+            }
+        }
+
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors,
+            'calculated' => $calculated,
         ];
     }
 }

@@ -56,7 +56,7 @@ class User extends Authenticatable implements FilamentUser
 
     public static function generateEmail(string $identifier): string
     {
-        return $identifier . '@' . AppHelper::getEmailDomain();
+        return $identifier.'@'.AppHelper::getEmailDomain();
     }
 
     protected static function boot()
@@ -69,8 +69,9 @@ class User extends Authenticatable implements FilamentUser
                 if (! $user->email && $user->phone) {
                     $user->email = self::generateEmail($user->phone);
                 }
-                if (! $user->password && $user->phone) {
-                    $user->password = bcrypt($user->phone);
+                if (! $user->password) {
+                    // Generate secure random password instead of using phone number
+                    $user->password = bcrypt(\Illuminate\Support\Str::random(16));
                 }
             }
         });
@@ -192,7 +193,7 @@ class User extends Authenticatable implements FilamentUser
     {
         $userType = $this->getUserType();
 
-        return $userType ? $userType->label() : 'غير محدد';
+        return $userType ? $userType->label() : 'Unknown';
     }
 
     /**

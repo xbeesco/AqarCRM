@@ -10,7 +10,6 @@ use Filament\GlobalSearch\GlobalSearchResult;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -35,7 +34,6 @@ class SupplyPaymentResource extends Resource
             Section::make('إضافة دفعة مالك')
                 ->columnSpan('full')
                 ->schema([
-                    // العقد
                     Select::make('property_contract_id')
                         ->label('العقد')
                         ->required()
@@ -57,20 +55,17 @@ class SupplyPaymentResource extends Resource
                         })
                         ->columnSpan(['lg' => 2, 'xl' => 3]),
 
-                    // تاريخ الاستحقاق
                     DatePicker::make('due_date')
                         ->label('تاريخ الاستحقاق')
                         ->required()
                         ->default(now()->addDays(7))
                         ->columnSpan(['lg' => 1, 'xl' => 1]),
 
-                    // تاريخ التوريد - اختياري
                     DatePicker::make('paid_date')
                         ->label('تاريخ التوريد')
                         ->helperText('اتركه فارغاً إذا لم يتم التوريد بعد')
                         ->columnSpan(['lg' => 1, 'xl' => 1]),
 
-                    // إقرار ما بعد التوريد - يظهر عند وجود تاريخ توريد
                     \Filament\Forms\Components\Placeholder::make('approval_section')
                         ->label('إقرار ما بعد التوريد')
                         ->content('')
@@ -88,7 +83,6 @@ class SupplyPaymentResource extends Resource
                         ->required(fn ($get) => $get('paid_date') !== null)
                         ->columnSpan(['lg' => 3, 'xl' => 4]),
 
-                    // Hidden fields
                     \Filament\Forms\Components\Hidden::make('owner_id'),
                     \Filament\Forms\Components\Hidden::make('payment_number'),
                 ])->columns([
@@ -156,8 +150,8 @@ class SupplyPaymentResource extends Resource
                 TextColumn::make('delay_reason')
                     ->label('سبب التأجيل')
                     ->placeholder('—')
-                    ->visible(fn () => false) // مخفي افتراضياً
-                    ->toggleable(), // يمكن إظهاره من إعدادات الجدول
+                    ->visible(fn () => false)
+                    ->toggleable(),
 
                 TextColumn::make('paid_date')
                     ->label('تاريخ التوريد')
@@ -216,10 +210,10 @@ class SupplyPaymentResource extends Resource
 
     public static function getRelations(): array
     {
-        return [
-            \App\Filament\Resources\SupplyPaymentResource\RelationManagers\ExpensesRelationManager::class,
-            \App\Filament\Resources\SupplyPaymentResource\RelationManagers\CollectionPaymentsRelationManager::class,
-        ];
+        // TODO: Re-implement these as custom infolist sections instead of RelationManagers
+        // The previous implementation used fake/dummy relationships which is incorrect
+        // Data should be fetched via PaymentAssignmentService and SupplyPaymentService
+        return [];
     }
 
     public static function getPages(): array
@@ -232,7 +226,6 @@ class SupplyPaymentResource extends Resource
         ];
     }
 
-    // البحث الذكي الشامل
     public static function getGloballySearchableAttributes(): array
     {
         return [
@@ -268,36 +261,19 @@ class SupplyPaymentResource extends Resource
     {
         $search = trim($search);
 
-        // تطبيع البحث العربي
         $normalizedSearch = str_replace(['أ', 'إ', 'آ'], 'ا', $search);
         $normalizedSearch = str_replace(['ة'], 'ه', $normalizedSearch);
         $normalizedSearch = str_replace(['ى'], 'ي', $normalizedSearch);
 
-        // إزالة المسافات
         $searchWithoutSpaces = str_replace(' ', '', $normalizedSearch);
 
         return static::getGlobalSearchEloquentQuery()
             ->where(function (Builder $query) use ($search, $normalizedSearch, $searchWithoutSpaces) {
-                // البحث في رقم الدفعة والمراجع
                 $query->where('payment_number', 'LIKE', "%{$search}%")
                     ->orWhere('payment_number', 'LIKE', "%{$searchWithoutSpaces}%")
                     ->orWhere('bank_transfer_reference', 'LIKE', "%{$search}%")
                     ->orWhere('month_year', 'LIKE', "%{$search}%");
 
-                // البحث في حالة التوريد
-                $statusOptions = [
-                    'pending' => 'قيد الانتظار',
-                    'worth_collecting' => 'تستحق التوريد',
-                    'collected' => 'تم التوريد',
-                ];
-
-                foreach ($statusOptions as $key => $label) {
-                    if (stripos($label, $normalizedSearch) !== false || stripos($label, $search) !== false) {
-                        $query->orWhere('supply_status', $key);
-                    }
-                }
-
-                // البحث في حالة الموافقة
                 $approvalOptions = [
                     'approved' => 'موافق',
                     'rejected' => 'غير موافق',
@@ -309,7 +285,6 @@ class SupplyPaymentResource extends Resource
                     }
                 }
 
-                // البحث في المبالغ المالية
                 if (is_numeric($search)) {
                     $query->orWhere('gross_amount', 'LIKE', "%{$search}%")
                         ->orWhere('commission_amount', 'LIKE', "%{$search}%")
@@ -319,16 +294,13 @@ class SupplyPaymentResource extends Resource
                         ->orWhere('net_amount', 'LIKE', "%{$search}%");
                 }
 
-                // البحث في الملاحظات
                 $query->orWhere('notes', 'LIKE', "%{$normalizedSearch}%");
 
-                // البحث في التواريخ
                 $query->orWhere('due_date', 'LIKE', "%{$search}%")
                     ->orWhere('paid_date', 'LIKE', "%{$search}%")
                     ->orWhere('approved_at', 'LIKE', "%{$search}%")
                     ->orWhere('created_at', 'LIKE', "%{$search}%");
 
-                // البحث بالسنة فقط (مثل: 2024)
                 if (preg_match('/^\d{4}$/', $search)) {
                     $query->orWhereYear('due_date', $search)
                         ->orWhereYear('paid_date', $search)
@@ -336,7 +308,6 @@ class SupplyPaymentResource extends Resource
                         ->orWhereYear('created_at', $search);
                 }
 
-                // البحث بالشهر والسنة (مثل: 01/2024 أو 8-2024)
                 if (preg_match('/^\d{1,2}[-\/]\d{4}$/', $search)) {
                     $parts = preg_split('/[-\/]/', $search);
                     $month = str_pad($parts[0], 2, '0', STR_PAD_LEFT);
@@ -352,7 +323,6 @@ class SupplyPaymentResource extends Resource
                     });
                 }
 
-                // البحث بالسنة/الشهر (مثل: 2024/01 أو 2024-8)
                 if (preg_match('/^\d{4}[-\/]\d{1,2}$/', $search)) {
                     $parts = preg_split('/[-\/]/', $search);
                     $year = $parts[0];
@@ -368,7 +338,6 @@ class SupplyPaymentResource extends Resource
                     });
                 }
 
-                // البحث بالتاريخ الكامل (مثل: 01/08/2024 أو 1-8-2024)
                 if (preg_match('/^\d{1,2}[-\/]\d{1,2}[-\/]\d{4}$/', $search)) {
                     $parts = preg_split('/[-\/]/', $search);
                     $day = str_pad($parts[0], 2, '0', STR_PAD_LEFT);
@@ -382,14 +351,12 @@ class SupplyPaymentResource extends Resource
                         ->orWhereDate('created_at', $dateStr);
                 }
 
-                // البحث بصيغة يوم/شهر فقط (مثل: 01/08 أو 1/8)
                 if (preg_match('/^\d{1,2}[-\/]\d{1,2}$/', $search)) {
                     $parts = preg_split('/[-\/]/', $search);
                     $day = str_pad($parts[0], 2, '0', STR_PAD_LEFT);
                     $month = str_pad($parts[1], 2, '0', STR_PAD_LEFT);
                     $currentYear = date('Y');
 
-                    // البحث في السنة الحالية
                     $query->orWhere(function ($q) use ($day, $month, $currentYear) {
                         $dateStr = "$currentYear-$month-$day";
                         $q->whereDate('due_date', $dateStr)
@@ -398,7 +365,6 @@ class SupplyPaymentResource extends Resource
                             ->orWhereDate('created_at', $dateStr);
                     });
 
-                    // البحث بالشهر فقط (في حالة أن المستخدم يقصد الشهر/السنة الحالية)
                     $query->orWhere(function ($q) use ($month, $currentYear) {
                         $q->whereMonth('due_date', $month)->whereYear('due_date', $currentYear);
                     })->orWhere(function ($q) use ($month, $currentYear) {
@@ -406,13 +372,11 @@ class SupplyPaymentResource extends Resource
                     });
                 }
 
-                // البحث في العقد
                 $query->orWhereHas('propertyContract', function ($q) use ($search, $searchWithoutSpaces) {
                     $q->where('contract_number', 'LIKE', "%{$search}%")
                         ->orWhere('contract_number', 'LIKE', "%{$searchWithoutSpaces}%")
                         ->orWhere('notary_number', 'LIKE', "%{$search}%");
 
-                    // البحث في أرقام العقد
                     if (is_numeric($search)) {
                         $q->orWhere('commission_rate', 'LIKE', "%{$search}%")
                             ->orWhere('duration_months', $search)
@@ -420,14 +384,12 @@ class SupplyPaymentResource extends Resource
                     }
                 });
 
-                // البحث في العقار
                 $query->orWhereHas('propertyContract.property', function ($q) use ($normalizedSearch, $searchWithoutSpaces) {
                     $q->where('name', 'LIKE', "%{$normalizedSearch}%")
                         ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%")
                         ->orWhere('address', 'LIKE', "%{$normalizedSearch}%");
                 });
 
-                // البحث في المالك
                 $query->orWhereHas('owner', function ($q) use ($search, $normalizedSearch, $searchWithoutSpaces) {
                     $q->where('name', 'LIKE', "%{$normalizedSearch}%")
                         ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%")
@@ -436,7 +398,6 @@ class SupplyPaymentResource extends Resource
                         ->orWhere('email', 'LIKE', "%{$search}%");
                 });
 
-                // البحث في المعتمد
                 $query->orWhereHas('approver', function ($q) use ($normalizedSearch, $searchWithoutSpaces) {
                     $q->where('name', 'LIKE', "%{$normalizedSearch}%")
                         ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%");
@@ -449,7 +410,6 @@ class SupplyPaymentResource extends Resource
                 $property = $contract?->property?->name ?? 'غير محدد';
                 $owner = $record->owner?->name ?? 'غير محدد';
 
-                // استخدام الـ Accessor للحصول على التسمية
                 $statusLabel = $record->supply_status_label;
 
                 return new GlobalSearchResult(

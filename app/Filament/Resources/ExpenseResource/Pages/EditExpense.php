@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\ExpenseResource\Pages;
 
 use App\Filament\Resources\ExpenseResource;
-use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
 class EditExpense extends EditRecord
@@ -31,16 +30,16 @@ class EditExpense extends EditRecord
         if (isset($data['subject_type']) && isset($data['subject_id'])) {
             switch ($data['subject_type']) {
                 case 'App\Models\Property':
-                    // نفقة عامة للعقار
+                    // General property expense
                     $data['expense_for'] = 'property';
                     $data['property_id'] = $data['subject_id'];
                     break;
-                    
+
                 case 'App\Models\Unit':
-                    // نفقة خاصة بوحدة
+                    // Unit-specific expense
                     $data['expense_for'] = 'unit';
                     $data['unit_id'] = $data['subject_id'];
-                    
+
                     // Get the property_id for the unit
                     $unit = \App\Models\Unit::find($data['subject_id']);
                     if ($unit) {
@@ -62,22 +61,22 @@ class EditExpense extends EditRecord
         if (isset($data['expense_for']) && isset($data['property_id'])) {
             switch ($data['expense_for']) {
                 case 'property':
-                    // نفقة عامة للعقار - حفظ العقار نفسه كـ subject
+                    // General expense for property - save property as subject
                     $data['subject_type'] = 'App\Models\Property';
                     $data['subject_id'] = $data['property_id'];
                     break;
-                    
+
                 case 'unit':
                     if (isset($data['unit_id']) && $data['unit_id'] !== '0') {
-                        // نفقة خاصة بوحدة - حفظ الوحدة كـ subject
+                        // Unit-specific expense - save unit as subject
                         $data['subject_type'] = 'App\Models\Unit';
                         $data['subject_id'] = $data['unit_id'];
                     } else {
-                        // إذا لم يتم اختيار وحدة صحيحة، اجعلها نفقة عامة للعقار
+                        // If no valid unit selected, fall back to property expense
                         $data['subject_type'] = 'App\Models\Property';
                         $data['subject_id'] = $data['property_id'];
-                        
-                        // إرسال تنبيه للمستخدم
+
+                        // Notify user about the fallback
                         \Filament\Notifications\Notification::make()
                             ->warning()
                             ->title('تنبيه')

@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Enums\PaymentStatus;
 use App\Models\CollectionPayment;
+use App\Services\CollectionPaymentService;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Notifications\Notification;
@@ -88,7 +89,11 @@ class TenantsPaymentDueWidget extends BaseWidget
                             ->rows(3),
                     ])
                     ->action(function (CollectionPayment $record, array $data): void {
-                        $record->postpone($data['delay_duration'], $data['delay_reason']);
+                        app(CollectionPaymentService::class)->postponePayment(
+                            $record,
+                            $data['delay_duration'],
+                            $data['delay_reason']
+                        );
 
                         Notification::make()
                             ->title('تم تأجيل الدفعة')
@@ -109,7 +114,7 @@ class TenantsPaymentDueWidget extends BaseWidget
                     ->modalCancelActionLabel('إلغاء')
                     ->requiresConfirmation()
                     ->action(function (CollectionPayment $record): void {
-                        $record->markAsCollected();
+                        app(CollectionPaymentService::class)->markAsCollected($record, auth()->id());
 
                         Notification::make()
                             ->title('تم تأكيد الاستلام')

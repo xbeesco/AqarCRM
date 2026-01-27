@@ -2,17 +2,15 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Expense extends Model
 {
     use HasFactory;
 
-    /**
-     * الحقول القابلة للتعديل
-     */
     protected $fillable = [
         'desc',
         'type',
@@ -23,9 +21,6 @@ class Expense extends Model
         'subject_id',
     ];
 
-    /**
-     * تحويل الحقول إلى أنواع البيانات المناسبة
-     */
     protected $casts = [
         'cost' => 'decimal:2',
         'date' => 'date',
@@ -33,16 +28,7 @@ class Expense extends Model
     ];
 
     /**
-     * العلاقة Polymorphic - الكيان المرتبط بالنفقة
-     * يمكن أن يكون Property أو Unit
-     */
-    public function subject()
-    {
-        return $this->morphTo();
-    }
-
-    /**
-     * أنواع النفقات المتاحة
+     * Available expense types with Arabic labels.
      */
     public const TYPES = [
         'maintenance' => 'صيانة',
@@ -53,7 +39,7 @@ class Expense extends Model
     ];
 
     /**
-     * ألوان الـ badges للأنواع المختلفة
+     * Color codes for each expense type used in UI badges.
      */
     public const TYPE_COLORS = [
         'maintenance' => 'warning',
@@ -65,52 +51,39 @@ class Expense extends Model
         'other' => 'gray',
     ];
 
-    /**
-     * الحصول على اسم النوع بالعربية
-     */
+    public function subject(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
     public function getTypeNameAttribute(): string
     {
         return static::TYPES[$this->type] ?? $this->type;
     }
 
-    /**
-     * الحصول على لون badge النوع
-     */
     public function getTypeColorAttribute(): string
     {
         return static::TYPE_COLORS[$this->type] ?? 'gray';
     }
 
-    /**
-     * الحصول على عدد الإثباتات
-     */
     public function getDocsCountAttribute(): int
     {
         return $this->docs ? count($this->docs) : 0;
     }
 
-    /**
-     * تنسيق المبلغ مع العملة
-     */
     public function getFormattedCostAttribute(): string
     {
-        return number_format((float) $this->cost, 2) . ' ريال';
+        return number_format((float) $this->cost, 2).' ريال';
     }
 
-    /**
-     * التحقق من وجود إثباتات
-     */
     public function hasDocuments(): bool
     {
         return $this->docs_count > 0;
     }
 
-    /**
-     * الحصول على إثباتات من نوع معين
-     */
     public function getDocumentsByType(string $type): array
     {
-        if (!$this->docs) {
+        if (! $this->docs) {
             return [];
         }
 
@@ -119,12 +92,9 @@ class Expense extends Model
         });
     }
 
-    /**
-     * حساب مجموع المبالغ من الإثباتات
-     */
     public function calculateDocsTotal(): float
     {
-        if (!$this->docs) {
+        if (! $this->docs) {
             return 0;
         }
 
@@ -140,92 +110,71 @@ class Expense extends Model
         return $total;
     }
 
-    /**
-     * Scope للفلترة حسب النوع
-     */
     public function scopeOfType($query, string $type)
     {
         return $query->where('type', $type);
     }
 
-    /**
-     * Scope للفلترة حسب التاريخ
-     */
     public function scopeInDateRange($query, $startDate, $endDate)
     {
         return $query->whereBetween('date', [$startDate, $endDate]);
     }
 
-    /**
-     * Scope للنفقات في الشهر الحالي
-     */
     public function scopeThisMonth($query)
     {
         $currentDate = Carbon::now();
+
         return $query->whereMonth('date', $currentDate->month)
-                    ->whereYear('date', $currentDate->year);
+            ->whereYear('date', $currentDate->year);
     }
 
-    /**
-     * Scope للنفقات في السنة الحالية
-     */
     public function scopeThisYear($query)
     {
         $currentDate = Carbon::now();
+
         return $query->whereYear('date', $currentDate->year);
     }
 
-    /**
-     * Scope للنفقات الخاصة بالعقارات فقط
-     */
     public function scopeForProperties($query)
     {
         return $query->where('subject_type', 'App\Models\Property');
     }
 
-    /**
-     * Scope للنفقات الخاصة بالوحدات فقط
-     */
     public function scopeForUnits($query)
     {
         return $query->where('subject_type', 'App\Models\Unit');
     }
 
-    /**
-     * Scope للنفقات الخاصة بعقار معين
-     */
     public function scopeForProperty($query, $propertyId)
     {
         return $query->where('subject_type', 'App\Models\Property')
-                     ->where('subject_id', $propertyId);
+            ->where('subject_id', $propertyId);
     }
 
-    /**
-     * Scope للنفقات الخاصة بوحدة معينة
-     */
     public function scopeForUnit($query, $unitId)
     {
         return $query->where('subject_type', 'App\Models\Unit')
-                     ->where('subject_id', $unitId);
+            ->where('subject_id', $unitId);
     }
 
     /**
-     * الحصول على اسم الكيان المرتبط
+     * Get the display name of the expense subject (Property or Unit).
+     * Returns Arabic labels for display in the UI.
      */
     public function getSubjectNameAttribute(): string
     {
-        if (!$this->subject) {
-            return 'غير محدد';
+        if (! $this->subject) {
+            return 'غير محدد'; // Not specified
         }
 
         if ($this->subject_type === 'App\Models\Property') {
-            return 'العقار: ' . $this->subject->name;
+            return 'العقار: '.$this->subject->name; // Property: {name}
         }
 
         if ($this->subject_type === 'App\Models\Unit') {
-            return 'الوحدة: ' . $this->subject->name . ' - ' . $this->subject->property->name;
+            return 'الوحدة: '.$this->subject->name.' - '.$this->subject->property->name; // Unit: {name} - {property}
         }
 
-        return 'غير معروف';
+        return 'غير معروف'; // Unknown
     }
 }

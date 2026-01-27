@@ -11,9 +11,8 @@ class CreateEmployee extends CreateRecord
 
     public function mount(): void
     {
-        // التحقق من الصلاحية قبل السماح بالوصول
         abort_unless(static::getResource()::canCreate(), 403);
-        
+
         parent::mount();
     }
 
@@ -26,12 +25,14 @@ class CreateEmployee extends CreateRecord
     {
         return 'تم إنشاء الموظف بنجاح';
     }
-    
+
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // التأكد من أن نوع المستخدم موظف
-        $data['type'] = 'employee';
-        
+        // Default to employee if no type specified
+        if (empty($data['type'])) {
+            $data['type'] = 'employee';
+        }
+
         return $data;
     }
 }

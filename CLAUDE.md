@@ -8,27 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Admin Panel**: Filament 4 (^4.0)
 - **Frontend**: Vite + TailwindCSS 4 + Laravel Mix
 - **Database**: MySQL, configurable for production
-- **Testing**: PHPUnit 11.5.3
+- **Testing**: PHPUnit 11.5.3. use "composer test" for quick tests & "composer test:mysql" for tests that need a real mysql DB. also you can use "-- tests/{{file-name}}.php" to spicify a test file
 - **Code Quality**: Laravel Pint for PHP formatting
 
-this project is the new version of old project
-
-which is a wordpress project was using to creata a property crm
-
-project path :  D:\Server\crm
-- **url**: http://crm.test/
-- **user**: admin
-- **pass **: 123@alhiaa_admin
-
-the project was build using acf pro and a child theme :D:\Server\crm\wp-content\themes\alhiaa-system
-
-now you need to read the
-
-@.docs/filament4.md
-@.docs/laravel12.md
-@.docs/implementation-plan.md
-@.docs/files-tree.json
-@.docs/schema.json
 
 always don't do any task by your self : always ask subagent to do the task, you are the teck team lead and you need to focus on this only
 
@@ -374,7 +356,7 @@ Forms\Components\Select::make('user_id')
     @endforeach
     ```
 
-- Prefer lifecycle hooks like `mount()`, `updatedFoo()`) for initialization and reactive side effects:
+- Prefer lifecycle hooks like `mount()`, `updatedFoo()` for initialization and reactive side effects:
 
 <code-snippet name="Lifecycle hook examples" lang="php">
     public function mount(User $user) { $this->user = $user; }
@@ -477,7 +459,7 @@ document.addEventListener('livewire:init', function () {
 - `corePlugins` is not supported in Tailwind v4.
 - In Tailwind v4, you import Tailwind using a regular CSS `@import` statement, not using the `@tailwind` directives used in v3:
 
-<code-snippet name="Tailwind v4 Import Tailwind Diff" lang="diff"
+<code-snippet name="Tailwind v4 Import Tailwind Diff" lang="diff">
    - @tailwind base;
    - @tailwind components;
    - @tailwind utilities;

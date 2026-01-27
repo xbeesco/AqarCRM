@@ -13,9 +13,9 @@ class CreateCollectionPayment extends CreateRecord
     {
         return $this->getResource()::getUrl('index');
     }
-    
+
     public function getMaxContentWidth(): ?string
     {
-        return 'full'; // يجعل المحتوى يأخذ العرض الكامل
+        return 'full';
     }
 }

@@ -29,20 +29,18 @@ class ViewSupplyPayment extends ViewRecord
         if ($this->supplyPaymentService === null) {
             $this->supplyPaymentService = app(SupplyPaymentService::class);
         }
+
         return $this->supplyPaymentService;
     }
 
     public function getRelationManagers(): array
     {
-        return [
-            \App\Filament\Resources\SupplyPaymentResource\RelationManagers\CollectionPaymentsRelationManager::class,
-            \App\Filament\Resources\SupplyPaymentResource\RelationManagers\ExpensesRelationManager::class,
-        ];
+        // TODO: Re-implement collection payments and expenses display as custom infolist sections
+        return [];
     }
 
     public function infolist(Schema $schema): Schema
     {
-        // حساب القيم باستخدام Service
         $amounts = $this->getSupplyPaymentService()->calculateAmountsFromPeriod($this->record);
 
         return $schema
@@ -109,21 +107,17 @@ class ViewSupplyPayment extends ViewRecord
 
     protected function getHeaderActions(): array
     {
-        // التحقق من الدفعات السابقة غير المؤكدة
         $hasPendingPayments = $this->getSupplyPaymentService()->hasPendingPreviousPayments($this->record);
         $pendingPayments = $hasPendingPayments ? $this->getSupplyPaymentService()->getPendingPreviousPayments($this->record) : collect();
 
-        // حساب القيمة لتحديد نوع الزر المطلوب
         $amounts = $this->getSupplyPaymentService()->calculateAmountsFromPeriod($this->record);
         $netAmount = $amounts['net_amount'];
 
-        // تحديد نوع العملية بناءً على القيمة
-        $isSettlement = $netAmount <= 0; // تسوية إذا كانت القيمة صفر أو سالبة
+        $isSettlement = $netAmount <= 0;
 
         $actions = [];
 
-        // زر التنبيه عند وجود دفعات سابقة غير مؤكدة
-        if ($hasPendingPayments && !$this->record->paid_date) {
+        if ($hasPendingPayments && ! $this->record->paid_date) {
             $actions[] = \Filament\Actions\Action::make('pending_payments_notice')
                 ->label('يوجد دفعات سابقة غير مؤكدة')
                 ->icon('heroicon-o-exclamation-triangle')
@@ -154,7 +148,6 @@ class ViewSupplyPayment extends ViewRecord
                 ->modalCancelActionLabel('إغلاق');
         }
 
-        // زر تأكيد التوريد أو التسوية - يظهر فقط عند عدم وجود دفعات سابقة
         if (! $hasPendingPayments || $this->record->paid_date) {
             $actions[] = \Filament\Actions\Action::make('confirm_payment')
                 ->label($isSettlement ? 'تأكيد التسوية' : 'تأكيد التوريد')
@@ -168,7 +161,7 @@ class ViewSupplyPayment extends ViewRecord
 
                     if ($isSettlement) {
                         if ($netAmount < 0) {
-                            // قيمة سالبة - المالك مدين للشركة
+                            // Negative value - Owner owes the company
                             return new \Illuminate\Support\HtmlString(
                                 "<div style='text-align: right; direction: rtl;'>
                                     <p><strong>تأكيد التسوية:</strong></p>
@@ -178,7 +171,7 @@ class ViewSupplyPayment extends ViewRecord
                                 </div>'
                             );
                         } else {
-                            // قيمة صفر - لا توجد مستحقات
+                            // Zero value - No outstanding amounts
                             return new \Illuminate\Support\HtmlString(
                                 "<div style='text-align: right; direction: rtl;'>
                                     <p><strong>تأكيد التسوية:</strong></p>
@@ -189,7 +182,7 @@ class ViewSupplyPayment extends ViewRecord
                             );
                         }
                     } else {
-                        // قيمة موجبة - توريد عادي
+                        // Positive value - Normal supply payment
                         $userName = auth()->user()->name;
 
                         return new \Illuminate\Support\HtmlString(
@@ -206,13 +199,12 @@ class ViewSupplyPayment extends ViewRecord
                 ->modalIcon($isSettlement ? 'heroicon-o-document-check' : 'heroicon-o-check-circle')
                 ->modalIconColor($isSettlement ? 'warning' : 'success')
                 ->visible(fn () => $this->record &&
-                    !$this->record->paid_date && // لم يتم التوريد بعد
+                    ! $this->record->paid_date &&
                     $this->record->due_date &&
                     now()->gte($this->record->due_date) &&
-                    ! $hasPendingPayments // الشرط الجديد: عدم وجود دفعات سابقة غير مؤكدة
+                    ! $hasPendingPayments
                 )
                 ->action(function () {
-                    // استخدام Service لتأكيد التوريد
                     $result = $this->getSupplyPaymentService()->confirmSupplyPayment(
                         $this->record,
                         auth()->id()
@@ -227,7 +219,6 @@ class ViewSupplyPayment extends ViewRecord
 
                         $this->redirect($this->getResource()::getUrl('index'));
                     } else {
-                        // في حالة الفشل (لا يجب أن يحدث بسبب الشروط المسبقة)
                         \Filament\Notifications\Notification::make()
                             ->title('خطأ في التأكيد')
                             ->body($result['message'])
