@@ -73,14 +73,19 @@ class TenantResource extends Resource
                             ->columnSpan('full'),
 
                         TextInput::make('phone')
-                            ->numeric()
+                            ->tel()
+                            ->regex('/^[0-9]+$/')
                             ->required()
+                            ->unique('users', 'phone', ignoreRecord: true, modifyRuleUsing: function ($rule) {
+                                return $rule->where('type', 'tenant');
+                            })
                             ->label('الهاتف الأول')
                             ->maxLength(20)
                             ->columnSpan(6),
 
                         TextInput::make('secondary_phone')
-                            ->numeric()
+                            ->tel()
+                            ->regex('/^[0-9]+$/')
                             ->label('الهاتف الثاني')
                             ->maxLength(20)
                             ->columnSpan(6),

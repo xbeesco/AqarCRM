@@ -71,14 +71,20 @@ class EmployeeResource extends Resource
                             ->columnSpan('full'),
 
                         TextInput::make('phone')
-                            ->numeric()
+                            ->tel()
+                            ->regex('/^[0-9]+$/')
                             ->required()
+                            ->unique('users', 'phone', ignoreRecord: true)
+                            // ->unique('users', 'phone', ignoreRecord: true, modifyRuleUsing: function ($rule, $get) {
+                            //     return $rule->where('type', $get('type'));
+                            // })
                             ->label('الهاتف الأول')
                             ->maxLength(20)
                             ->columnSpan(6),
 
                         TextInput::make('secondary_phone')
-                            ->numeric()
+                            ->tel()
+                            ->regex('/^[0-9]+$/')
                             ->label('الهاتف الثاني')
                             ->maxLength(20)
                             ->columnSpan(6),
@@ -102,11 +108,12 @@ class EmployeeResource extends Resource
                             ])
                             ->default(UserType::EMPLOYEE->value)
                             ->required()
-                            ->visible(fn () => auth()->user()->type === 'super_admin')
-                            ->disabled(fn (string $operation, $record = null) => $operation === 'edit' &&
-                                $record &&
-                                auth()->user()->type === 'admin' &&
-                                in_array($record->type, ['super_admin', 'admin'])
+                            ->visible(fn() => auth()->user()->type === 'super_admin')
+                            ->disabled(
+                                fn(string $operation, $record = null) => $operation === 'edit' &&
+                                    $record &&
+                                    auth()->user()->type === 'admin' &&
+                                    in_array($record->type, ['super_admin', 'admin'])
                             )
                             ->columnSpan(12),
 
@@ -120,10 +127,10 @@ class EmployeeResource extends Resource
 
                         TextInput::make('password')
                             ->password()
-                            ->required(fn (string $operation): bool => $operation === 'create')
+                            ->required(fn(string $operation): bool => $operation === 'create')
                             ->label('كلمة المرور')
-                            ->dehydrateStateUsing(fn ($state) => Hash::make($state))
-                            ->dehydrated(fn ($state) => filled($state))
+                            ->dehydrateStateUsing(fn($state) => Hash::make($state))
+                            ->dehydrated(fn($state) => filled($state))
                             ->maxLength(255)
                             ->columnSpan(6),
                     ])
@@ -158,14 +165,14 @@ class EmployeeResource extends Resource
                     ->label('النوع')
                     ->searchable()
                     ->sortable()
-                    ->formatStateUsing(fn ($state) => match ($state) {
+                    ->formatStateUsing(fn($state) => match ($state) {
                         'employee' => 'موظف',
                         'admin' => 'مدير',
                         'super_admin' => 'مدير النظام',
                         default => $state
                     })
                     ->badge()
-                    ->color(fn ($state) => match ($state) {
+                    ->color(fn($state) => match ($state) {
                         'super_admin' => 'danger',
                         'admin' => 'warning',
                         'employee' => 'success',
@@ -178,13 +185,12 @@ class EmployeeResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->filters([
-            ])
+            ->filters([])
             ->recordActions([
                 EditAction::make()
                     ->label('تعديل')
                     ->icon('heroicon-o-pencil-square')
-                    ->visible(fn ($record) => static::canEdit($record)),
+                    ->visible(fn($record) => static::canEdit($record)),
             ])
             ->toolbarActions([])
             ->defaultSort('created_at', 'desc')

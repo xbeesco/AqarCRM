@@ -74,14 +74,19 @@ class OwnerResource extends Resource
                             ->columnSpan('full'),
 
                         TextInput::make('phone')
-                            ->numeric()
+                            ->tel()
+                            ->regex('/^[0-9]+$/')
                             ->required()
+                            ->unique('users', 'phone', ignoreRecord: true, modifyRuleUsing: function ($rule) {
+                                return $rule->where('type', 'owner');
+                            })
                             ->label('الهاتف الأول')
                             ->maxLength(20)
                             ->columnSpan(6),
 
                         TextInput::make('secondary_phone')
-                            ->numeric()
+                            ->tel()
+                            ->regex('/^[0-9]+$/')
                             ->label('الهاتف الثاني')
                             ->maxLength(20)
                             ->columnSpan(6),
@@ -272,7 +277,7 @@ class OwnerResource extends Resource
                     };
 
                     $details = array_merge([
-                        "مدفوعات {$statusLabel}" => $count.' دفعة',
+                        "مدفوعات {$statusLabel}" => $count . ' دفعة',
                     ], $details);
                 }
 
