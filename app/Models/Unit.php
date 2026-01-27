@@ -2,16 +2,18 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Unit extends Model
 {
     use HasFactory;
-    
+
     protected $fillable = [
         'name',
         'property_id',
@@ -41,79 +43,76 @@ class Unit extends Model
         'has_laundry_room' => 'boolean',
     ];
 
-    /**
-     * Get the property that owns the unit
-     */
     public function property(): BelongsTo
     {
         return $this->belongsTo(Property::class);
     }
 
-    /**
-     * Get the unit type
-     */
     public function unitType(): BelongsTo
     {
         return $this->belongsTo(UnitType::class);
     }
 
-    /**
-     * Get the unit category
-     */
     public function unitCategory(): BelongsTo
     {
         return $this->belongsTo(UnitCategory::class);
     }
 
-    /**
-     * Get the features associated with the unit
-     */
     public function features(): BelongsToMany
     {
         return $this->belongsToMany(UnitFeature::class, 'unit_unit_feature')
-                    ->withPivot('value')
-                    ->withTimestamps();
+            ->withPivot('value')
+            ->withTimestamps();
     }
 
-    /**
-     * Get all contracts for this unit
-     */
-    public function contracts()
+    public function contracts(): HasMany
     {
         return $this->hasMany(UnitContract::class);
     }
 
-    /**
-     * Get the active contract for this unit
-     */
-    public function activeContract()
+    public function activeContract(): HasOne
     {
         return $this->hasOne(UnitContract::class)
-                    ->where('contract_status', 'active')
-                    ->latest();
+            ->where('contract_status', 'active')
+            ->latest();
     }
 
-    /**
-     * النفقات المرتبطة بالوحدة
-     */
     public function expenses(): MorphMany
     {
         return $this->morphMany(Expense::class, 'subject');
     }
-    
-    /**
-     * حساب إجمالي النفقات للوحدة
-     */
+
     public function getTotalExpensesAttribute(): float
     {
-        return $this->expenses()->sum('cost');
+        return (float) $this->expenses()->sum('cost');
     }
-    
-    /**
-     * حساب نفقات الشهر الحالي للوحدة
-     */
+
     public function getCurrentMonthExpensesAttribute(): float
     {
-        return $this->expenses()->thisMonth()->sum('cost');
+        return (float) $this->expenses()->thisMonth()->sum('cost');
+    }
+
+    /**
+     * Check if unit is available for rental.
+     */
+    public function isAvailable(): bool
+    {
+        return $this->activeContract === null;
+    }
+
+    /**
+     * Check if unit is occupied.
+     */
+    public function isOccupied(): bool
+    {
+        return $this->activeContract !== null;
+    }
+
+    /**
+     * Get current tenant from active contract.
+     */
+    public function getCurrentTenantAttribute(): ?User
+    {
+        return $this->activeContract?->tenant;
     }
 }
