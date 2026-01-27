@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\UnitContractResource\Pages;
-use App\Models\Property;
 use App\Models\Unit;
 use App\Models\UnitContract;
 use App\Models\User;
@@ -18,7 +17,6 @@ use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -125,7 +123,7 @@ class UnitContractResource extends Resource
                                     $validationService = app(\App\Services\ContractValidationService::class);
                                     $excludeId = $record ? $record->id : null;
 
-                                    // التحقق من تاريخ البداية فقط
+                                    // Validate start date only
                                     $error = $validationService->validateStartDate($unitId, $value, $excludeId);
                                     if ($error) {
                                         $fail($error);
@@ -161,7 +159,7 @@ class UnitContractResource extends Resource
                                         $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
                                     }
 
-                                    // التحقق من المدة فقط
+                                    // Validate duration only
                                     $unitId = $get('unit_id');
                                     $startDate = $get('start_date');
 
@@ -169,7 +167,7 @@ class UnitContractResource extends Resource
                                         $validationService = app(\App\Services\ContractValidationService::class);
                                         $excludeId = $record ? $record->id : null;
 
-                                        // التحقق من المدة وتأثيرها على النهاية
+                                        // Validate duration and its effect on end date
                                         $error = $validationService->validateDuration($unitId, $startDate, $value, $excludeId);
                                         if ($error) {
                                             $fail($error);
@@ -245,6 +243,9 @@ class UnitContractResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (\Illuminate\Database\Eloquent\Builder $query) {
+                $query->with(['tenant', 'unit', 'property']);
+            })
             ->columns([
                 TextColumn::make('tenant.name')
                     ->label('اسم المستأجر')
@@ -331,7 +332,7 @@ class UnitContractResource extends Resource
                     ->url(fn ($record) => $record ? route('filament.admin.resources.collection-payments.index', [
                         'unit_contract_id' => $record->id,
                     ]) : '#')
-                    ->visible(fn ($record) => $record && $record->payments()->exists()),
+                    ->visible(fn ($record) => $record && $record->collectionPayments()->exists()),
                 Action::make('generatePayments')
                     ->label('توليد الدفعات')
                     ->icon('heroicon-o-calculator')
