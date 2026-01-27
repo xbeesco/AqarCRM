@@ -44,7 +44,7 @@ class PropertyContractResource extends Resource
                             ->searchable()
                             ->relationship('property', 'name')
                             ->options(Property::with('owner')->get()->pluck('name', 'id'))
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->name.' - '.$record->owner?->name)
+                            ->getOptionLabelFromRecordUsing(fn($record) => $record->name . ' - ' . $record->owner?->name)
                             ->columnSpan(6),
 
                         TextInput::make('commission_rate')
@@ -64,7 +64,7 @@ class PropertyContractResource extends Resource
                             ->rules([
                                 'required',
                                 'date',
-                                fn ($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
+                                fn($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
                                     $propertyId = $get('property_id');
                                     if (! $propertyId || ! $value) {
                                         return;
@@ -95,7 +95,7 @@ class PropertyContractResource extends Resource
                                 $set('payments_count', $count);
                             })
                             ->rules([
-                                fn ($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
+                                fn($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
                                     // Validate duration matches frequency
                                     $frequency = $get('payment_frequency') ?? 'monthly';
                                     if (! \App\Services\PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
@@ -209,7 +209,7 @@ class PropertyContractResource extends Resource
 
                 TextColumn::make('payment_frequency')
                     ->label('نوع التوريد')
-                    ->formatStateUsing(fn ($state) => match ($state) {
+                    ->formatStateUsing(fn($state) => match ($state) {
                         'monthly' => 'شهري',
                         'quarterly' => 'ربع سنوي',
                         'semi_annually' => 'نصف سنوي',
@@ -217,7 +217,7 @@ class PropertyContractResource extends Resource
                         default => $state
                     })
                     ->badge()
-                    ->color(fn ($state) => match ($state) {
+                    ->color(fn($state) => match ($state) {
                         'monthly' => 'success',
                         'quarterly' => 'info',
                         'semi_annually' => 'warning',
@@ -249,7 +249,7 @@ class PropertyContractResource extends Resource
                     ->query(function (Builder $query, array $data): Builder {
                         return $query->when(
                             $data['owner_id'],
-                            fn (Builder $query, $value): Builder => $query->whereHas('property', function ($q) use ($value) {
+                            fn(Builder $query, $value): Builder => $query->whereHas('property', function ($q) use ($value) {
                                 $q->where('owner_id', $value);
                             })
                         );
@@ -279,7 +279,7 @@ class PropertyContractResource extends Resource
                         );
                     })
                     ->modalSubmitActionLabel('توليد')
-                    ->visible(fn ($record) => $record->canGeneratePayments())
+                    ->visible(fn($record) => $record->canGeneratePayments())
                     ->action(function ($record) {
                         $service = app(\App\Services\PaymentGeneratorService::class);
 
@@ -304,15 +304,22 @@ class PropertyContractResource extends Resource
                     ->label('عرض الدفعات')
                     ->icon('heroicon-o-eye')
                     ->color('info')
-                    ->url(fn ($record) => route('filament.admin.resources.supply-payments.index', [
+                    ->url(fn($record) => route('filament.admin.resources.supply-payments.index', [
                         'property_contract_id' => $record->id,
                     ]))
-                    ->visible(fn ($record) => $record->supplyPayments()->exists()),
+                    ->visible(fn($record) => $record->supplyPayments()->exists()),
 
-                EditAction::make()
-                    ->label('تعديل')
-                    ->icon('heroicon-o-pencil-square')
-                    ->visible(fn () => auth()->user()?->type === 'super_admin'),
+                Action::make('reschedulePayments')
+                    ->label('جدولة الدفعات')
+                    ->icon('heroicon-o-calendar')
+                    ->color('warning')
+                    ->url(fn($record) => $record ? route('filament.admin.resources.property-contracts.reschedule', $record) : '#')
+                    ->visible(fn($record) => $record && $record->canReschedule()),
+
+                // EditAction::make()
+                //     ->label('تعديل')
+                //     ->icon('heroicon-o-pencil-square')
+                //     ->visible(fn() => auth()->user()?->type === 'super_admin'),
             ])
             ->defaultSort('created_at', 'desc');
     }
@@ -330,7 +337,8 @@ class PropertyContractResource extends Resource
             'index' => Pages\ListPropertyContracts::route('/'),
             'create' => Pages\CreatePropertyContract::route('/create'),
             'view' => Pages\ViewPropertyContract::route('/{record}'),
-            'edit' => Pages\EditPropertyContract::route('/{record}/edit'), // Only accessible by super_admin
+            // 'edit' => Pages\EditPropertyContract::route('/{record}/edit'), // Only accessible by super_admin
+            'reschedule' => Pages\ReschedulePayments::route('/{record}/reschedule'),
         ];
     }
 

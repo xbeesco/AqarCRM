@@ -258,6 +258,24 @@ class PropertyContract extends Model
     }
 
     /**
+     * Check if contract can be rescheduled.
+     */
+    public function canReschedule(): bool
+    {
+        // Contract must be active or draft
+        if (!in_array($this->contract_status, ['active', 'draft'])) {
+            return false;
+        }
+
+        // Must have existing payments
+        if (!$this->supplyPayments()->exists()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Calculate commission based on amount.
      */
     public function calculateCommission(float $amount): float

@@ -63,7 +63,7 @@ class PropertyContractService
             // Mark old contract as renewed
             $oldContract->update([
                 'contract_status' => 'renewed',
-                'notes' => $oldContract->notes."\n\nRenewed with contract: ".$newContract->contract_number,
+                'notes' => $oldContract->notes . "\n\nRenewed with contract: " . $newContract->contract_number,
             ]);
 
             // Log renewal
@@ -127,7 +127,7 @@ class PropertyContractService
                 $renewed++;
             } catch (\Exception $e) {
                 // Log error but continue with other contracts
-                \Log::error("Failed to auto-renew contract {$contract->contract_number}: ".$e->getMessage());
+                \Log::error("Failed to auto-renew contract {$contract->contract_number}: " . $e->getMessage());
             }
         }
 
@@ -196,7 +196,7 @@ class PropertyContractService
 
         // Check division yields integer
         if ($durationMonths % $monthsPerPayment !== 0) {
-            return 'Invalid division';
+            return 'قسمة لا تصح';
         }
 
         return $durationMonths / $monthsPerPayment;
@@ -228,5 +228,55 @@ class PropertyContractService
             'annually' => 12,
             default => 1,
         };
+    }
+
+    /**
+     * Calculate paid months count for property contract.
+     */
+    public function getPaidMonthsCount(PropertyContract $contract): int
+    {
+        $paidPayments = $contract->supplyPayments()
+            ->collected()
+            ->get();
+
+        if ($paidPayments->isEmpty()) {
+            return 0;
+        }
+
+        // For supply payments, we calculate based on payment frequency
+        $monthsPerPayment = self::getMonthsPerPayment($contract->payment_frequency ?? 'monthly');
+
+        return $paidPayments->count() * $monthsPerPayment;
+    }
+
+    /**
+     * Calculate remaining adjustable months.
+     */
+    public function getRemainingMonths(PropertyContract $contract): int
+    {
+        $totalMonths = $contract->duration_months ?? 0;
+        $paidMonths = $this->getPaidMonthsCount($contract);
+
+        return max(0, $totalMonths - $paidMonths);
+    }
+
+    /**
+     * Get paid payments count.
+     */
+    public function getPaidPaymentsCount(PropertyContract $contract): int
+    {
+        return $contract->supplyPayments()
+            ->collected()
+            ->count();
+    }
+
+    /**
+     * Get unpaid payments count.
+     */
+    public function getUnpaidPaymentsCount(PropertyContract $contract): int
+    {
+        return $contract->supplyPayments()
+            ->whereNull('paid_date')
+            ->count();
     }
 }
