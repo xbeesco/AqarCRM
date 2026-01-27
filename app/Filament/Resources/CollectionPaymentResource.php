@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Enums\PaymentStatus;
 use App\Filament\Resources\CollectionPaymentResource\Pages;
 use App\Models\CollectionPayment;
+use App\Services\CollectionPaymentService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -16,6 +17,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -40,7 +42,6 @@ class CollectionPaymentResource extends Resource
                 Section::make('إضافة دفعة مستأجر')
                     ->columnSpan('full')
                     ->schema([
-                        // العقد
                         Select::make('unit_contract_id')
                             ->label('العقد')
                             ->required()
@@ -73,7 +74,7 @@ class CollectionPaymentResource extends Resource
                                 }
                             })
                             ->columnSpan(6),
-                        // القيمة المالية
+
                         TextInput::make('amount')
                             ->label('القيمة المالية')
                             ->numeric()
@@ -118,7 +119,6 @@ class CollectionPaymentResource extends Resource
                             ->columnSpan(6)
                             ->rows(2),
 
-                        // Hidden fields للحفظ
                         \Filament\Forms\Components\Hidden::make('unit_id'),
                         \Filament\Forms\Components\Hidden::make('property_id'),
                         \Filament\Forms\Components\Hidden::make('tenant_id'),
@@ -252,8 +252,8 @@ class CollectionPaymentResource extends Resource
                     ->relationship('unitContract', 'contract_number')
                     ->searchable()
                     ->preload()
-                    ->hidden(), // مخفي افتراضياً، يظهر فقط عند الحاجة
-            ])
+                    ->hidden(),
+            ], layout: FiltersLayout::AboveContent)
             ->recordActions([
                 Action::make('postpone_payment')
                     ->label('تأجيل')
@@ -279,11 +279,16 @@ class CollectionPaymentResource extends Resource
                     ->modalSubmitActionLabel('تأجيل')
                     ->modalIcon('heroicon-o-clock')
                     ->modalIconColor('warning')
-                    ->visible(fn (CollectionPayment $record) => ! $record->collection_date &&
-                        (! $record->delay_duration || $record->delay_duration == 0)
+                    ->visible(
+                        fn (CollectionPayment $record) => ! $record->collection_date &&
+                            (! $record->delay_duration || $record->delay_duration == 0)
                     )
                     ->action(function (CollectionPayment $record, array $data) {
-                        $record->postpone($data['delay_duration'], $data['delay_reason']);
+                        app(CollectionPaymentService::class)->postponePayment(
+                            $record,
+                            $data['delay_duration'],
+                            $data['delay_reason']
+                        );
 
                         Notification::make()
                             ->title('تم تأجيل الدفعة')
@@ -320,10 +325,11 @@ class CollectionPaymentResource extends Resource
                     ->modalSubmitActionLabel('تأكيد الاستلام')
                     ->modalIcon('heroicon-o-check-circle')
                     ->modalIconColor('success')
-                    ->visible(fn (CollectionPayment $record) => ! $record->collection_date
+                    ->visible(
+                        fn (CollectionPayment $record) => ! $record->collection_date
                     )
                     ->action(function (CollectionPayment $record) {
-                        $record->markAsCollected();
+                        app(CollectionPaymentService::class)->markAsCollected($record, auth()->id());
 
                         Notification::make()
                             ->title('تم تأكيد الاستلام')
@@ -359,7 +365,6 @@ class CollectionPaymentResource extends Resource
         ];
     }
 
-    // البحث الذكي الشامل
     public static function getGloballySearchableAttributes(): array
     {
         return [
@@ -394,63 +399,61 @@ class CollectionPaymentResource extends Resource
     {
         $search = trim($search);
 
-        // تطبيع البحث العربي - إزالة الهمزات والتاء المربوطة
+        // Normalize Arabic search - remove hamzat and taa marbuta variations
         $normalizedSearch = str_replace(['أ', 'إ', 'آ'], 'ا', $search);
         $normalizedSearch = str_replace(['ة'], 'ه', $normalizedSearch);
         $normalizedSearch = str_replace(['ى'], 'ي', $normalizedSearch);
 
-        // إزالة المسافات الزائدة
         $searchWithoutSpaces = str_replace(' ', '', $normalizedSearch);
 
         return static::getGlobalSearchEloquentQuery()
             ->where(function (\Illuminate\Database\Eloquent\Builder $query) use ($search, $normalizedSearch, $searchWithoutSpaces) {
-                // البحث في رقم الدفعة والمراجع
+                // Search in payment number and references
                 $query->where('payment_number', 'LIKE', "%{$search}%")
                     ->orWhere('payment_number', 'LIKE', "%{$searchWithoutSpaces}%")
                     ->orWhere('payment_reference', 'LIKE', "%{$search}%")
                     ->orWhere('receipt_number', 'LIKE', "%{$search}%")
                     ->orWhere('month_year', 'LIKE', "%{$search}%");
 
-                // البحث في حالة الدفعة - مهم جداً
+                // Search by payment status
                 $statusSearch = PaymentStatus::options();
                 foreach ($statusSearch as $key => $label) {
                     if (stripos($label, $normalizedSearch) !== false || stripos($label, $search) !== false) {
-                        // استخدم الـ scope المناسب بدلاً من البحث في حقل
                         try {
                             $status = PaymentStatus::from($key);
                             $query->orWhere(function ($statusQuery) use ($status) {
                                 (new CollectionPayment)->scopeByStatus($statusQuery, $status);
                             });
                         } catch (\ValueError $e) {
-                            // تجاهل القيم غير الصالحة
+                            // Skip invalid values
                         }
                     }
                 }
 
-                // البحث في المبلغ (حتى لو رقم واحد)
+                // Search by amount
                 if (is_numeric($search)) {
                     $query->orWhere('amount', 'LIKE', "%{$search}%")
                         ->orWhere('amount', $search);
                 }
 
-                // البحث في الملاحظات
+                // Search in notes
                 $query->orWhere('delay_reason', 'LIKE', "%{$normalizedSearch}%")
                     ->orWhere('late_payment_notes', 'LIKE', "%{$normalizedSearch}%");
 
-                // البحث في مدة التأجيل
+                // Search by delay duration
                 if (is_numeric($search)) {
                     $query->orWhere('delay_duration', $search)
                         ->orWhere('delay_duration', 'LIKE', "%{$search}%");
                 }
 
-                // البحث في كل التواريخ
+                // Search in dates
                 $query->orWhere('collection_date', 'LIKE', "%{$search}%")
                     ->orWhere('due_date_start', 'LIKE', "%{$search}%")
                     ->orWhere('due_date_end', 'LIKE', "%{$search}%")
                     ->orWhere('paid_date', 'LIKE', "%{$search}%")
                     ->orWhere('created_at', 'LIKE', "%{$search}%");
 
-                // البحث بالسنة فقط
+                // Search by year only
                 if (preg_match('/^\d{4}$/', $search)) {
                     $query->orWhereYear('collection_date', $search)
                         ->orWhereYear('due_date_start', $search)
@@ -459,7 +462,7 @@ class CollectionPaymentResource extends Resource
                         ->orWhereYear('created_at', $search);
                 }
 
-                // البحث بالشهر والسنة
+                // Search by month and year
                 if (preg_match('/^\d{1,2}[-\/]\d{4}$/', $search)) {
                     $parts = preg_split('/[-\/]/', $search);
                     $month = $parts[0];
@@ -469,7 +472,7 @@ class CollectionPaymentResource extends Resource
                         ->orWhereMonth('due_date_end', $month)->whereYear('due_date_end', $year);
                 }
 
-                // البحث في المستأجر - مع التطبيع
+                // Search in tenant
                 $query->orWhereHas('tenant', function ($q) use ($search, $normalizedSearch, $searchWithoutSpaces) {
                     $q->where(function ($subQuery) use ($search, $normalizedSearch, $searchWithoutSpaces) {
                         $subQuery->where('name', 'LIKE', "%{$normalizedSearch}%")
@@ -480,25 +483,23 @@ class CollectionPaymentResource extends Resource
                     });
                 });
 
-                // البحث في الوحدة
+                // Search in unit
                 $query->orWhereHas('unit', function ($q) use ($search, $normalizedSearch, $searchWithoutSpaces) {
                     $q->where('name', 'LIKE', "%{$normalizedSearch}%")
                         ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%");
 
-                    // البحث في رقم الطابق إذا كان رقم
                     if (is_numeric($search)) {
                         $q->orWhere('floor_number', $search)
                             ->orWhere('rooms_count', $search);
                     }
                 });
 
-                // البحث في العقار
+                // Search in property
                 $query->orWhereHas('property', function ($q) use ($normalizedSearch, $searchWithoutSpaces) {
                     $q->where('name', 'LIKE', "%{$normalizedSearch}%")
                         ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%")
                         ->orWhere('address', 'LIKE', "%{$normalizedSearch}%");
                 });
-
             })
             ->limit(50)
             ->get()

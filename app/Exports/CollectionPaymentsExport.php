@@ -32,7 +32,6 @@ class CollectionPaymentsExport implements FromCollection, ShouldAutoSize, WithHe
 
     public function map($payment): array
     {
-        // استخدام payment_status_label بدلاً من collection_status
         $status = $payment->payment_status_label;
 
         return [

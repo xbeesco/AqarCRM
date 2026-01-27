@@ -2,39 +2,44 @@
 
 namespace App\Services\Financial;
 
+use App\Enums\PaymentStatus;
 use App\Models\CollectionPayment;
 use App\Models\SupplyPayment;
-use App\Models\PaymentStatus;
-use App\Models\PaymentMethod;
-use Illuminate\Support\Collection;
+use App\Services\CollectionPaymentService;
+use App\Services\SupplyPaymentService;
 
 class PaymentService
 {
+    public function __construct(
+        protected CollectionPaymentService $collectionPaymentService,
+        protected SupplyPaymentService $supplyPaymentService
+    ) {}
+
     public function processCollectionPayment(
-        CollectionPayment $payment, 
-        int $paymentMethodId, 
-        ?string $paidDate = null, 
+        CollectionPayment $payment,
+        int $paymentMethodId,
+        ?string $paidDate = null,
         ?string $paymentReference = null
     ): bool {
-        return $payment->processPayment($paymentMethodId, $paidDate, $paymentReference);
+        return $this->collectionPaymentService->processPayment($payment, $paymentMethodId, $paidDate, $paymentReference);
     }
 
     public function bulkCollectPayments(
-        array $paymentIds, 
-        int $paymentMethodId, 
+        array $paymentIds,
+        int $paymentMethodId,
         ?string $paidDate = null
     ): array {
         $results = [];
         $payments = CollectionPayment::whereIn('id', $paymentIds)->get();
-        
+
         foreach ($payments as $payment) {
             try {
                 $success = $this->processCollectionPayment(
-                    $payment, 
-                    $paymentMethodId, 
+                    $payment,
+                    $paymentMethodId,
                     $paidDate
                 );
-                
+
                 $results[] = [
                     'payment_id' => $payment->id,
                     'payment_number' => $payment->payment_number,
@@ -50,35 +55,30 @@ class PaymentService
                 ];
             }
         }
-        
+
         return $results;
     }
 
+    /**
+     * Update late fees for overdue payments.
+     * Note: Status is computed dynamically and not stored in the database.
+     */
     public function updateOverduePayments(): int
     {
-        $overdueStatus = PaymentStatus::where('slug', 'overdue')->first();
-        
-        if (!$overdueStatus) {
-            return 0;
-        }
-
-        $overduePayments = CollectionPayment::where('due_date_end', '<', now())
-            ->whereHas('paymentStatus', function($q) {
-                $q->where('is_paid_status', false);
-            })->get();
+        // Get overdue payments using the Scope
+        $overduePayments = CollectionPayment::overduePayments()->get();
 
         $updatedCount = 0;
 
         foreach ($overduePayments as $payment) {
-            $lateFee = $payment->calculateLateFee();
-            
+            $lateFee = $this->collectionPaymentService->calculateLateFee($payment);
+
+            // Update late fee only - status is computed dynamically
             $payment->update([
-                'payment_status_id' => $overdueStatus->id,
                 'late_fee' => $lateFee,
                 'total_amount' => $payment->amount + $lateFee,
-                'delay_duration' => $payment->getDaysOverdue(),
             ]);
-            
+
             $updatedCount++;
         }
 
@@ -117,24 +117,37 @@ class PaymentService
 
     public function calculateOwnerPayment(int $propertyContractId, string $monthYear): array
     {
-        // Get all collection payments for this property contract and month
-        $collectionPayments = CollectionPayment::whereHas('unitContract.propertyContract', function($q) use ($propertyContractId) {
-            $q->where('id', $propertyContractId);
-        })
-        ->where('month_year', $monthYear)
-        ->whereHas('paymentStatus', function($q) {
-            $q->where('is_paid_status', true);
-        })->get();
+        // Get property contract to find the property_id
+        $propertyContract = \App\Models\PropertyContract::find($propertyContractId);
+
+        if (! $propertyContract) {
+            return [
+                'gross_amount' => 0,
+                'commission_rate' => 10.0,
+                'commission_amount' => 0,
+                'maintenance_deduction' => 0,
+                'other_deductions' => 0.00,
+                'net_amount' => 0,
+                'collection_payments' => [],
+            ];
+        }
+
+        // Get all collected payments for this property and month
+        // Note: Collected payments are those with a collection_date
+        $collectionPayments = CollectionPayment::where('property_id', $propertyContract->property_id)
+            ->where('month_year', $monthYear)
+            ->collectedPayments()  // Use Scope instead of paymentStatus relationship
+            ->get();
 
         $grossAmount = $collectionPayments->sum('total_amount');
-        
+
         // Get commission rate from property contract
-        $commissionRate = 10.0; // Default, should come from contract
+        $commissionRate = $propertyContract->commission_rate ?? 10.0;
         $commissionAmount = ($grossAmount * $commissionRate) / 100;
-        
+
         // Get maintenance deductions for this period
         $maintenanceDeduction = $this->getMaintenanceDeductions($propertyContractId, $monthYear);
-        
+
         $netAmount = $grossAmount - $commissionAmount - $maintenanceDeduction;
 
         return [
@@ -150,12 +163,12 @@ class PaymentService
 
     public function processSupplyPaymentApproval(SupplyPayment $payment, int $approverId): bool
     {
-        return $payment->approve($approverId);
+        return $this->supplyPaymentService->approve($payment, $approverId);
     }
 
     public function executeSupplyPayment(SupplyPayment $payment, ?string $bankTransferReference = null): bool
     {
-        return $payment->processPayment($bankTransferReference);
+        return $this->supplyPaymentService->processPayment($payment, $bankTransferReference);
     }
 
     private function getMaintenanceDeductions(int $propertyContractId, string $monthYear): float
@@ -165,6 +178,11 @@ class PaymentService
         return 0.00;
     }
 
+    /**
+     * Generate payment report.
+     *
+     * @param  array  $filters  Available filters: property_id, date_from, date_to, status (enum string)
+     */
     public function generatePaymentReport(array $filters): array
     {
         $query = CollectionPayment::query();
@@ -177,19 +195,30 @@ class PaymentService
             $query->whereBetween('due_date_end', [$filters['date_from'], $filters['date_to']]);
         }
 
-        if (isset($filters['status_id'])) {
-            $query->where('payment_status_id', $filters['status_id']);
+        // Filter by status using Scopes
+        if (isset($filters['status'])) {
+            $status = $filters['status'];
+            if ($status instanceof PaymentStatus) {
+                $query->byStatus($status);
+            } elseif (is_string($status)) {
+                $statusEnum = PaymentStatus::tryFrom($status);
+                if ($statusEnum) {
+                    $query->byStatus($statusEnum);
+                }
+            }
         }
 
-        $payments = $query->with(['property', 'unit', 'tenant', 'paymentStatus'])->get();
+        $payments = $query->with(['property', 'unit', 'tenant'])->get();
+
+        // Calculate amounts by dynamic status
+        $collectedAmount = $payments->filter(fn ($p) => $p->payment_status === PaymentStatus::COLLECTED)->sum('total_amount');
+        $overdueAmount = $payments->filter(fn ($p) => $p->payment_status === PaymentStatus::OVERDUE)->sum('total_amount');
 
         return [
             'total_payments' => $payments->count(),
             'total_amount' => $payments->sum('total_amount'),
-            'collected_amount' => $payments->whereHas('paymentStatus', function($q) {
-                $q->where('is_paid_status', true);
-            })->sum('total_amount'),
-            'overdue_amount' => $payments->where('paymentStatus.slug', 'overdue')->sum('total_amount'),
+            'collected_amount' => $collectedAmount,
+            'overdue_amount' => $overdueAmount,
             'payments' => $payments->toArray(),
         ];
     }

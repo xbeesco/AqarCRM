@@ -4,16 +4,27 @@ namespace App\Policies;
 
 use App\Models\CollectionPayment;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
-class CollectionPaymentPolicy
+class CollectionPaymentPolicy extends BasePolicy
 {
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        return true; // السماح بعرض القائمة
+        // Admins and employees can view all payments
+        if ($this->isAdmin($user) || $this->isEmployee($user)) {
+            return true;
+        }
+
+        // Owners and tenants can view the list (filtered in resource)
+        if ($this->isOwner($user) || $this->isTenant($user)) {
+            return true;
+        }
+
+        $this->logUnauthorizedAccess($user, 'viewAny', CollectionPayment::class);
+
+        return false;
     }
 
     /**
@@ -21,7 +32,27 @@ class CollectionPaymentPolicy
      */
     public function view(User $user, CollectionPayment $collectionPayment): bool
     {
-        return true; // السماح بعرض التفاصيل
+        // Admins and employees can view any payment
+        if ($this->isAdmin($user) || $this->isEmployee($user)) {
+            return true;
+        }
+
+        // Owners can view payments for their properties
+        if ($this->isOwner($user)) {
+            $propertyOwner = $collectionPayment->property?->owner_id;
+            if ($propertyOwner === $user->id) {
+                return true;
+            }
+        }
+
+        // Tenants can view their own payments
+        if ($this->isTenant($user) && $collectionPayment->tenant_id === $user->id) {
+            return true;
+        }
+
+        $this->logUnauthorizedAccess($user, 'view', $collectionPayment);
+
+        return false;
     }
 
     /**
@@ -29,7 +60,14 @@ class CollectionPaymentPolicy
      */
     public function create(User $user): bool
     {
-        return true; // السماح بالإنشاء
+        // Only admins and employees can create payments
+        if ($this->isAdmin($user) || $this->isEmployee($user)) {
+            return true;
+        }
+
+        $this->logUnauthorizedAccess($user, 'create', CollectionPayment::class);
+
+        return false;
     }
 
     /**
@@ -37,7 +75,14 @@ class CollectionPaymentPolicy
      */
     public function update(User $user, CollectionPayment $collectionPayment): bool
     {
-        return true; // السماح بالتعديل
+        // Only admins and employees can update payments
+        if ($this->isAdmin($user) || $this->isEmployee($user)) {
+            return true;
+        }
+
+        $this->logUnauthorizedAccess($user, 'update', $collectionPayment);
+
+        return false;
     }
 
     /**
@@ -45,7 +90,14 @@ class CollectionPaymentPolicy
      */
     public function delete(User $user, CollectionPayment $collectionPayment): bool
     {
-        return false; // منع الحذف نهائياً
+        // Only admins can delete payments (financial data should be protected)
+        if ($this->isAdmin($user)) {
+            return true;
+        }
+
+        $this->logUnauthorizedAccess($user, 'delete', $collectionPayment);
+
+        return false;
     }
 
     /**
@@ -53,7 +105,14 @@ class CollectionPaymentPolicy
      */
     public function restore(User $user, CollectionPayment $collectionPayment): bool
     {
-        return false; // منع الاسترجاع
+        // Only admins can restore deleted payments
+        if ($this->isAdmin($user)) {
+            return true;
+        }
+
+        $this->logUnauthorizedAccess($user, 'restore', $collectionPayment);
+
+        return false;
     }
 
     /**
@@ -61,6 +120,24 @@ class CollectionPaymentPolicy
      */
     public function forceDelete(User $user, CollectionPayment $collectionPayment): bool
     {
-        return false; // منع الحذف النهائي
+        // Force delete is not allowed for financial records
+        $this->logUnauthorizedAccess($user, 'forceDelete', $collectionPayment);
+
+        return false;
+    }
+
+    /**
+     * Determine whether the user can mark a payment as collected.
+     */
+    public function collect(User $user, CollectionPayment $collectionPayment): bool
+    {
+        // Admins and employees can collect payments
+        if ($this->isAdmin($user) || $this->isEmployee($user)) {
+            return true;
+        }
+
+        $this->logUnauthorizedAccess($user, 'collect', $collectionPayment);
+
+        return false;
     }
 }
