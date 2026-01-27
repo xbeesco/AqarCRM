@@ -2,17 +2,17 @@
 
 namespace App\Filament\Resources\TenantResource\RelationManagers;
 
+use App\Models\CollectionPayment;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
-use Filament\Tables\Table;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\BadgeColumn;
-use App\Models\CollectionPayment;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
 
 class PaymentsRelationManager extends RelationManager
 {
-    protected static string $relationship = 'payments';
-    
+    protected static string $relationship = 'collectionPayments';
+
     protected static ?string $title = 'الدفعات';
 
     public function table(Table $table): Table
@@ -49,9 +49,9 @@ class PaymentsRelationManager extends RelationManager
                         return $record->payment_status_label;
                     })
                     ->color(function (CollectionPayment $record) {
-                        return match($record->payment_status->value) {
+                        return match ($record->payment_status->value) {
                             'collected' => 'success',
-                            'due' => 'warning', 
+                            'due' => 'warning',
                             'overdue' => 'danger',
                             'postponed' => 'secondary',
                             'upcoming' => 'primary',
@@ -93,7 +93,7 @@ class PaymentsRelationManager extends RelationManager
             ->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
             ->deferFilters()
             ->headerActions([
-                // يمكن إضافة أزرار إنشاء دفعة جديدة هنا إذا أردنا
+                // Can add buttons to create new payment here if needed
             ])
             ->actions([
                 \Filament\Actions\ViewAction::make(),

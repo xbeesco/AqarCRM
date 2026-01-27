@@ -3,29 +3,19 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\TenantResource\Pages;
+use App\Models\CollectionPayment;
 use App\Models\Tenant;
-use Filament\Resources\Resource;
-use Filament\Schemas\Schema;
-use Filament\Tables\Table;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\FileUpload;
-use Filament\Schemas\Components\Section;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Actions\Action;
-use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\Filter;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\TextInput;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Enums\FiltersLayout;
-use Filament\Forms\Components\TextInput as FilterTextInput;
-use Filament\Forms\Components\Select;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Hash;
-use Filament\GlobalSearch\GlobalSearchResult;
-use Illuminate\Support\Collection;
-use App\Models\CollectionPayment;
-use App\Models\UnitContract;
-use Carbon\Carbon;
 
 class TenantResource extends Resource
 {
@@ -36,40 +26,37 @@ class TenantResource extends Resource
     protected static ?string $modelLabel = 'مستأجر';
 
     protected static ?string $pluralModelLabel = 'المستأجرين';
-    
+
     protected static ?string $recordTitleAttribute = 'name';
 
-    // صلاحيات الوصول للـ Resource
     public static function canViewAny(): bool
     {
         $userType = auth()->user()?->type;
-        // الكل يمكنه رؤية المستأجرين ماعدا owner و tenant
-        return !in_array($userType, ['owner', 'tenant']);
+
+        return ! in_array($userType, ['owner', 'tenant']);
     }
 
     public static function canCreate(): bool
     {
         $userType = auth()->user()?->type;
-        // super_admin و admin و manager يمكنهم إضافة مستأجرين
+
         return in_array($userType, ['super_admin', 'admin', 'manager']);
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
         $userType = auth()->user()?->type;
-        // super_admin و admin و manager يمكنهم تعديل المستأجرين
+
         return in_array($userType, ['super_admin', 'admin', 'manager']);
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        // فقط super_admin يمكنه حذف المستأجرين
         return auth()->user()?->type === 'super_admin';
     }
 
     public static function canDeleteAny(): bool
     {
-        // فقط super_admin يمكنه الحذف الجماعي
         return auth()->user()?->type === 'super_admin';
     }
 
@@ -125,7 +112,7 @@ class TenantResource extends Resource
                 TextColumn::make('secondary_phone')
                     ->label('التليفون 2')
                     ->searchable(),
-                    
+
                 TextColumn::make('email')
                     ->label('الإيميل')
                     ->searchable(),
@@ -152,7 +139,6 @@ class TenantResource extends Resource
             ->defaultSort('created_at', 'desc');
     }
 
-
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery();
@@ -174,167 +160,143 @@ class TenantResource extends Resource
             'view' => Pages\ViewTenant::route('/{record}'),
         ];
     }
-    
+
     public static function getGloballySearchableAttributes(): array
     {
         return ['name', 'phone', 'secondary_phone'];
     }
-    
+
     public static function getGlobalSearchEloquentQuery(): Builder
     {
         return parent::getGlobalSearchEloquentQuery();
     }
-    
-    public static function getGlobalSearchResults(string $search): Collection
+
+    public static function getGlobalSearchResults(string $search): \Illuminate\Support\Collection
     {
-        // تنظيف البحث وإزالة الهمزات
+        // Normalize Arabic characters (hamza variants)
         $normalizedSearch = str_replace(
             ['أ', 'إ', 'آ', 'ء', 'ؤ', 'ئ'],
             ['ا', 'ا', 'ا', '', 'و', 'ي'],
             $search
         );
-        
-        // إزالة المسافات الزائدة
+
         $searchWithoutSpaces = str_replace(' ', '', $normalizedSearch);
         $searchWithSpaces = str_replace(' ', '%', $normalizedSearch);
-        
+
         $query = static::getModel()::query();
-        
+
         return $query->where(function (Builder $query) use ($normalizedSearch, $searchWithoutSpaces, $searchWithSpaces, $search) {
-            // البحث العادي
             $query->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('phone', 'LIKE', "%{$search}%")
-                  ->orWhere('secondary_phone', 'LIKE', "%{$search}%")
-                  // البحث بدون همزات
-                  ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(name, 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا'), 'ء', ''), 'ؤ', 'و'), 'ئ', 'ي') LIKE ?", ["%{$normalizedSearch}%"])
-                  // البحث بدون مسافات
-                  ->orWhereRaw("REPLACE(name, ' ', '') LIKE ?", ["%{$searchWithoutSpaces}%"])
-                  // البحث مع تجاهل المسافات في الكلمة المبحوث عنها
-                  ->orWhere('name', 'LIKE', "%{$searchWithSpaces}%")
-                  // البحث بالتواريخ - تاريخ الإنشاء
-                  ->orWhereRaw("DATE_FORMAT(created_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
-                  ->orWhereRaw("DATE_FORMAT(created_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
-                  ->orWhereRaw("DATE_FORMAT(created_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
-                  ->orWhereRaw("DATE_FORMAT(created_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"])
-                  // البحث بالتواريخ - تاريخ الحذف
-                  ->orWhereRaw("DATE_FORMAT(deleted_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
-                  ->orWhereRaw("DATE_FORMAT(deleted_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
-                  ->orWhereRaw("DATE_FORMAT(deleted_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
-                  ->orWhereRaw("DATE_FORMAT(deleted_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"]);
+                ->orWhere('phone', 'LIKE', "%{$search}%")
+                ->orWhere('secondary_phone', 'LIKE', "%{$search}%")
+                ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(name, 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا'), 'ء', ''), 'ؤ', 'و'), 'ئ', 'ي') LIKE ?", ["%{$normalizedSearch}%"])
+                ->orWhereRaw("REPLACE(name, ' ', '') LIKE ?", ["%{$searchWithoutSpaces}%"])
+                ->orWhere('name', 'LIKE', "%{$searchWithSpaces}%")
+                ->orWhereRaw("DATE_FORMAT(created_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
+                ->orWhereRaw("DATE_FORMAT(created_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
+                ->orWhereRaw("DATE_FORMAT(created_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
+                ->orWhereRaw("DATE_FORMAT(created_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"])
+                ->orWhereRaw("DATE_FORMAT(deleted_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
+                ->orWhereRaw("DATE_FORMAT(deleted_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
+                ->orWhereRaw("DATE_FORMAT(deleted_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
+                ->orWhereRaw("DATE_FORMAT(deleted_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"]);
         })
-        ->limit(50)
-        ->get()
-        ->map(function ($record) {
-            return new \Filament\GlobalSearch\GlobalSearchResult(
-                title: $record->name,
-                url: static::getUrl('edit', ['record' => $record]),
-                details: [
-                    'الهاتف' => $record->phone ?? 'غير محدد',
-                    'الهاتف الثاني' => $record->secondary_phone ?? 'غير محدد',
-                    'تاريخ الإنشاء' => $record->created_at?->format('Y-m-d') ?? 'غير محدد',
-                    'تاريخ الحذف' => $record->deleted_at?->format('Y-m-d') ?? 'نشط',
-                ],
-                actions: []
-            );
-        });
+            ->limit(50)
+            ->get()
+            ->map(function ($record) {
+                return new \Filament\GlobalSearch\GlobalSearchResult(
+                    title: $record->name,
+                    url: static::getUrl('edit', ['record' => $record]),
+                    details: [
+                        'الهاتف' => $record->phone ?? 'غير محدد',
+                        'الهاتف الثاني' => $record->secondary_phone ?? 'غير محدد',
+                        'تاريخ الإنشاء' => $record->created_at?->format('Y-m-d') ?? 'غير محدد',
+                        'تاريخ الحذف' => $record->deleted_at?->format('Y-m-d') ?? 'نشط',
+                    ],
+                    actions: []
+                );
+            });
     }
 
     public static function getTenantStatistics($tenant): array
     {
-        // التأكد من أننا نعمل مع Tenant وليس User
-        if (!($tenant instanceof \App\Models\Tenant)) {
-            // إذا كان User، نحوله إلى Tenant
+        // Ensure we're working with Tenant model
+        if (! ($tenant instanceof \App\Models\Tenant)) {
             $tenant = \App\Models\Tenant::find($tenant->id);
-            if (!$tenant) {
+            if (! $tenant) {
                 return [];
             }
         }
-        
-        // تحميل العلاقات
+
         $tenant->load(['rentalContracts', 'paymentHistory']);
-        
-        // العقد النشط الحالي
+
         $activeContract = $tenant->rentalContracts()
             ->where('contract_status', 'active')
             ->whereDate('start_date', '<=', now())
             ->whereDate('end_date', '>=', now())
             ->with(['unit', 'property'])
             ->first();
-        
-        // إجمالي المدفوعات
+
         $totalPayments = $tenant->paymentHistory()
             ->collectedPayments()
             ->sum('total_amount');
-        
-        // المستحقات غير المدفوعة
+
         $outstandingPayments = $tenant->paymentHistory()
             ->byStatuses(['due', 'overdue'])
             ->sum('total_amount');
-        
-        // عدد المدفوعات المتأخرة
+
         $overdueCount = $tenant->paymentHistory()
             ->overduePayments()
             ->count();
-        
-        // تاريخ آخر دفعة
+
         $lastPayment = $tenant->paymentHistory()
             ->collectedPayments()
             ->latest('paid_date')
             ->first();
-        
-        // تاريخ الدفعة القادمة
+
         $nextPayment = $tenant->paymentHistory()
             ->dueForCollection()
             ->oldest('due_date_start')
             ->first();
-        
-        // عدد العقود الإجمالي
+
         $totalContracts = $tenant->rentalContracts()->count();
-        
-        // عدد العقود المنتهية
+
         $expiredContracts = $tenant->rentalContracts()
             ->where('contract_status', 'expired')
             ->count();
-        
-        // متوسط مدة الإيجار
+
         $avgContractDuration = $tenant->rentalContracts()
             ->whereIn('contract_status', ['active', 'completed', 'expired'])
             ->selectRaw('AVG(DATEDIFF(end_date, start_date)) as avg_days')
             ->value('avg_days');
-        
+
         $avgContractMonths = $avgContractDuration ? round($avgContractDuration / 30) : 0;
-        
-        // حساب نسبة الالتزام بالدفع
+
         $totalDuePayments = $tenant->paymentHistory()
             ->byStatuses(['collected', 'due', 'overdue'])
             ->count();
-        
+
         $paidOnTimePayments = $tenant->paymentHistory()
             ->collectedPayments()
             ->whereColumn('paid_date', '<=', 'due_date_end')
             ->count();
-        
-        $paymentComplianceRate = $totalDuePayments > 0 ? 
+
+        $paymentComplianceRate = $totalDuePayments > 0 ?
             round(($paidOnTimePayments / $totalDuePayments) * 100) : 0;
-        
-        // إجمالي غرامات التأخير
+
         $totalLateFees = $tenant->paymentHistory()
             ->sum('late_fee');
-        
-        // معلومات الوحدة والعقار الحالي
+
         $currentUnit = $activeContract ? $activeContract->unit : null;
         $currentProperty = $activeContract ? $activeContract->property : null;
-        
+
         return [
-            // معلومات المستأجر
             'tenant_name' => $tenant->name,
             'tenant_phone' => $tenant->phone,
             'tenant_secondary_phone' => $tenant->secondary_phone,
             'tenant_email' => $tenant->email,
             'identity_file' => $tenant->identity_file,
             'created_at' => $tenant->created_at,
-            
-            // معلومات العقد الحالي
             'has_active_contract' => $activeContract !== null,
             'current_contract' => $activeContract ? [
                 'contract_number' => $activeContract->contract_number,
@@ -345,8 +307,6 @@ class TenantResource extends Resource
                 'payment_method' => $activeContract->payment_method,
                 'days_remaining' => now()->diffInDays($activeContract->end_date, false),
             ] : null,
-            
-            // معلومات الوحدة الحالية
             'current_unit' => $currentUnit ? [
                 'name' => $currentUnit->name,
                 'floor_number' => $currentUnit->floor_number,
@@ -354,41 +314,30 @@ class TenantResource extends Resource
                 'area_sqm' => $currentUnit->area_sqm,
                 'rent_price' => $currentUnit->rent_price,
             ] : null,
-            
-            // معلومات العقار الحالي
             'current_property' => $currentProperty ? [
                 'name' => $currentProperty->name,
                 'address' => $currentProperty->address,
                 'type' => $currentProperty->type,
             ] : null,
-            
-            // الإحصائيات المالية
             'total_payments' => $totalPayments,
             'outstanding_payments' => $outstandingPayments,
             'overdue_count' => $overdueCount,
             'total_late_fees' => $totalLateFees,
             'payment_compliance_rate' => $paymentComplianceRate,
-            
-            // معلومات الدفعات
             'last_payment' => $lastPayment ? [
                 'payment_number' => $lastPayment->payment_number,
                 'amount' => $lastPayment->total_amount,
                 'paid_date' => $lastPayment->paid_date,
             ] : null,
-            
             'next_payment' => $nextPayment ? [
                 'payment_number' => $nextPayment->payment_number,
                 'amount' => $nextPayment->total_amount,
                 'due_date' => $nextPayment->due_date_start,
                 'days_until_due' => now()->diffInDays($nextPayment->due_date_start, false),
             ] : null,
-            
-            // إحصائيات العقود
             'total_contracts' => $totalContracts,
             'expired_contracts' => $expiredContracts,
             'avg_contract_months' => $avgContractMonths,
-            
-            // معدلات الأداء
             'is_good_standing' => $overdueCount === 0 && $outstandingPayments === 0,
             'risk_level' => $overdueCount > 3 ? 'high' : ($overdueCount > 1 ? 'medium' : 'low'),
         ];
@@ -396,19 +345,17 @@ class TenantResource extends Resource
 
     public static function getRecentPayments($tenant, $limit = 5): \Illuminate\Database\Eloquent\Collection
     {
-        // التأكد من أننا نعمل مع Tenant وليس User
-        if (!($tenant instanceof \App\Models\Tenant)) {
+        if (! ($tenant instanceof \App\Models\Tenant)) {
             $tenant = \App\Models\Tenant::find($tenant->id);
-            if (!$tenant) {
+            if (! $tenant) {
                 return collect();
             }
         }
-        
+
         return CollectionPayment::where('tenant_id', $tenant->id)
-            ->with(['paymentStatus', 'paymentMethod', 'unit', 'property', 'unitContract'])
+            ->with(['paymentMethod', 'unit', 'property', 'unitContract'])
             ->orderBy('due_date_start', 'desc')
             ->limit($limit)
             ->get();
     }
-
 }

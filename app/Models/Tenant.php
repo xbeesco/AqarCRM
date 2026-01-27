@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\UserType;
+use App\Services\TenantService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -72,23 +73,20 @@ class Tenant extends User
     }
 
     /**
-     * Get payment history for this tenant.
-     * Note: CollectionPayment model needs to be created
+     * Get collection payments for this tenant.
      */
-    public function paymentHistory()
+    public function collectionPayments()
     {
-        // return $this->hasMany(CollectionPayment::class, 'tenant_id')->orderBy('due_date_start', 'desc');
-        return $this->hasMany(\App\Models\CollectionPayment::class, 'tenant_id')->orderBy('due_date_start', 'desc');
+        return $this->hasMany(\App\Models\CollectionPayment::class, 'tenant_id');
     }
 
     /**
-     * Alias for collection payments
-     * Note: CollectionPayment model needs to be created
+     * Alias for collectionPayments (payment history).
+     * Used in TenantResource for statistics and reports.
      */
-    public function payments()
+    public function paymentHistory()
     {
-        // return $this->hasMany(CollectionPayment::class, 'tenant_id');
-        return $this->hasMany(\App\Models\CollectionPayment::class, 'tenant_id');
+        return $this->collectionPayments();
     }
 
     /**
@@ -131,20 +129,16 @@ class Tenant extends User
     //     return $this->hasMany(UtilityBill::class, 'tenant_id');
     // }
 
-    /**
-     * Check if tenant has active contract.
-     */
-    public function hasActiveContract()
-    {
-        return $this->currentContract()->exists();
-    }
+    // ==========================================
+    // Accessors (computed attributes)
+    // ==========================================
 
     /**
      * Get total amount paid by tenant.
      */
     public function getTotalAmountPaidAttribute()
     {
-        return $this->paymentHistory()->collectedPayments()->sum('total_amount');
+        return app(TenantService::class)->calculateTotalPaid($this);
     }
 
     /**
@@ -152,20 +146,42 @@ class Tenant extends User
      */
     public function getOutstandingBalanceAttribute()
     {
-        return $this->paymentHistory()
-            ->byStatuses(['due', 'overdue'])
-            ->sum('total_amount');
+        return app(TenantService::class)->calculateOutstandingBalance($this);
     }
 
     /**
      * Check if tenant is in good standing.
      */
-    public function isInGoodStanding()
+    public function getIsInGoodStandingAttribute(): bool
     {
-        $outstandingPayments = $this->paymentHistory()
-            ->overduePayments()
-            ->count();
+        return app(TenantService::class)->isInGoodStanding($this);
+    }
 
-        return $outstandingPayments === 0;
+    /**
+     * Check if tenant has an active contract.
+     */
+    public function getHasActiveContractAttribute(): bool
+    {
+        return app(TenantService::class)->hasActiveContract($this);
+    }
+
+    /**
+     * Get tenant rating.
+     */
+    public function getTenantRatingAttribute(): array
+    {
+        return app(TenantService::class)->getTenantRating($this);
+    }
+
+    // ==========================================
+    // Simple Check Methods
+    // ==========================================
+
+    /**
+     * Check if tenant has active contract.
+     */
+    public function hasActiveContract(): bool
+    {
+        return $this->has_active_contract;
     }
 }
