@@ -18,15 +18,14 @@ class PropertyFactory extends Factory
     {
         return [
             'name' => 'عقار ' . $this->faker->words(2, true),
-            'owner_id' => \App\Models\User::role('owner')->inRandomOrder()->first()->id ?? \App\Models\User::factory(),
-            'status' => $this->faker->randomElement(['1', '2', '3']), // Use enum values
-            'type' => $this->faker->randomElement(['1', '2', '3', '4']), // Use enum values
-            'location_id' => 1, // Will be overridden by seeder
+            'owner_id' => \App\Models\User::owners()->inRandomOrder()->first()->id ?? \App\Models\User::factory(),
+            'status_id' => $this->faker->randomElement([1, 2, 3]), // Use numeric IDs
+            'type_id' => $this->faker->randomElement([1, 2, 3, 4]), // Use numeric IDs
+            'location_id' => null, // Will be overridden by seeder or test
             'address' => $this->faker->address(),
             'postal_code' => $this->faker->postcode(),
             'parking_spots' => $this->faker->numberBetween(1, 20),
             'elevators' => $this->faker->numberBetween(0, 3),
-            'area_sqm' => $this->faker->numberBetween(100, 1000),
             'build_year' => $this->faker->numberBetween(1990, 2025),
             'floors_count' => $this->faker->numberBetween(1, 10),
             'notes' => $this->faker->paragraph(),
