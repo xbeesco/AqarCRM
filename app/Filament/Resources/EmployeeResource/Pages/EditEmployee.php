@@ -10,11 +10,10 @@ class EditEmployee extends EditRecord
 {
     protected static string $resource = EmployeeResource::class;
 
-    public function mount(int | string $record): void
+    public function mount(int|string $record): void
     {
-        // التحقق من الصلاحية قبل السماح بالوصول
         abort_unless(static::getResource()::canEdit($this->resolveRecord($record)), 403);
-        
+
         parent::mount($record);
     }
 
