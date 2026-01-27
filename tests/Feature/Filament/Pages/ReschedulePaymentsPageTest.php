@@ -1,0 +1,638 @@
+<?php
+
+namespace Tests\Feature\Filament\Pages;
+
+use App\Enums\UserType;
+use App\Filament\Resources\UnitContractResource\Pages\ReschedulePayments;
+use App\Models\CollectionPayment;
+use App\Models\Location;
+use App\Models\Property;
+use App\Models\PropertyStatus;
+use App\Models\PropertyType;
+use App\Models\Setting;
+use App\Models\Unit;
+use App\Models\UnitContract;
+use App\Models\UnitType;
+use App\Models\User;
+use App\Services\UnitContractService;
+use Carbon\Carbon;
+use Filament\Facades\Filament;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
+
+class ReschedulePaymentsPageTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected User $superAdmin;
+
+    protected User $admin;
+
+    protected User $employee;
+
+    protected User $owner;
+
+    protected User $tenant;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Create required reference data
+        $this->createReferenceData();
+
+        // Create users of different types
+        $this->superAdmin = User::factory()->create([
+            'type' => UserType::SUPER_ADMIN->value,
+            'email' => 'superadmin@test.com',
+        ]);
+
+        $this->admin = User::factory()->create([
+            'type' => UserType::ADMIN->value,
+            'email' => 'admin@test.com',
+        ]);
+
+        $this->employee = User::factory()->create([
+            'type' => UserType::EMPLOYEE->value,
+            'email' => 'employee@test.com',
+        ]);
+
+        $this->owner = User::factory()->create([
+            'type' => UserType::OWNER->value,
+            'email' => 'owner@test.com',
+        ]);
+
+        $this->tenant = User::factory()->create([
+            'type' => UserType::TENANT->value,
+            'email' => 'tenant@test.com',
+        ]);
+
+        // Set the Filament panel
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+    }
+
+    /**
+     * Create reference data required for testing
+     */
+    protected function createReferenceData(): void
+    {
+        // Create default Location
+        Location::firstOrCreate(
+            ['id' => 1],
+            ['name' => 'Default Location', 'level' => 1, 'is_active' => true]
+        );
+
+        // Create default PropertyType
+        PropertyType::firstOrCreate(
+            ['id' => 1],
+            ['name_ar' => 'شقة', 'name_en' => 'Apartment', 'slug' => 'apartment', 'is_active' => true]
+        );
+
+        // Create default PropertyStatus
+        PropertyStatus::firstOrCreate(
+            ['id' => 1],
+            ['name_ar' => 'متاح', 'name_en' => 'Available', 'slug' => 'available', 'is_active' => true]
+        );
+
+        // Create default UnitType
+        UnitType::firstOrCreate(
+            ['id' => 1],
+            ['name_ar' => 'شقة', 'name_en' => 'Apartment', 'slug' => 'apartment', 'is_active' => true]
+        );
+
+        // Create payment_due_days setting
+        Setting::set('payment_due_days', 7);
+    }
+
+    /**
+     * Create a property with an owner
+     */
+    protected function createPropertyWithOwner(?User $owner = null): Property
+    {
+        $ownerUser = $owner ?? User::factory()->create(['type' => UserType::OWNER->value]);
+
+        return Property::factory()->create([
+            'owner_id' => $ownerUser->id,
+            'location_id' => 1,
+            'type_id' => 1,
+            'status_id' => 1,
+        ]);
+    }
+
+    /**
+     * Create a unit for a property
+     */
+    protected function createUnit(Property $property): Unit
+    {
+        return Unit::factory()->create([
+            'property_id' => $property->id,
+            'unit_type_id' => 1,
+        ]);
+    }
+
+    /**
+     * Create a complete contract with all related models
+     * Note: For active contracts, the Observer auto-generates payments
+     */
+    protected function createContractWithRelations(array $attributes = [], ?User $owner = null, ?User $tenant = null): UnitContract
+    {
+        $tenantUser = $tenant ?? User::factory()->create(['type' => UserType::TENANT->value]);
+        $ownerUser = $owner ?? User::factory()->create(['type' => UserType::OWNER->value]);
+
+        $property = Property::factory()->create([
+            'owner_id' => $ownerUser->id,
+            'location_id' => 1,
+            'type_id' => 1,
+            'status_id' => 1,
+        ]);
+
+        $unit = Unit::factory()->create([
+            'property_id' => $property->id,
+            'unit_type_id' => 1,
+        ]);
+
+        $defaultAttributes = [
+            'tenant_id' => $tenantUser->id,
+            'unit_id' => $unit->id,
+            'property_id' => $property->id,
+            'contract_status' => 'active',
+            'start_date' => Carbon::now()->subMonths(1),
+            'end_date' => Carbon::now()->addMonths(11),
+            'duration_months' => 12,
+            'payment_frequency' => 'monthly',
+            'monthly_rent' => 5000,
+        ];
+
+        return UnitContract::factory()->create(array_merge($defaultAttributes, $attributes));
+    }
+
+    /**
+     * Create a contract with payments (some paid, some unpaid)
+     * Active contracts auto-generate payments via Observer
+     */
+    protected function createContractWithPayments(
+        int $months = 12,
+        string $frequency = 'monthly',
+        int $paidCount = 3,
+        float $monthlyRent = 5000.00
+    ): UnitContract {
+        // Create an active contract - the Observer will auto-generate payments
+        $contract = $this->createContractWithRelations([
+            'contract_status' => 'active',
+            'duration_months' => $months,
+            'payment_frequency' => $frequency,
+            'monthly_rent' => $monthlyRent,
+            'start_date' => Carbon::now()->startOfMonth(),
+            'end_date' => Carbon::now()->startOfMonth()->addMonths($months)->subDay(),
+        ]);
+
+        // The Observer already generated payments for active contracts
+        // Mark some payments as paid
+        $payments = $contract->collectionPayments()->orderBy('due_date_start')->get();
+        for ($i = 0; $i < $paidCount && $i < count($payments); $i++) {
+            $payments[$i]->update([
+                'collection_date' => Carbon::now(),
+            ]);
+        }
+
+        return $contract->fresh();
+    }
+
+    // ==========================================
+    // Access Tests
+    // ==========================================
+
+    #[Test]
+    public function test_super_admin_can_access_reschedule_page(): void
+    {
+        $this->actingAs($this->superAdmin);
+
+        $contract = $this->createContractWithPayments();
+
+        $response = $this->get(route('filament.admin.resources.unit-contracts.reschedule', $contract));
+
+        $response->assertSuccessful();
+    }
+
+    #[Test]
+    public function test_admin_can_access_reschedule_page(): void
+    {
+        $this->actingAs($this->admin);
+
+        $contract = $this->createContractWithPayments();
+
+        $response = $this->get(route('filament.admin.resources.unit-contracts.reschedule', $contract));
+
+        $response->assertSuccessful();
+    }
+
+    #[Test]
+    public function test_employee_can_access_reschedule_page(): void
+    {
+        $this->actingAs($this->employee);
+
+        $contract = $this->createContractWithPayments();
+
+        $response = $this->get(route('filament.admin.resources.unit-contracts.reschedule', $contract));
+
+        $response->assertSuccessful();
+    }
+
+    #[Test]
+    public function test_owner_cannot_access_reschedule_page(): void
+    {
+        $this->actingAs($this->owner);
+
+        $contract = $this->createContractWithPayments();
+
+        // Owners are blocked by canAccessPanel(), so we expect 403
+        $response = $this->get(route('filament.admin.resources.unit-contracts.reschedule', $contract));
+
+        $response->assertStatus(403);
+    }
+
+    #[Test]
+    public function test_tenant_cannot_access_reschedule_page(): void
+    {
+        $this->actingAs($this->tenant);
+
+        $contract = $this->createContractWithPayments();
+
+        // Tenants are blocked by canAccessPanel(), so we expect 403
+        $response = $this->get(route('filament.admin.resources.unit-contracts.reschedule', $contract));
+
+        $response->assertStatus(403);
+    }
+
+    #[Test]
+    public function test_page_shows_403_for_unauthorized(): void
+    {
+        // Unauthenticated user should be redirected to login
+        $contract = $this->createContractWithPayments();
+
+        $response = $this->get(route('filament.admin.resources.unit-contracts.reschedule', $contract));
+
+        // Should redirect to login
+        $response->assertRedirect();
+    }
+
+    // ==========================================
+    // Condition Tests
+    // ==========================================
+
+    #[Test]
+    public function test_shows_403_when_cannot_reschedule_no_payments(): void
+    {
+        $this->actingAs($this->admin);
+
+        // Create a contract without payments (draft to avoid auto-generation)
+        $contract = $this->createContractWithRelations([
+            'contract_status' => 'draft',
+        ]);
+
+        // Contract without payments cannot be rescheduled
+        $this->assertFalse($contract->canReschedule());
+
+        // The policy's reschedule method checks canReschedule(), so this returns 403
+        $response = $this->get(route('filament.admin.resources.unit-contracts.reschedule', $contract));
+
+        $response->assertStatus(403);
+    }
+
+    #[Test]
+    public function test_shows_403_when_cannot_reschedule_terminated_contract(): void
+    {
+        $this->actingAs($this->admin);
+
+        // Create a terminated contract (terminated contracts don't auto-generate payments)
+        $contract = $this->createContractWithRelations([
+            'contract_status' => 'terminated',
+        ]);
+
+        // Add a payment to ensure it's not the "no payments" case
+        CollectionPayment::factory()->create([
+            'unit_contract_id' => $contract->id,
+            'unit_id' => $contract->unit_id,
+            'property_id' => $contract->property_id,
+            'tenant_id' => $contract->tenant_id,
+        ]);
+
+        $contract->refresh();
+
+        // Terminated contracts cannot be rescheduled
+        $this->assertFalse($contract->canReschedule());
+
+        // The policy's reschedule method checks canReschedule(), so this returns 403
+        $response = $this->get(route('filament.admin.resources.unit-contracts.reschedule', $contract));
+
+        $response->assertStatus(403);
+    }
+
+    #[Test]
+    public function test_page_loads_for_valid_contract(): void
+    {
+        $this->actingAs($this->admin);
+
+        $contract = $this->createContractWithPayments();
+
+        // Verify the contract can be rescheduled
+        $this->assertTrue($contract->canReschedule());
+
+        // Test the page loads
+        Livewire::test(ReschedulePayments::class, ['record' => $contract])
+            ->assertSuccessful()
+            ->assertSee($contract->contract_number);
+    }
+
+    // ==========================================
+    // Form Display Tests
+    // ==========================================
+
+    #[Test]
+    public function test_form_shows_current_contract_info(): void
+    {
+        $this->actingAs($this->admin);
+
+        $contract = $this->createContractWithPayments(12, 'monthly', 3, 5000);
+
+        Livewire::test(ReschedulePayments::class, ['record' => $contract])
+            ->assertSee('معلومات العقد الحالي')
+            ->assertSee('12 شهر'); // Original duration
+    }
+
+    #[Test]
+    public function test_form_shows_paid_months_count(): void
+    {
+        $this->actingAs($this->admin);
+
+        $contract = $this->createContractWithPayments(12, 'monthly', 3, 5000);
+
+        $contractService = app(UnitContractService::class);
+        $paidMonths = $contractService->getPaidMonthsCount($contract);
+
+        Livewire::test(ReschedulePayments::class, ['record' => $contract])
+            ->assertSee('الأشهر المدفوعة')
+            ->assertSee($paidMonths.' شهر');
+    }
+
+    #[Test]
+    public function test_form_shows_unpaid_payments_count(): void
+    {
+        $this->actingAs($this->admin);
+
+        $contract = $this->createContractWithPayments(12, 'monthly', 3, 5000);
+
+        $contractService = app(UnitContractService::class);
+        $unpaidCount = $contractService->getUnpaidPaymentsCount($contract);
+
+        Livewire::test(ReschedulePayments::class, ['record' => $contract])
+            ->assertSee('الدفعات غير المدفوعة')
+            ->assertSee($unpaidCount.' دفعة');
+    }
+
+    #[Test]
+    public function test_form_validates_duration_frequency(): void
+    {
+        $this->actingAs($this->admin);
+
+        $contract = $this->createContractWithPayments(12, 'monthly', 3, 5000);
+
+        // Try to set invalid duration for quarterly (7 months doesn't divide by 3)
+        Livewire::test(ReschedulePayments::class, ['record' => $contract])
+            ->set('data.additional_months', 7)
+            ->set('data.new_frequency', 'quarterly')
+            ->assertSet('data.frequency_error', true);
+    }
+
+    #[Test]
+    public function test_form_validates_duration_frequency_valid(): void
+    {
+        $this->actingAs($this->admin);
+
+        $contract = $this->createContractWithPayments(12, 'monthly', 3, 5000);
+
+        // Set valid duration for quarterly (6 months divides by 3)
+        Livewire::test(ReschedulePayments::class, ['record' => $contract])
+            ->set('data.additional_months', 6)
+            ->set('data.new_frequency', 'quarterly')
+            ->assertSet('data.frequency_error', false);
+    }
+
+    #[Test]
+    public function test_form_calculates_new_payments_count(): void
+    {
+        $this->actingAs($this->admin);
+
+        $contract = $this->createContractWithPayments(12, 'monthly', 3, 5000);
+
+        Livewire::test(ReschedulePayments::class, ['record' => $contract])
+            ->set('data.additional_months', 6)
+            ->set('data.new_frequency', 'monthly')
+            ->assertSet('data.new_payments_count', 6);
+    }
+
+    #[Test]
+    public function test_form_calculates_quarterly_payments_count(): void
+    {
+        $this->actingAs($this->admin);
+
+        $contract = $this->createContractWithPayments(12, 'monthly', 3, 5000);
+
+        Livewire::test(ReschedulePayments::class, ['record' => $contract])
+            ->set('data.additional_months', 12)
+            ->set('data.new_frequency', 'quarterly')
+            ->assertSet('data.new_payments_count', 4); // 12 / 3 = 4
+    }
+
+    // ==========================================
+    // Reschedule Action Tests
+    // ==========================================
+
+    #[Test]
+    public function test_reschedule_action_calls_service(): void
+    {
+        $this->actingAs($this->admin);
+
+        $contract = $this->createContractWithPayments(12, 'monthly', 3, 5000);
+
+        $unpaidBefore = $contract->collectionPayments()->unpaid()->count();
+
+        Livewire::test(ReschedulePayments::class, ['record' => $contract])
+            ->set('data.new_monthly_rent', 6000)
+            ->set('data.additional_months', 6)
+            ->set('data.new_frequency', 'monthly')
+            ->callAction('reschedule');
+
+        $contract->refresh();
+
+        // Unpaid payments should have been deleted
+        $unpaidAfter = $contract->collectionPayments()->unpaid()->count();
+        $this->assertEquals(6, $unpaidAfter); // 6 new payments created
+
+        // Contract duration should be updated
+        // Paid months + new months
+        $paidMonths = app(UnitContractService::class)->getPaidMonthsCount($contract);
+        $this->assertEquals($paidMonths + 6, $contract->duration_months);
+    }
+
+    #[Test]
+    public function test_reschedule_action_shows_success_notification(): void
+    {
+        $this->actingAs($this->admin);
+
+        $contract = $this->createContractWithPayments(12, 'monthly', 3, 5000);
+
+        Livewire::test(ReschedulePayments::class, ['record' => $contract])
+            ->set('data.new_monthly_rent', 6000)
+            ->set('data.additional_months', 6)
+            ->set('data.new_frequency', 'monthly')
+            ->callAction('reschedule')
+            ->assertNotified('تمت إعادة الجدولة بنجاح');
+    }
+
+    #[Test]
+    public function test_reschedule_action_redirects_after_success(): void
+    {
+        $this->actingAs($this->admin);
+
+        $contract = $this->createContractWithPayments(12, 'monthly', 3, 5000);
+
+        Livewire::test(ReschedulePayments::class, ['record' => $contract])
+            ->set('data.new_monthly_rent', 6000)
+            ->set('data.additional_months', 6)
+            ->set('data.new_frequency', 'monthly')
+            ->callAction('reschedule')
+            ->assertRedirect(route('filament.admin.resources.unit-contracts.view', $contract));
+    }
+
+    #[Test]
+    public function test_reschedule_action_disabled_when_frequency_error(): void
+    {
+        $this->actingAs($this->admin);
+
+        $contract = $this->createContractWithPayments(12, 'monthly', 3, 5000);
+
+        // Set invalid duration/frequency combination
+        Livewire::test(ReschedulePayments::class, ['record' => $contract])
+            ->set('data.new_monthly_rent', 6000)
+            ->set('data.additional_months', 7)
+            ->set('data.new_frequency', 'quarterly')
+            ->assertSet('data.frequency_error', true)
+            ->assertActionDisabled('reschedule');
+    }
+
+    #[Test]
+    public function test_reschedule_preserves_paid_payments(): void
+    {
+        $this->actingAs($this->admin);
+
+        $contract = $this->createContractWithPayments(12, 'monthly', 3, 5000);
+
+        $paidPaymentsBefore = $contract->collectionPayments()->paid()->get();
+        $paidIds = $paidPaymentsBefore->pluck('id')->toArray();
+
+        Livewire::test(ReschedulePayments::class, ['record' => $contract])
+            ->set('data.new_monthly_rent', 6000)
+            ->set('data.additional_months', 6)
+            ->set('data.new_frequency', 'monthly')
+            ->callAction('reschedule');
+
+        $contract->refresh();
+
+        // Paid payments should still exist
+        foreach ($paidIds as $id) {
+            $this->assertDatabaseHas('collection_payments', ['id' => $id]);
+        }
+
+        // Paid payments should still have collection_date set
+        $paidPaymentsAfter = $contract->collectionPayments()->paid()->get();
+        $this->assertEquals(count($paidIds), $paidPaymentsAfter->count());
+    }
+
+    #[Test]
+    public function test_reschedule_deletes_unpaid_payments(): void
+    {
+        $this->actingAs($this->admin);
+
+        $contract = $this->createContractWithPayments(12, 'monthly', 3, 5000);
+
+        $unpaidPaymentsBefore = $contract->collectionPayments()->unpaid()->get();
+        $unpaidIds = $unpaidPaymentsBefore->pluck('id')->toArray();
+
+        Livewire::test(ReschedulePayments::class, ['record' => $contract])
+            ->set('data.new_monthly_rent', 6000)
+            ->set('data.additional_months', 6)
+            ->set('data.new_frequency', 'monthly')
+            ->callAction('reschedule');
+
+        // Old unpaid payments should be deleted
+        foreach ($unpaidIds as $id) {
+            $this->assertDatabaseMissing('collection_payments', ['id' => $id]);
+        }
+    }
+
+    #[Test]
+    public function test_reschedule_creates_new_payments_with_correct_amount(): void
+    {
+        $this->actingAs($this->admin);
+
+        $contract = $this->createContractWithPayments(12, 'monthly', 3, 5000);
+        $newRent = 7000;
+
+        Livewire::test(ReschedulePayments::class, ['record' => $contract])
+            ->set('data.new_monthly_rent', $newRent)
+            ->set('data.additional_months', 6)
+            ->set('data.new_frequency', 'monthly')
+            ->callAction('reschedule');
+
+        $contract->refresh();
+
+        // New payments should have the new rent amount
+        $newPayments = $contract->collectionPayments()->unpaid()->get();
+        foreach ($newPayments as $payment) {
+            $this->assertEquals($newRent, $payment->amount);
+        }
+    }
+
+    #[Test]
+    public function test_reschedule_with_quarterly_frequency(): void
+    {
+        $this->actingAs($this->admin);
+
+        $contract = $this->createContractWithPayments(12, 'monthly', 3, 5000);
+        $newRent = 6000;
+
+        Livewire::test(ReschedulePayments::class, ['record' => $contract])
+            ->set('data.new_monthly_rent', $newRent)
+            ->set('data.additional_months', 12)
+            ->set('data.new_frequency', 'quarterly')
+            ->callAction('reschedule');
+
+        $contract->refresh();
+
+        // Should have 4 quarterly payments (12 months / 3 = 4)
+        $newPayments = $contract->collectionPayments()->unpaid()->get();
+        $this->assertEquals(4, $newPayments->count());
+
+        // Each quarterly payment should be 3x monthly rent
+        foreach ($newPayments as $payment) {
+            $this->assertEquals($newRent * 3, $payment->amount);
+        }
+    }
+
+    #[Test]
+    public function test_cancel_action_has_correct_url(): void
+    {
+        $this->actingAs($this->admin);
+
+        $contract = $this->createContractWithPayments(12, 'monthly', 3, 5000);
+
+        // The cancel action is a link action (uses ->url()), not a redirecting action
+        // It renders as a link element, so we verify it exists and has the correct URL
+        Livewire::test(ReschedulePayments::class, ['record' => $contract])
+            ->assertActionExists('cancel')
+            ->assertActionHasUrl('cancel', route('filament.admin.resources.unit-contracts.view', $contract));
+    }
+}
