@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use Exception;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -34,7 +35,7 @@ class ApplyTestDate
             } else {
                 Carbon::setTestNow(null);
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // If test date fails, use real date
             Carbon::setTestNow(null);
         }

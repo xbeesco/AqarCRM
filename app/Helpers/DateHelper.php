@@ -2,6 +2,9 @@
 
 namespace App\Helpers;
 
+use InvalidArgumentException;
+use Schema;
+use Exception;
 use Carbon\Carbon;
 use App\Models\Setting;
 
@@ -14,10 +17,10 @@ class DateHelper
     {
         $testDate = self::getTestDate();
         $testDate = $testDate ? Carbon::parse($testDate) : null ;
-    
+
         Carbon::setTestNow($testDate);
     }
-    
+
     /**
      * Set a new test date
      */
@@ -26,27 +29,27 @@ class DateHelper
         if ($date) {
             $carbonDate = Carbon::parse($date);
             $realNow = Carbon::now()->setTestNow(null);
-            
+
             // Get session lifetime in minutes and convert to days
             $sessionLifetimeMinutes = config('session.lifetime', 120);
             $maxDaysAllowed = floor($sessionLifetimeMinutes / 60 / 24);
-            
+
             // Check if date exceeds session lifetime range (both past and future)
             $daysDifference = abs($carbonDate->diffInDays($realNow));
-            
+
             if ($daysDifference > $maxDaysAllowed) {
-                throw new \InvalidArgumentException(
+                throw new InvalidArgumentException(
                     "التاريخ يجب أن يكون في نطاق {$maxDaysAllowed} يوم من التاريخ الحالي (مدة صلاحية الجلسة)"
                 );
             }
-            
+
             Carbon::setTestNow($carbonDate);
             Setting::set('test_date', $date);
         } else {
             self::clearTestDate();
         }
     }
-    
+
     /**
      * Clear the test date
      */
@@ -55,7 +58,7 @@ class DateHelper
         Carbon::setTestNow(null);
         Setting::forget('test_date');
     }
-    
+
     /**
      * Get test date from settings or env
      */
@@ -69,14 +72,14 @@ class DateHelper
                     return $testDate;
                 }
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Ignore database errors
         }
-        
+
         // Fall back to environment variable
         return env('TEST_DATE') ?: null;
     }
-    
+
     /**
      * Check if we're in test mode
      */
@@ -84,14 +87,14 @@ class DateHelper
     {
         return !empty(self::getTestDate());
     }
-    
+
     /**
      * Get status information about test mode
      */
     public static function getTestModeStatus(): array
     {
         $testDate = self::getTestDate();
-        
+
         return [
             'enabled' => !empty($testDate),
             'test_date' => $testDate,

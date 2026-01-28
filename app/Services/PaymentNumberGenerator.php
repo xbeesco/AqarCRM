@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\CollectionPayment;
+use App\Models\SupplyPayment;
+use RuntimeException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -36,7 +39,7 @@ class PaymentNumberGenerator
     {
         return $this->generate(
             self::PREFIX_COLLECTION,
-            \App\Models\CollectionPayment::class
+            CollectionPayment::class
         );
     }
 
@@ -47,7 +50,7 @@ class PaymentNumberGenerator
     {
         return $this->generate(
             self::PREFIX_SUPPLY,
-            \App\Models\SupplyPayment::class
+            SupplyPayment::class
         );
     }
 
@@ -121,7 +124,7 @@ class PaymentNumberGenerator
      * @param  string  $modelClass  Model class
      * @return string Unique payment number
      *
-     * @throws \RuntimeException If all attempts fail
+     * @throws RuntimeException If all attempts fail
      */
     public function generateWithRetry(string $prefix, string $modelClass): string
     {
@@ -149,7 +152,7 @@ class PaymentNumberGenerator
             usleep(random_int(1000, 10000)); // Wait 1-10 milliseconds
         }
 
-        throw new \RuntimeException(
+        throw new RuntimeException(
             "Failed to generate unique payment number after {$attempts} attempts. ".
             'Please try again or contact technical support.'
         );

@@ -2,6 +2,18 @@
 
 namespace App\Filament\Resources;
 
+use App\Services\PropertyContractValidationService;
+use App\Services\PropertyContractService;
+use App\Models\User;
+use Illuminate\Support\HtmlString;
+use App\Services\PaymentGeneratorService;
+use Filament\Notifications\Notification;
+use Exception;
+use App\Filament\Resources\PropertyContractResource\Pages\ListPropertyContracts;
+use App\Filament\Resources\PropertyContractResource\Pages\CreatePropertyContract;
+use App\Filament\Resources\PropertyContractResource\Pages\ViewPropertyContract;
+use App\Filament\Resources\PropertyContractResource\Pages\ReschedulePayments;
+use Illuminate\Database\Eloquent\Model;
 use App\Filament\Resources\PropertyContractResource\Pages;
 use App\Models\Property;
 use App\Models\PropertyContract;
@@ -35,7 +47,7 @@ class PropertyContractResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema
-            ->schema([
+            ->components([
                 Section::make('بيانات العقد')
                     ->schema([
                         Select::make('property_id')
@@ -70,7 +82,7 @@ class PropertyContractResource extends Resource
                                         return;
                                     }
 
-                                    $validationService = app(\App\Services\PropertyContractValidationService::class);
+                                    $validationService = app(PropertyContractValidationService::class);
                                     $excludeId = $record ? $record->id : null;
 
                                     // Validate start date only
@@ -91,14 +103,14 @@ class PropertyContractResource extends Resource
                             ->live(onBlur: true)
                             ->afterStateUpdated(function ($state, $get, $set) {
                                 $frequency = $get('payment_frequency') ?? 'monthly';
-                                $count = \App\Services\PropertyContractService::calculatePaymentsCount($state ?? 0, $frequency);
+                                $count = PropertyContractService::calculatePaymentsCount($state ?? 0, $frequency);
                                 $set('payments_count', $count);
                             })
                             ->rules([
                                 fn($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
                                     // Validate duration matches frequency
                                     $frequency = $get('payment_frequency') ?? 'monthly';
-                                    if (! \App\Services\PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
+                                    if (! PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
                                         $periodName = match ($frequency) {
                                             'quarterly' => 'ربع سنة',
                                             'semi_annually' => 'نصف سنة',
@@ -116,7 +128,7 @@ class PropertyContractResource extends Resource
                                     $startDate = $get('start_date');
 
                                     if ($propertyId && $startDate && $value) {
-                                        $validationService = app(\App\Services\PropertyContractValidationService::class);
+                                        $validationService = app(PropertyContractValidationService::class);
                                         $excludeId = $record ? $record->id : null;
 
                                         // Validate duration and its effect on end date
@@ -143,7 +155,7 @@ class PropertyContractResource extends Resource
                             ->live()
                             ->afterStateUpdated(function ($state, $get, $set) {
                                 $duration = $get('duration_months') ?? 0;
-                                $count = \App\Services\PropertyContractService::calculatePaymentsCount($duration, $state ?? 'monthly');
+                                $count = PropertyContractService::calculatePaymentsCount($duration, $state ?? 'monthly');
                                 $set('payments_count', $count);
                             })
                             ->columnSpan(3),
@@ -155,7 +167,7 @@ class PropertyContractResource extends Resource
                             ->default(function ($get) {
                                 $duration = $get('duration_months') ?? 0;
                                 $frequency = $get('payment_frequency') ?? 'monthly';
-                                $result = \App\Services\PropertyContractService::calculatePaymentsCount($duration, $frequency);
+                                $result = PropertyContractService::calculatePaymentsCount($duration, $frequency);
 
                                 return $result;
                             })
@@ -237,11 +249,11 @@ class PropertyContractResource extends Resource
 
                 Filter::make('owner')
                     ->label('المالك')
-                    ->form([
+                    ->schema([
                         Select::make('owner_id')
                             ->label('المالك')
                             ->options(function () {
-                                return \App\Models\User::where('type', 'owner')
+                                return User::where('type', 'owner')
                                     ->pluck('name', 'id');
                             })
                             ->searchable(),
@@ -268,7 +280,7 @@ class PropertyContractResource extends Resource
                         $propertyName = $record->property?->name ?? 'غير محدد';
                         $contractNumber = $record->contract_number ?? 'غير محدد';
 
-                        return new \Illuminate\Support\HtmlString(
+                        return new HtmlString(
                             "<div style='text-align: right; direction: rtl;'>
                                 <p>رقم العقد: <strong>{$contractNumber}</strong></p>
                                 <p>العقار: <strong>{$propertyName}</strong></p>
@@ -281,18 +293,18 @@ class PropertyContractResource extends Resource
                     ->modalSubmitActionLabel('توليد')
                     ->visible(fn($record) => $record->canGeneratePayments())
                     ->action(function ($record) {
-                        $service = app(\App\Services\PaymentGeneratorService::class);
+                        $service = app(PaymentGeneratorService::class);
 
                         try {
                             $count = $service->generateSupplyPaymentsForContract($record);
 
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->title('تم توليد الدفعات')
                                 ->body('تم تصفية المستحقات والنفقات لهذا الشهر')
                                 ->success()
                                 ->send();
-                        } catch (\Exception $e) {
-                            \Filament\Notifications\Notification::make()
+                        } catch (Exception $e) {
+                            Notification::make()
                                 ->title('خطأ')
                                 ->body($e->getMessage())
                                 ->danger()
@@ -334,18 +346,18 @@ class PropertyContractResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListPropertyContracts::route('/'),
-            'create' => Pages\CreatePropertyContract::route('/create'),
-            'view' => Pages\ViewPropertyContract::route('/{record}'),
+            'index' => ListPropertyContracts::route('/'),
+            'create' => CreatePropertyContract::route('/create'),
+            'view' => ViewPropertyContract::route('/{record}'),
             // 'edit' => Pages\EditPropertyContract::route('/{record}/edit'), // Only accessible by super_admin
-            'reschedule' => Pages\ReschedulePayments::route('/{record}/reschedule'),
+            'reschedule' => ReschedulePayments::route('/{record}/reschedule'),
         ];
     }
 
     /**
      * Only super_admin can edit contracts
      */
-    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canEdit(Model $record): bool
     {
         $user = auth()->user();
 
@@ -355,7 +367,7 @@ class PropertyContractResource extends Resource
     /**
      * Only super_admin can delete contracts
      */
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canDelete(Model $record): bool
     {
         $user = auth()->user();
 
@@ -375,7 +387,7 @@ class PropertyContractResource extends Resource
     /**
      * Filter records based on user type
      */
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
         $user = auth()->user();

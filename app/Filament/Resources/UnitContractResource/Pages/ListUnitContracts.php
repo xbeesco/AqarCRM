@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\UnitContractResource\Pages;
 
+use Filament\Actions\CreateAction;
+use Filament\Actions\Action;
 use App\Exports\UnitContractsExport;
 use App\Filament\Resources\UnitContractResource;
 use Filament\Actions;
@@ -15,9 +17,9 @@ class ListUnitContracts extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make()
+            CreateAction::make()
                 ->label('إضافة عقد'),
-            Actions\Action::make('export')
+            Action::make('export')
                 ->label('تصدير')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')

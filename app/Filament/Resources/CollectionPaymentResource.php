@@ -2,6 +2,19 @@
 
 namespace App\Filament\Resources;
 
+use App\Models\UnitContract;
+use Filament\Forms\Components\Hidden;
+use Illuminate\Database\Eloquent\Builder;
+use App\Models\Property;
+use App\Models\Unit;
+use Illuminate\Support\HtmlString;
+use App\Filament\Resources\CollectionPaymentResource\Pages\ListCollectionPayments;
+use App\Filament\Resources\CollectionPaymentResource\Pages\CreateCollectionPayment;
+use App\Filament\Resources\CollectionPaymentResource\Pages\ViewCollectionPayment;
+use App\Filament\Resources\CollectionPaymentResource\Pages\EditCollectionPayment;
+use Illuminate\Support\Collection;
+use ValueError;
+use Filament\GlobalSearch\GlobalSearchResult;
 use App\Enums\PaymentStatus;
 use App\Filament\Resources\CollectionPaymentResource\Pages;
 use App\Models\CollectionPayment;
@@ -38,7 +51,7 @@ class CollectionPaymentResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema
-            ->schema([
+            ->components([
                 Section::make('إضافة دفعة مستأجر')
                     ->columnSpan('full')
                     ->schema([
@@ -48,7 +61,7 @@ class CollectionPaymentResource extends Resource
                             ->searchable()
                             ->preload()
                             ->options(function () {
-                                return \App\Models\UnitContract::with(['tenant', 'unit', 'property'])
+                                return UnitContract::with(['tenant', 'unit', 'property'])
                                     ->get()
                                     ->mapWithKeys(function ($contract) {
                                         $label = sprintf(
@@ -64,7 +77,7 @@ class CollectionPaymentResource extends Resource
                             ->live()
                             ->afterStateUpdated(function ($state, callable $set) {
                                 if ($state) {
-                                    $contract = \App\Models\UnitContract::find($state);
+                                    $contract = UnitContract::find($state);
                                     if ($contract) {
                                         $set('unit_id', $contract->unit_id);
                                         $set('property_id', $contract->property_id);
@@ -119,9 +132,9 @@ class CollectionPaymentResource extends Resource
                             ->columnSpan(6)
                             ->rows(2),
 
-                        \Filament\Forms\Components\Hidden::make('unit_id'),
-                        \Filament\Forms\Components\Hidden::make('property_id'),
-                        \Filament\Forms\Components\Hidden::make('tenant_id'),
+                        Hidden::make('unit_id'),
+                        Hidden::make('property_id'),
+                        Hidden::make('tenant_id'),
                     ])->columns(12),
             ]);
     }
@@ -130,7 +143,7 @@ class CollectionPaymentResource extends Resource
     {
         return $table
             ->defaultSort('due_date_start', 'asc')
-            ->modifyQueryUsing(function (\Illuminate\Database\Eloquent\Builder $query) {
+            ->modifyQueryUsing(function (Builder $query) {
                 $query->with(['tenant', 'unit', 'property', 'unitContract']);
             })
             ->columns([
@@ -190,11 +203,11 @@ class CollectionPaymentResource extends Resource
             ->filters([
                 Filter::make('property_and_unit')
                     ->label('العقار والوحدة')
-                    ->form([
+                    ->schema([
                         Grid::make(2)->schema([
                             Select::make('property_id')
                                 ->label('العقار')
-                                ->options(\App\Models\Property::pluck('name', 'id'))
+                                ->options(Property::pluck('name', 'id'))
                                 ->searchable()
                                 ->preload()
                                 ->live()
@@ -210,14 +223,14 @@ class CollectionPaymentResource extends Resource
                                         return [];
                                     }
 
-                                    return \App\Models\Unit::where('property_id', $propertyId)
+                                    return Unit::where('property_id', $propertyId)
                                         ->pluck('name', 'id')
                                         ->toArray();
                                 })
                                 ->visible(fn ($get) => (bool) $get('property_id')),
                         ]),
                     ])
-                    ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
+                    ->query(function (Builder $query, array $data): Builder {
                         if (! empty($data['property_id'])) {
                             $query->where('property_id', $data['property_id']);
                         }
@@ -237,7 +250,7 @@ class CollectionPaymentResource extends Resource
                 SelectFilter::make('payment_status')
                     ->label('حالة الدفعة')
                     ->options(PaymentStatus::options())
-                    ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
+                    ->query(function (Builder $query, array $data): Builder {
                         if (! empty($data['value'])) {
                             $status = PaymentStatus::from($data['value']);
 
@@ -253,13 +266,13 @@ class CollectionPaymentResource extends Resource
                     ->searchable()
                     ->preload()
                     ->hidden(),
-            ], layout: FiltersLayout::AboveContent)
+            ], layout: FiltersLayout::BeforeContent)
             ->recordActions([
                 Action::make('postpone_payment')
                     ->label('تأجيل')
                     ->icon('heroicon-o-clock')
                     ->color('warning')
-                    ->form([
+                    ->schema([
                         TextInput::make('delay_duration')
                             ->label('مدة التأجيل (بالأيام)')
                             ->numeric()
@@ -311,7 +324,7 @@ class CollectionPaymentResource extends Resource
                         $propertyName = $record->property?->name ?? 'غير محدد';
                         $unitName = $record->unit?->name ?? 'غير محدد';
 
-                        return new \Illuminate\Support\HtmlString(
+                        return new HtmlString(
                             "<div style='text-align: right; direction: rtl;'>
                                 <p>أقر أنا <strong>{$userName}</strong> باستلام:</p>
                                 <p>الدفعة رقم: <strong>{$paymentNumber}</strong></p>
@@ -358,10 +371,10 @@ class CollectionPaymentResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListCollectionPayments::route('/'),
-            'create' => Pages\CreateCollectionPayment::route('/create'),
-            'view' => Pages\ViewCollectionPayment::route('/{record}'),
-            'edit' => Pages\EditCollectionPayment::route('/{record}/edit'),
+            'index' => ListCollectionPayments::route('/'),
+            'create' => CreateCollectionPayment::route('/create'),
+            'view' => ViewCollectionPayment::route('/{record}'),
+            'edit' => EditCollectionPayment::route('/{record}/edit'),
         ];
     }
 
@@ -389,13 +402,13 @@ class CollectionPaymentResource extends Resource
         ];
     }
 
-    public static function getGlobalSearchEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    public static function getGlobalSearchEloquentQuery(): Builder
     {
         return parent::getGlobalSearchEloquentQuery()
             ->with(['tenant', 'unit', 'property']);
     }
 
-    public static function getGlobalSearchResults(string $search): \Illuminate\Support\Collection
+    public static function getGlobalSearchResults(string $search): Collection
     {
         $search = trim($search);
 
@@ -407,7 +420,7 @@ class CollectionPaymentResource extends Resource
         $searchWithoutSpaces = str_replace(' ', '', $normalizedSearch);
 
         return static::getGlobalSearchEloquentQuery()
-            ->where(function (\Illuminate\Database\Eloquent\Builder $query) use ($search, $normalizedSearch, $searchWithoutSpaces) {
+            ->where(function (Builder $query) use ($search, $normalizedSearch, $searchWithoutSpaces) {
                 // Search in payment number and references
                 $query->where('payment_number', 'LIKE', "%{$search}%")
                     ->orWhere('payment_number', 'LIKE', "%{$searchWithoutSpaces}%")
@@ -424,7 +437,7 @@ class CollectionPaymentResource extends Resource
                             $query->orWhere(function ($statusQuery) use ($status) {
                                 (new CollectionPayment)->scopeByStatus($statusQuery, $status);
                             });
-                        } catch (\ValueError $e) {
+                        } catch (ValueError $e) {
                             // Skip invalid values
                         }
                     }
@@ -508,7 +521,7 @@ class CollectionPaymentResource extends Resource
                 $unit = $record->unit?->name ?? 'غير محدد';
                 $property = $record->property?->name ?? 'غير محدد';
 
-                return new \Filament\GlobalSearch\GlobalSearchResult(
+                return new GlobalSearchResult(
                     title: $record->payment_number,
                     url: static::getUrl('edit', ['record' => $record]),
                     details: [

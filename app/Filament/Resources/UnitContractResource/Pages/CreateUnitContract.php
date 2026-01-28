@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\UnitContractResource\Pages;
 
+use App\Services\PropertyContractService;
 use App\Filament\Resources\UnitContractResource;
 use Filament\Resources\Pages\CreateRecord;
 
@@ -17,7 +18,7 @@ class CreateUnitContract extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         // Calculate correct payments count before save
-        $data['payments_count'] = \App\Services\PropertyContractService::calculatePaymentsCount(
+        $data['payments_count'] = PropertyContractService::calculatePaymentsCount(
             $data['duration_months'] ?? 0,
             $data['payment_frequency'] ?? 'monthly'
         );

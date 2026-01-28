@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\ExpenseResource\Pages;
 
+use App\Models\Unit;
+use Filament\Notifications\Notification;
 use App\Filament\Resources\ExpenseResource;
 use Filament\Resources\Pages\EditRecord;
 
@@ -41,7 +43,7 @@ class EditExpense extends EditRecord
                     $data['unit_id'] = $data['subject_id'];
 
                     // Get the property_id for the unit
-                    $unit = \App\Models\Unit::find($data['subject_id']);
+                    $unit = Unit::find($data['subject_id']);
                     if ($unit) {
                         $data['property_id'] = $unit->property_id;
                     }
@@ -77,7 +79,7 @@ class EditExpense extends EditRecord
                         $data['subject_id'] = $data['property_id'];
 
                         // Notify user about the fallback
-                        \Filament\Notifications\Notification::make()
+                        Notification::make()
                             ->warning()
                             ->title('تنبيه')
                             ->body('تم حفظ النفقة كنفقة عامة للعقار لعدم اختيار وحدة صحيحة')

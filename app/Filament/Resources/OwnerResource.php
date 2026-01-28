@@ -2,6 +2,13 @@
 
 namespace App\Filament\Resources;
 
+use Illuminate\Database\Eloquent\Model;
+use Filament\Tables\Columns\ImageColumn;
+use App\Filament\Resources\OwnerResource\Pages\ListOwners;
+use App\Filament\Resources\OwnerResource\Pages\CreateOwner;
+use App\Filament\Resources\OwnerResource\Pages\EditOwner;
+use App\Filament\Resources\OwnerResource\Pages\ViewOwner;
+use Filament\GlobalSearch\GlobalSearchResult;
 use App\Filament\Resources\OwnerResource\Pages;
 use App\Models\CollectionPayment;
 use App\Models\Owner;
@@ -44,14 +51,14 @@ class OwnerResource extends Resource
         return in_array($userType, ['super_admin', 'admin', 'manager']);
     }
 
-    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canEdit(Model $record): bool
     {
         $userType = auth()->user()?->type;
 
         return in_array($userType, ['super_admin', 'admin', 'manager']);
     }
 
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canDelete(Model $record): bool
     {
         return auth()->user()?->type === 'super_admin';
     }
@@ -64,7 +71,7 @@ class OwnerResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema
-            ->schema([
+            ->components([
                 Section::make('معلومات عامة')
                     ->schema([
                         TextInput::make('name')
@@ -123,7 +130,7 @@ class OwnerResource extends Resource
                     ->label('الإيميل')
                     ->searchable(),
 
-                \Filament\Tables\Columns\ImageColumn::make('identity_file')
+                ImageColumn::make('identity_file')
                     ->label('ملف الهوية')
                     ->disk('local')
                     ->height(40)
@@ -166,10 +173,10 @@ class OwnerResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListOwners::route('/'),
-            'create' => Pages\CreateOwner::route('/create'),
-            'edit' => Pages\EditOwner::route('/{record}/edit'),
-            'view' => Pages\ViewOwner::route('/{record}'),
+            'index' => ListOwners::route('/'),
+            'create' => CreateOwner::route('/create'),
+            'edit' => EditOwner::route('/{record}/edit'),
+            'view' => ViewOwner::route('/{record}'),
         ];
     }
 
@@ -281,7 +288,7 @@ class OwnerResource extends Resource
                     ], $details);
                 }
 
-                return new \Filament\GlobalSearch\GlobalSearchResult(
+                return new GlobalSearchResult(
                     title: $record->name,
                     url: static::getUrl('edit', ['record' => $record]),
                     details: $details,
@@ -290,7 +297,7 @@ class OwnerResource extends Resource
             });
     }
 
-    public static function getGlobalSearchResultActions(\Illuminate\Database\Eloquent\Model $record): array
+    public static function getGlobalSearchResultActions(Model $record): array
     {
         return [
             // Action::make('view_report')

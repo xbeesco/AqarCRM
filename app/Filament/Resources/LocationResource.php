@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\LocationResource\Pages\ManageLocations;
 use App\Filament\Resources\LocationResource\Pages;
 use App\Models\Location;
 use Filament\Actions\EditAction;
@@ -28,7 +29,7 @@ class LocationResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema
-            ->schema([
+            ->components([
                 Select::make('level')
                     ->label('المستوى')
                     ->options(Location::getLevelOptions())
@@ -90,7 +91,7 @@ class LocationResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ManageLocations::route('/'),
+            'index' => ManageLocations::route('/'),
         ];
     }
 

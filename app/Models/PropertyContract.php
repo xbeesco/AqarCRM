@@ -2,6 +2,10 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use App\Services\PropertyContractService;
+use Exception;
+use App\Services\PropertyContractValidationService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -86,7 +90,7 @@ class PropertyContract extends Model
 
             // Calculate end_date if not set
             if (empty($contract->end_date) && $contract->start_date && $contract->duration_months) {
-                $startDate = \Carbon\Carbon::parse($contract->start_date);
+                $startDate = Carbon::parse($contract->start_date);
                 $contract->end_date = $startDate->copy()->addMonths($contract->duration_months)->subDay();
             }
 
@@ -100,7 +104,7 @@ class PropertyContract extends Model
         static::updating(function ($contract) {
             // Recalculate end_date if start_date or duration_months changed
             if ($contract->isDirty(['start_date', 'duration_months']) && $contract->start_date && $contract->duration_months) {
-                $startDate = \Carbon\Carbon::parse($contract->start_date);
+                $startDate = Carbon::parse($contract->start_date);
                 $contract->end_date = $startDate->copy()->addMonths($contract->duration_months)->subDay();
             }
 
@@ -134,7 +138,7 @@ class PropertyContract extends Model
             return $this->attributes['payments_count'];
         }
 
-        return \App\Services\PropertyContractService::calculatePaymentsCount(
+        return PropertyContractService::calculatePaymentsCount(
             $this->duration_months ?? 0,
             $this->payment_frequency ?? 'monthly'
         );
@@ -203,7 +207,7 @@ class PropertyContract extends Model
     /**
      * Validate duration and frequency compatibility.
      *
-     * @throws \Exception if invalid
+     * @throws Exception if invalid
      */
     protected function validateDurationFrequency(): void
     {
@@ -216,7 +220,7 @@ class PropertyContract extends Model
                 default => $this->payment_frequency,
             };
 
-            throw new \Exception(
+            throw new Exception(
                 "Contract duration ({$this->duration_months} months) is not compatible with frequency ({$frequencyLabel})"
             );
         }
@@ -225,7 +229,7 @@ class PropertyContract extends Model
     /**
      * Validate no overlap with other contracts.
      *
-     * @throws \Exception if overlapping
+     * @throws Exception if overlapping
      */
     protected function validateNoOverlap(): void
     {
@@ -233,7 +237,7 @@ class PropertyContract extends Model
             return;
         }
 
-        $validationService = app(\App\Services\PropertyContractValidationService::class);
+        $validationService = app(PropertyContractValidationService::class);
         $excludeId = $this->exists ? $this->id : null;
 
         $error = $validationService->validateFullAvailability(
@@ -244,7 +248,7 @@ class PropertyContract extends Model
         );
 
         if ($error) {
-            throw new \Exception($error);
+            throw new Exception($error);
         }
     }
 

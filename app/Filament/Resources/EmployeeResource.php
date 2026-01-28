@@ -2,6 +2,12 @@
 
 namespace App\Filament\Resources;
 
+use Illuminate\Database\Eloquent\Model;
+use App\Filament\Resources\EmployeeResource\Pages\ListEmployees;
+use App\Filament\Resources\EmployeeResource\Pages\CreateEmployee;
+use App\Filament\Resources\EmployeeResource\Pages\EditEmployee;
+use Illuminate\Support\Collection;
+use Filament\GlobalSearch\GlobalSearchResult;
 use App\Enums\UserType;
 use App\Filament\Resources\EmployeeResource\Pages;
 use App\Models\Employee;
@@ -41,14 +47,14 @@ class EmployeeResource extends Resource
         return in_array($userType, ['super_admin', 'admin']);
     }
 
-    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canEdit(Model $record): bool
     {
         $userType = auth()->user()?->type;
 
         return in_array($userType, ['super_admin', 'admin']);
     }
 
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canDelete(Model $record): bool
     {
         return auth()->user()?->type === 'super_admin';
     }
@@ -61,7 +67,7 @@ class EmployeeResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema
-            ->schema([
+            ->components([
                 Section::make('معلومات عامة')
                     ->schema([
                         TextInput::make('name')
@@ -227,9 +233,9 @@ class EmployeeResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListEmployees::route('/'),
-            'create' => Pages\CreateEmployee::route('/create'),
-            'edit' => Pages\EditEmployee::route('/{record}/edit'),
+            'index' => ListEmployees::route('/'),
+            'create' => CreateEmployee::route('/create'),
+            'edit' => EditEmployee::route('/{record}/edit'),
         ];
     }
 
@@ -243,7 +249,7 @@ class EmployeeResource extends Resource
         return parent::getGlobalSearchEloquentQuery();
     }
 
-    public static function getGlobalSearchResults(string $search): \Illuminate\Support\Collection
+    public static function getGlobalSearchResults(string $search): Collection
     {
         if (! auth()->user()->can('global-search')) {
             return collect();
@@ -304,7 +310,7 @@ class EmployeeResource extends Resource
                     default => $record->type
                 };
 
-                return new \Filament\GlobalSearch\GlobalSearchResult(
+                return new GlobalSearchResult(
                     title: $record->name,
                     url: static::getUrl('edit', ['record' => $record]),
                     details: [

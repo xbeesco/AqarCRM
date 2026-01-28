@@ -2,6 +2,7 @@
 
 namespace App\Services\Financial;
 
+use Exception;
 use App\Models\PropertyRepair;
 use App\Models\RepairCategory;
 use App\Models\Property;
@@ -16,7 +17,7 @@ class MaintenanceService
         $category = RepairCategory::find($data['repair_category_id']);
         
         if (!$category) {
-            throw new \Exception('Invalid repair category');
+            throw new Exception('Invalid repair category');
         }
 
         // Auto-populate property_id if unit_id is provided
@@ -29,11 +30,11 @@ class MaintenanceService
 
         // Validate that the category matches the repair scope
         if ($category->affects_property && !isset($data['property_id'])) {
-            throw new \Exception('Property is required for this repair category');
+            throw new Exception('Property is required for this repair category');
         }
 
         if ($category->affects_unit && !isset($data['unit_id'])) {
-            throw new \Exception('Unit is required for this repair category');
+            throw new Exception('Unit is required for this repair category');
         }
 
         return PropertyRepair::create($data);
@@ -59,7 +60,7 @@ class MaintenanceService
         $validStatuses = ['reported', 'scheduled', 'in_progress', 'completed', 'cancelled'];
         
         if (!in_array($status, $validStatuses)) {
-            throw new \Exception('Invalid status');
+            throw new Exception('Invalid status');
         }
 
         $updateData = ['status' => $status];
@@ -85,11 +86,11 @@ class MaintenanceService
     public function processWarrantyClaim(PropertyRepair $repair): bool
     {
         if (!$repair->is_under_warranty) {
-            throw new \Exception('This repair is not under warranty');
+            throw new Exception('This repair is not under warranty');
         }
 
         if (!$repair->isUnderWarranty()) {
-            throw new \Exception('Warranty has expired');
+            throw new Exception('Warranty has expired');
         }
 
         // Set cost to zero for warranty claims

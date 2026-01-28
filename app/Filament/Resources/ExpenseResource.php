@@ -2,6 +2,15 @@
 
 namespace App\Filament\Resources;
 
+use Illuminate\Database\Eloquent\Model;
+use Filament\Notifications\Notification;
+use App\Services\ExpenseValidationService;
+use Filament\Forms\Components\Builder\Block;
+use Carbon\Carbon;
+use App\Filament\Resources\ExpenseResource\Pages\ListExpenses;
+use App\Filament\Resources\ExpenseResource\Pages\CreateExpense;
+use App\Filament\Resources\ExpenseResource\Pages\ViewExpense;
+use App\Filament\Resources\ExpenseResource\Pages\EditExpense;
 use App\Filament\Resources\ExpenseResource\Pages;
 use App\Models\Expense;
 use App\Models\Property;
@@ -30,7 +39,7 @@ class ExpenseResource extends Resource
 {
     protected static ?string $model = Expense::class;
 
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
+    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-banknotes';
 
     protected static ?string $navigationLabel = 'النفقات';
 
@@ -38,7 +47,7 @@ class ExpenseResource extends Resource
 
     protected static ?string $pluralModelLabel = 'النفقات';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'الماليات';
+    protected static string | \UnitEnum | null $navigationGroup = 'الماليات';
 
     protected static ?int $navigationSort = 3;
 
@@ -47,14 +56,14 @@ class ExpenseResource extends Resource
         return ['desc', 'type'];
     }
 
-    public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
+    public static function getGlobalSearchResultTitle(Model $record): string
     {
         return $record->desc;
     }
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->schema([
+        return $schema->components([
             Section::make('بيانات النفقة')
                 ->schema([
                     Textarea::make('desc')
@@ -114,7 +123,7 @@ class ExpenseResource extends Resource
                                             $unitsCount = Unit::where('property_id', $propertyId)->count();
                                             if ($unitsCount === 0) {
                                                 $set('expense_for', 'property');
-                                                \Filament\Notifications\Notification::make()
+                                                Notification::make()
                                                     ->warning()
                                                     ->title('تنبيه')
                                                     ->body('هذا العقار ليس له وحدات، تم تغيير النفقة لتكون للعقار ككل')
@@ -230,7 +239,7 @@ class ExpenseResource extends Resource
                                             return;
                                         }
 
-                                        $validationService = app(\App\Services\ExpenseValidationService::class);
+                                        $validationService = app(ExpenseValidationService::class);
                                         $excludeId = $record ? $record->id : null;
                                         $expenseFor = $get('expense_for') ?? 'property';
 
@@ -250,7 +259,7 @@ class ExpenseResource extends Resource
                     Builder::make('docs')
                         ->label('الإثباتات')
                         ->blocks([
-                            Builder\Block::make('purchase_invoice')
+                            Block::make('purchase_invoice')
                                 ->label('فاتورة مشتريات')
                                 ->icon('heroicon-o-receipt-percent')
                                 ->schema([
@@ -271,7 +280,7 @@ class ExpenseResource extends Resource
 
                                 ])->columns(2),
 
-                            Builder\Block::make('labor_invoice')
+                            Block::make('labor_invoice')
                                 ->label('فاتورة عمل يد')
                                 ->icon('heroicon-o-wrench-screwdriver')
                                 ->schema([
@@ -291,7 +300,7 @@ class ExpenseResource extends Resource
                                         ->required(),
                                 ])->columns(2),
 
-                            Builder\Block::make('government_document')
+                            Block::make('government_document')
                                 ->label('وثيقة حكومية')
                                 ->icon('heroicon-o-building-office')
                                 ->schema([
@@ -370,7 +379,7 @@ class ExpenseResource extends Resource
             ->filters([
                 Filter::make('property_and_unit')
                     ->label('العقار')
-                    ->form([
+                    ->schema([
                         Grid::make(2)->schema([
                             Select::make('property_id')
                                 ->label('العقار')
@@ -441,7 +450,7 @@ class ExpenseResource extends Resource
                 // Period filter (month and year)
                 Filter::make('period')
                     ->label('الفترة')
-                    ->form([
+                    ->schema([
                         Grid::make(2)->schema([
                             Toggle::make('this_month')
                                 ->label('هذا الشهر')
@@ -476,7 +485,7 @@ class ExpenseResource extends Resource
                 // Date range filter (from - to)
                 Filter::make('date_range')
                     ->label('نطاق التاريخ')
-                    ->form([
+                    ->schema([
                         Grid::make(2)->schema([
                             DatePicker::make('from_date')
                                 ->label('من تاريخ'),
@@ -498,10 +507,10 @@ class ExpenseResource extends Resource
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if (isset($data['from_date']) && $data['from_date']) {
-                            $indicators['from_date'] = 'من: '.\Carbon\Carbon::parse($data['from_date'])->format('Y-m-d');
+                            $indicators['from_date'] = 'من: '.Carbon::parse($data['from_date'])->format('Y-m-d');
                         }
                         if (isset($data['to_date']) && $data['to_date']) {
-                            $indicators['to_date'] = 'إلى: '.\Carbon\Carbon::parse($data['to_date'])->format('Y-m-d');
+                            $indicators['to_date'] = 'إلى: '.Carbon::parse($data['to_date'])->format('Y-m-d');
                         }
 
                         return $indicators;
@@ -524,10 +533,10 @@ class ExpenseResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListExpenses::route('/'),
-            'create' => Pages\CreateExpense::route('/create'),
-            'view' => Pages\ViewExpense::route('/{record}'),
-            'edit' => Pages\EditExpense::route('/{record}/edit'),
+            'index' => ListExpenses::route('/'),
+            'create' => CreateExpense::route('/create'),
+            'view' => ViewExpense::route('/{record}'),
+            'edit' => EditExpense::route('/{record}/edit'),
         ];
     }
 }

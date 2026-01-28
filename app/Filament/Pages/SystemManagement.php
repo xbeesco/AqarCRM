@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use Exception;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\TextInput;
@@ -23,12 +24,12 @@ class SystemManagement extends Page implements HasSchemas
 {
     use InteractsWithSchemas;
     
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
+    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-cog-6-tooth';
     protected static ?string $navigationLabel = 'إدارة النظام';
     protected static ?string $title = 'إدارة النظام';
     protected static ?string $slug = 'system-management';
     protected static ?int $navigationSort = 100;
-    protected static string|\UnitEnum|null $navigationGroup = 'Settings';
+    protected static string | \UnitEnum | null $navigationGroup = 'Settings';
 
     protected string $view = 'filament.pages.system-management';
 
@@ -207,7 +208,7 @@ class SystemManagement extends Page implements HasSchemas
                 'cleanup_type' => 'financial',
             ]);
             
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             logger()->error('Data Cleanup Failed', [
                 'error' => $e->getMessage(),
                 'user' => Auth::user()->email,
@@ -257,7 +258,7 @@ class SystemManagement extends Page implements HasSchemas
             // Reload the page after a short delay to apply the new test date
             $this->redirect(static::getUrl(), navigate: true);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             logger()->error('System Settings Save Failed', [
                 'error' => $e->getMessage(),
             ]);

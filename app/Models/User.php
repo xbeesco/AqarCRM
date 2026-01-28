@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Support\Str;
 use App\Enums\UserType;
 use App\Helpers\AppHelper;
 use Filament\Models\Contracts\FilamentUser;
@@ -71,7 +72,7 @@ class User extends Authenticatable implements FilamentUser
                 }
                 if (! $user->password) {
                     // Generate secure random password instead of using phone number
-                    $user->password = bcrypt(\Illuminate\Support\Str::random(16));
+                    $user->password = bcrypt(Str::random(16));
                 }
             }
         });

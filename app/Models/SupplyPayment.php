@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use App\Services\PaymentNumberGenerator;
 use App\Services\SupplyPaymentService;
 use App\Traits\HasPaymentNumber;
@@ -106,7 +107,7 @@ class SupplyPayment extends Model
             return 'collected';
         }
 
-        if ($this->due_date <= \Carbon\Carbon::now()) {
+        if ($this->due_date <= Carbon::now()) {
             return 'worth_collecting';
         }
 

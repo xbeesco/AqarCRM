@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use SplFileInfo;
 use Illuminate\Console\Command;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -280,7 +281,7 @@ class AnalyzeOldProject extends Command
         $files = glob($path . '/*.json');
         foreach ($files as $file) {
             $content = file_get_contents($file);
-            $this->analyzeAcfJsonFile(new \SplFileInfo($file), $content);
+            $this->analyzeAcfJsonFile(new SplFileInfo($file), $content);
         }
     }
 

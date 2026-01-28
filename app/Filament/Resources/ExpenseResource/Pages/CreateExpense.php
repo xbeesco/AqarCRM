@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ExpenseResource\Pages;
 
+use Filament\Notifications\Notification;
 use App\Filament\Resources\ExpenseResource;
 use Filament\Resources\Pages\CreateRecord;
 
@@ -41,7 +42,7 @@ class CreateExpense extends CreateRecord
                         $data['subject_id'] = $data['property_id'];
 
                         // Notify user about the fallback
-                        \Filament\Notifications\Notification::make()
+                        Notification::make()
                             ->warning()
                             ->title('تنبيه')
                             ->body('تم حفظ النفقة كنفقة عامة للعقار لعدم اختيار وحدة صحيحة')

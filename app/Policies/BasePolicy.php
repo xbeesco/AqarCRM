@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use Log;
 use App\Models\User;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
@@ -59,7 +60,7 @@ abstract class BasePolicy
      */
     protected function logUnauthorizedAccess(User $user, string $action, $model = null): void
     {
-        \Log::warning('Unauthorized access attempt', [
+        Log::warning('Unauthorized access attempt', [
             'user_id' => $user->id,
             'user_type' => $user->type,
             'action' => $action,

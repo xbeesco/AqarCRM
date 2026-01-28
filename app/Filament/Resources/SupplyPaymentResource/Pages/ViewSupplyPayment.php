@@ -2,6 +2,9 @@
 
 namespace App\Filament\Resources\SupplyPaymentResource\Pages;
 
+use Filament\Actions\Action;
+use Illuminate\Support\HtmlString;
+use Filament\Notifications\Notification;
 use App\Filament\Resources\SupplyPaymentResource;
 use App\Services\SupplyPaymentService;
 use Filament\Infolists\Components\TextEntry;
@@ -44,7 +47,7 @@ class ViewSupplyPayment extends ViewRecord
         $amounts = $this->getSupplyPaymentService()->calculateAmountsFromPeriod($this->record);
 
         return $schema
-            ->schema([
+            ->components([
                 Section::make('معلومات دفعة التوريد')
                     ->schema([
                         Grid::make(3)
@@ -118,7 +121,7 @@ class ViewSupplyPayment extends ViewRecord
         $actions = [];
 
         if ($hasPendingPayments && ! $this->record->paid_date) {
-            $actions[] = \Filament\Actions\Action::make('pending_payments_notice')
+            $actions[] = Action::make('pending_payments_notice')
                 ->label('يوجد دفعات سابقة غير مؤكدة')
                 ->icon('heroicon-o-exclamation-triangle')
                 ->color('warning')
@@ -142,14 +145,14 @@ class ViewSupplyPayment extends ViewRecord
                     $html .= '<p style="margin-top: 15px; color: #d97706;"><strong>يجب توريد هذه الدفعات بالترتيب الزمني</strong></p>';
                     $html .= '</div>';
 
-                    return new \Illuminate\Support\HtmlString($html);
+                    return new HtmlString($html);
                 })
                 ->modalSubmitAction(false)
                 ->modalCancelActionLabel('إغلاق');
         }
 
         if (! $hasPendingPayments || $this->record->paid_date) {
-            $actions[] = \Filament\Actions\Action::make('confirm_payment')
+            $actions[] = Action::make('confirm_payment')
                 ->label($isSettlement ? 'تأكيد التسوية' : 'تأكيد التوريد')
                 ->icon($isSettlement ? 'heroicon-o-document-check' : 'heroicon-o-check-circle')
                 ->color($isSettlement ? 'warning' : 'success')
@@ -162,7 +165,7 @@ class ViewSupplyPayment extends ViewRecord
                     if ($isSettlement) {
                         if ($netAmount < 0) {
                             // Negative value - Owner owes the company
-                            return new \Illuminate\Support\HtmlString(
+                            return new HtmlString(
                                 "<div style='text-align: right; direction: rtl;'>
                                     <p><strong>تأكيد التسوية:</strong></p>
                                     <p>المالك: <strong>{$ownerName}</strong></p>
@@ -172,7 +175,7 @@ class ViewSupplyPayment extends ViewRecord
                             );
                         } else {
                             // Zero value - No outstanding amounts
-                            return new \Illuminate\Support\HtmlString(
+                            return new HtmlString(
                                 "<div style='text-align: right; direction: rtl;'>
                                     <p><strong>تأكيد التسوية:</strong></p>
                                     <p>المالك: <strong>{$ownerName}</strong></p>
@@ -185,7 +188,7 @@ class ViewSupplyPayment extends ViewRecord
                         // Positive value - Normal supply payment
                         $userName = auth()->user()->name;
 
-                        return new \Illuminate\Support\HtmlString(
+                        return new HtmlString(
                             "<div style='text-align: right; direction: rtl;'>
                                 <p>أقر أنا <strong>{$userName}</strong> بتوريد:</p>
                                 <p>المبلغ: <strong style='color: green;'>".number_format($netAmount, 2)." ريال</strong></p>
@@ -211,7 +214,7 @@ class ViewSupplyPayment extends ViewRecord
                     );
 
                     if ($result['success']) {
-                        \Filament\Notifications\Notification::make()
+                        Notification::make()
                             ->title($result['is_settlement'] ? 'تم تأكيد التسوية' : 'تم تأكيد التوريد')
                             ->body($result['message'])
                             ->success()
@@ -219,7 +222,7 @@ class ViewSupplyPayment extends ViewRecord
 
                         $this->redirect($this->getResource()::getUrl('index'));
                     } else {
-                        \Filament\Notifications\Notification::make()
+                        Notification::make()
                             ->title('خطأ في التأكيد')
                             ->body($result['message'])
                             ->danger()

@@ -2,6 +2,11 @@
 
 namespace App\Filament\Resources\TenantResource\RelationManagers;
 
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Actions\ViewAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use App\Models\UnitContract;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
@@ -88,7 +93,7 @@ class ContractsRelationManager extends RelationManager
                     }),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('contract_status')
+                SelectFilter::make('contract_status')
                     ->label('حالة العقد')
                     ->options([
                         'draft' => 'مسودة',
@@ -101,13 +106,13 @@ class ContractsRelationManager extends RelationManager
             ->headerActions([
                 // Can add buttons to create new contract here if needed
             ])
-            ->actions([
-                \Filament\Actions\ViewAction::make(),
-                \Filament\Actions\EditAction::make(),
+            ->recordActions([
+                ViewAction::make(),
+                EditAction::make(),
             ])
-            ->bulkActions([
-                \Filament\Actions\BulkActionGroup::make([
-                    \Filament\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }

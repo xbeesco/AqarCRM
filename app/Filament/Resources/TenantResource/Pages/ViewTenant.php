@@ -2,6 +2,10 @@
 
 namespace App\Filament\Resources\TenantResource\Pages;
 
+use App\Models\UnitContract;
+use App\Models\CollectionPayment;
+use App\Filament\Resources\TenantResource\RelationManagers\ContractsRelationManager;
+use App\Filament\Resources\TenantResource\RelationManagers\PaymentsRelationManager;
 use App\Filament\Resources\TenantResource;
 use Filament\Actions\EditAction;
 use Filament\Infolists\Components\TextEntry;
@@ -21,13 +25,13 @@ class ViewTenant extends ViewRecord
     {
         $tenant = $this->record;
 
-        $activeContract = \App\Models\UnitContract::where('tenant_id', $tenant->id)
+        $activeContract = UnitContract::where('tenant_id', $tenant->id)
             ->where('contract_status', 'active')
             ->with(['unit.property'])
             ->first();
 
         return $schema
-            ->schema([
+            ->components([
                 Section::make('معلومات المستأجر')
                     ->schema([
                         Grid::make(3)
@@ -118,7 +122,7 @@ class ViewTenant extends ViewRecord
                                 TextEntry::make('total_paid')
                                     ->label('إجمالي المدفوع')
                                     ->state(function () use ($tenant) {
-                                        $total = \App\Models\CollectionPayment::where('tenant_id', $tenant->id)
+                                        $total = CollectionPayment::where('tenant_id', $tenant->id)
                                             ->collectedPayments()
                                             ->sum('total_amount');
 
@@ -130,7 +134,7 @@ class ViewTenant extends ViewRecord
                                 TextEntry::make('pending_payments')
                                     ->label('مدفوعات مستحقة')
                                     ->state(function () use ($tenant) {
-                                        $total = \App\Models\CollectionPayment::where('tenant_id', $tenant->id)
+                                        $total = CollectionPayment::where('tenant_id', $tenant->id)
                                             ->dueForCollection()
                                             ->sum('total_amount');
 
@@ -140,7 +144,7 @@ class ViewTenant extends ViewRecord
                                 TextEntry::make('overdue_payments')
                                     ->label('مدفوعات متأخرة')
                                     ->state(function () use ($tenant) {
-                                        $total = \App\Models\CollectionPayment::where('tenant_id', $tenant->id)
+                                        $total = CollectionPayment::where('tenant_id', $tenant->id)
                                             ->overduePayments()
                                             ->sum('total_amount');
 
@@ -151,7 +155,7 @@ class ViewTenant extends ViewRecord
                                 TextEntry::make('payment_count')
                                     ->label('عدد الدفعات')
                                     ->state(function () use ($tenant) {
-                                        return \App\Models\CollectionPayment::where('tenant_id', $tenant->id)->count();
+                                        return CollectionPayment::where('tenant_id', $tenant->id)->count();
                                     })
                                     ->badge()
                                     ->color('primary'),
@@ -170,8 +174,8 @@ class ViewTenant extends ViewRecord
     public function getRelationManagers(): array
     {
         return [
-            \App\Filament\Resources\TenantResource\RelationManagers\ContractsRelationManager::class,
-            \App\Filament\Resources\TenantResource\RelationManagers\PaymentsRelationManager::class,
+            ContractsRelationManager::class,
+            PaymentsRelationManager::class,
         ];
     }
 }

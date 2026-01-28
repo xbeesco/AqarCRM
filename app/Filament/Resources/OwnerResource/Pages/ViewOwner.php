@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\OwnerResource\Pages;
 
+use App\Models\PropertyContract;
 use App\Filament\Resources\OwnerResource;
 use App\Models\CollectionPayment;
 use App\Models\Property;
@@ -116,7 +117,7 @@ class ViewOwner extends ViewRecord
                 ->overduePayments()
                 ->sum('total_amount');
 
-            $propertyContract = \App\Models\PropertyContract::where('property_id', $property->id)
+            $propertyContract = PropertyContract::where('property_id', $property->id)
                 ->where('contract_status', 'active')
                 ->first();
 
@@ -211,7 +212,7 @@ class ViewOwner extends ViewRecord
                 ->collectedPayments()
                 ->sum('total_amount');
 
-            $propertyContract = \App\Models\PropertyContract::where('property_id', $property->id)
+            $propertyContract = PropertyContract::where('property_id', $property->id)
                 ->where('contract_status', 'active')
                 ->first();
 

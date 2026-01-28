@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use InvalidArgumentException;
+use Exception;
 use App\Models\CollectionPayment;
 use App\Models\PropertyContract;
 use App\Models\Setting;
@@ -18,7 +20,7 @@ class PaymentGeneratorService
     public function generateTenantPayments(UnitContract $contract): array
     {
         if (! $contract->monthly_rent || $contract->monthly_rent <= 0) {
-            throw new \InvalidArgumentException('Monthly rent amount is invalid');
+            throw new InvalidArgumentException('Monthly rent amount is invalid');
         }
 
         DB::beginTransaction();
@@ -33,7 +35,7 @@ class PaymentGeneratorService
             $paymentCount = $this->calculatePaymentCount($startDate, $endDate, $frequency);
 
             if ($paymentCount <= 0) {
-                throw new \InvalidArgumentException('Invalid payment count for the specified period');
+                throw new InvalidArgumentException('Invalid payment count for the specified period');
             }
 
             // Base payment amount
@@ -81,7 +83,7 @@ class PaymentGeneratorService
             DB::commit();
 
             return $payments;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             throw $e;
         }
@@ -153,26 +155,26 @@ class PaymentGeneratorService
         // Check if payments have already been generated
         if ($contract->supplyPayments()->exists()) {
             $count = $contract->supplyPayments()->count();
-            throw new \Exception("لا يمكن إنشاء دفعات جديدة - يوجد بالفعل {$count} دفعة لهذا العقد");
+            throw new Exception("لا يمكن إنشاء دفعات جديدة - يوجد بالفعل {$count} دفعة لهذا العقد");
         }
 
         // Comprehensive validation for payment generation eligibility
         if (! $contract->canGeneratePayments()) {
             // Identify the specific issue
             if (! is_numeric($contract->payments_count) || $contract->payments_count <= 0) {
-                throw new \Exception('عدد الدفعات غير صحيح - يرجى التحقق من بيانات العقد');
+                throw new Exception('عدد الدفعات غير صحيح - يرجى التحقق من بيانات العقد');
             }
 
             if (! $contract->isValidDurationForFrequency()) {
-                throw new \Exception('مدة العقد لا تتطابق مع تكرار الدفع المحدد');
+                throw new Exception('مدة العقد لا تتطابق مع تكرار الدفع المحدد');
             }
 
-            throw new \Exception('لا يمكن إنشاء دفعات لهذا العقد - يرجى التحقق من صحة البيانات');
+            throw new Exception('لا يمكن إنشاء دفعات لهذا العقد - يرجى التحقق من صحة البيانات');
         }
 
         // Additional validation of duration and frequency compatibility
         if (! $contract->isValidDurationForFrequency()) {
-            throw new \Exception('Contract duration does not match the specified payment frequency');
+            throw new Exception('Contract duration does not match the specified payment frequency');
         }
 
         $paymentsToGenerate = $contract->payments_count;
@@ -207,7 +209,7 @@ class PaymentGeneratorService
             DB::commit();
 
             return count($payments);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             throw $e;
         }
@@ -286,16 +288,16 @@ class PaymentGeneratorService
     ): array {
         // Validate input data
         if ($additionalMonths <= 0) {
-            throw new \InvalidArgumentException('يجب أن تكون الأشهر الإضافية أكبر من صفر');
+            throw new InvalidArgumentException('يجب أن تكون الأشهر الإضافية أكبر من صفر');
         }
 
         if ($newMonthlyRent <= 0) {
-            throw new \InvalidArgumentException('يجب أن يكون مبلغ الإيجار أكبر من صفر');
+            throw new InvalidArgumentException('يجب أن يكون مبلغ الإيجار أكبر من صفر');
         }
 
         // Validate duration compatibility with frequency
         if (! PropertyContractService::isValidDuration($additionalMonths, $newFrequency)) {
-            throw new \InvalidArgumentException('المدة الإضافية غير متوافقة مع تكرار التحصيل المحدد');
+            throw new InvalidArgumentException('المدة الإضافية غير متوافقة مع تكرار التحصيل المحدد');
         }
 
         DB::beginTransaction();
@@ -343,7 +345,7 @@ class PaymentGeneratorService
                 'total_months' => $totalMonths,
                 'new_end_date' => $newEndDate,
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             throw $e;
         }
@@ -469,16 +471,16 @@ class PaymentGeneratorService
     ): array {
         // Validate input data
         if ($additionalMonths <= 0) {
-            throw new \InvalidArgumentException('يجب أن تكون الأشهر الإضافية أكبر من صفر');
+            throw new InvalidArgumentException('يجب أن تكون الأشهر الإضافية أكبر من صفر');
         }
 
         if ($newCommissionRate < 0 || $newCommissionRate > 100) {
-            throw new \InvalidArgumentException('يجب أن تكون نسبة العمولة بين 0 و 100');
+            throw new InvalidArgumentException('يجب أن تكون نسبة العمولة بين 0 و 100');
         }
 
         // Validate duration compatibility with frequency
         if (!PropertyContractService::isValidDuration($additionalMonths, $newFrequency)) {
-            throw new \InvalidArgumentException('المدة الإضافية غير متوافقة مع تكرار التحصيل المحدد');
+            throw new InvalidArgumentException('المدة الإضافية غير متوافقة مع تكرار التحصيل المحدد');
         }
 
         DB::beginTransaction();
@@ -532,7 +534,7 @@ class PaymentGeneratorService
                 'total_months' => $totalMonths,
                 'new_end_date' => $newEndDate,
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             throw $e;
         }

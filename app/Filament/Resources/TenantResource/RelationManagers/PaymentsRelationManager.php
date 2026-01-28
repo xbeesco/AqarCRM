@@ -2,6 +2,12 @@
 
 namespace App\Filament\Resources\TenantResource\RelationManagers;
 
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Actions\ViewAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use App\Models\CollectionPayment;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
@@ -74,34 +80,34 @@ class PaymentsRelationManager extends RelationManager
                     ->toggleable(),
             ])
             ->filters([
-                Tables\Filters\Filter::make('collected')
+                Filter::make('collected')
                     ->label('المحصلة')
                     ->query(fn ($query) => $query->collectedPayments()),
-                Tables\Filters\Filter::make('due')
+                Filter::make('due')
                     ->label('المستحقة')
                     ->query(fn ($query) => $query->dueForCollection()),
-                Tables\Filters\Filter::make('overdue')
+                Filter::make('overdue')
                     ->label('المتأخرة')
                     ->query(fn ($query) => $query->overduePayments()),
-                Tables\Filters\Filter::make('postponed')
+                Filter::make('postponed')
                     ->label('المؤجلة')
                     ->query(fn ($query) => $query->postponedPayments()),
-                Tables\Filters\Filter::make('current_month')
+                Filter::make('current_month')
                     ->label('الشهر الحالي')
                     ->query(fn ($query) => $query->whereBetween('due_date_start', [now()->startOfMonth(), now()->endOfMonth()])),
             ])
-            ->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
+            ->filtersLayout(FiltersLayout::AboveContent)
             ->deferFilters()
             ->headerActions([
                 // Can add buttons to create new payment here if needed
             ])
-            ->actions([
-                \Filament\Actions\ViewAction::make(),
-                \Filament\Actions\EditAction::make(),
+            ->recordActions([
+                ViewAction::make(),
+                EditAction::make(),
             ])
-            ->bulkActions([
-                \Filament\Actions\BulkActionGroup::make([
-                    \Filament\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ])
             ->defaultSort('due_date_start', 'desc');

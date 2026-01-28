@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use Exception;
 use App\Models\PropertyContract;
 use App\Services\PaymentGeneratorService;
 use Illuminate\Support\Facades\Log;
@@ -63,7 +64,7 @@ class PropertyContractObserver
             // Log success
             Log::info("Auto-generated {$count} supply payments for contract {$contract->contract_number} on {$event}");
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Log error without stopping the process
             Log::warning("Failed to auto-generate payments for contract {$contract->contract_number}: ".$e->getMessage());
         }

@@ -2,6 +2,11 @@
 
 namespace App\Filament\Resources;
 
+use Illuminate\Database\Eloquent\Builder;
+use App\Filament\Resources\UnitResource\Pages\ListUnits;
+use App\Filament\Resources\UnitResource\Pages\CreateUnit;
+use App\Filament\Resources\UnitResource\Pages\ViewUnit;
+use App\Filament\Resources\UnitResource\Pages\EditUnit;
 use App\Filament\Resources\UnitResource\Pages;
 use App\Models\Unit;
 use Filament\Actions\EditAction;
@@ -30,7 +35,7 @@ class UnitResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->schema([
+        return $schema->components([
             Section::make('المعلومات الأساسية')
                 ->columnSpanFull()
                 ->columns(12)
@@ -163,7 +168,7 @@ class UnitResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(function (\Illuminate\Database\Eloquent\Builder $query) {
+            ->modifyQueryUsing(function (Builder $query) {
                 $query->with([
                     'property.location.parent.parent.parent',
                     'unitType',
@@ -267,10 +272,10 @@ class UnitResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListUnits::route('/'),
-            'create' => Pages\CreateUnit::route('/create'),
-            'view' => Pages\ViewUnit::route('/{record}'),
-            'edit' => Pages\EditUnit::route('/{record}/edit'),
+            'index' => ListUnits::route('/'),
+            'create' => CreateUnit::route('/create'),
+            'view' => ViewUnit::route('/{record}'),
+            'edit' => EditUnit::route('/{record}/edit'),
         ];
     }
 }

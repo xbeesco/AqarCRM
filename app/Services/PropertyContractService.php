@@ -2,6 +2,10 @@
 
 namespace App\Services;
 
+use Exception;
+use App\Models\PropertyStatus;
+use Log;
+use Illuminate\Database\Eloquent\Collection;
 use App\Models\Property;
 use App\Models\PropertyContract;
 use Illuminate\Support\Facades\Auth;
@@ -38,7 +42,7 @@ class PropertyContractService
             $oldContract = PropertyContract::findOrFail($contractId);
 
             if (! $oldContract->canRenew()) {
-                throw new \Exception('Contract is not eligible for renewal');
+                throw new Exception('Contract is not eligible for renewal');
             }
 
             // Create new contract based on existing terms
@@ -85,7 +89,7 @@ class PropertyContractService
             $contract = PropertyContract::findOrFail($contractId);
 
             if ($contract->contract_status !== 'active') {
-                throw new \Exception('Only active contracts can be terminated');
+                throw new Exception('Only active contracts can be terminated');
             }
 
             $contract->update([
@@ -95,7 +99,7 @@ class PropertyContractService
             ]);
 
             // Update property status
-            $availableStatusId = \App\Models\PropertyStatus::where('slug', 'available')->first()?->id ?? 1;
+            $availableStatusId = PropertyStatus::where('slug', 'available')->first()?->id ?? 1;
             $contract->property->update(['status_id' => $availableStatusId]);
 
             // Log termination
@@ -125,9 +129,9 @@ class PropertyContractService
             try {
                 $this->renewContract($contract->id, $contract->duration_months);
                 $renewed++;
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 // Log error but continue with other contracts
-                \Log::error("Failed to auto-renew contract {$contract->contract_number}: " . $e->getMessage());
+                Log::error("Failed to auto-renew contract {$contract->contract_number}: " . $e->getMessage());
             }
         }
 
@@ -159,7 +163,7 @@ class PropertyContractService
     /**
      * Get contracts expiring soon.
      */
-    public function getExpiringContracts(int $days = 30): \Illuminate\Database\Eloquent\Collection
+    public function getExpiringContracts(int $days = 30): Collection
     {
         return PropertyContract::expiring($days)
             ->with(['owner', 'property'])

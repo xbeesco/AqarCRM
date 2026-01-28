@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use Exception;
+use App\Models\UnitStatus;
+use Illuminate\Support\Collection;
 use App\Models\Unit;
 use App\Models\UnitContract;
 use Carbon\Carbon;
@@ -58,7 +61,7 @@ class UnitContractService
             $contract = UnitContract::findOrFail($contractId);
 
             if ($contract->contract_status !== 'active') {
-                throw new \Exception('Only active contracts can be terminated');
+                throw new Exception('Only active contracts can be terminated');
             }
 
             // Calculate early termination penalty if applicable
@@ -75,7 +78,7 @@ class UnitContractService
             ]);
 
             // Mark unit as available (find available status ID)
-            $availableStatusId = \App\Models\UnitStatus::where('slug', 'available')->first()?->id ?? 1;
+            $availableStatusId = UnitStatus::where('slug', 'available')->first()?->id ?? 1;
             $contract->unit->update(['status_id' => $availableStatusId]);
 
             // Clear unit's current tenant
@@ -100,7 +103,7 @@ class UnitContractService
             $oldContract = UnitContract::findOrFail($contractId);
 
             if (! $oldContract->canRenew()) {
-                throw new \Exception('Contract is not eligible for renewal');
+                throw new Exception('Contract is not eligible for renewal');
             }
 
             // Create new contract based on existing terms
@@ -152,7 +155,7 @@ class UnitContractService
         $contract = UnitContract::findOrFail($contractId);
 
         if ($contract->contract_status !== 'active') {
-            throw new \Exception('Can only generate payments for active contracts');
+            throw new Exception('Can only generate payments for active contracts');
         }
 
         $payments = $contract->generatePaymentSchedule();
@@ -190,7 +193,7 @@ class UnitContractService
             $this->validateUnitAvailability($unitId, $startDate, $endDate, $excludeContractId);
 
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return false;
         }
     }
@@ -198,7 +201,7 @@ class UnitContractService
     /**
      * Get available units for a property within a date range.
      */
-    public function getAvailableUnitsForPeriod(int $propertyId, ?string $startDate = null, ?string $endDate = null): \Illuminate\Support\Collection
+    public function getAvailableUnitsForPeriod(int $propertyId, ?string $startDate = null, ?string $endDate = null): Collection
     {
         $units = Unit::where('property_id', $propertyId)->get();
 
@@ -240,14 +243,14 @@ class UnitContractService
     {
         // Validate unit ID is not 0
         if ($unitId <= 0) {
-            throw new \Exception('Invalid unit ID');
+            throw new Exception('Invalid unit ID');
         }
 
         $unit = Unit::lockForUpdate()->findOrFail($unitId);
 
         // Check if unit exists and is not under maintenance
         if (isset($unit->status) && $unit->status === 'maintenance') {
-            throw new \Exception('Unit is currently under maintenance');
+            throw new Exception('Unit is currently under maintenance');
         }
 
         // Build query for overlapping contracts
@@ -289,7 +292,7 @@ class UnitContractService
                 $overlappingContract->start_date->format('Y-m-d'),
                 $overlappingContract->end_date->format('Y-m-d')
             );
-            throw new \Exception($message);
+            throw new Exception($message);
         }
     }
 

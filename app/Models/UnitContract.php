@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use App\Services\PropertyContractService;
 use App\Services\UnitContractService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -67,7 +69,7 @@ class UnitContract extends Model
 
             // Calculate end_date if not set
             if (empty($contract->end_date) && $contract->start_date && $contract->duration_months) {
-                $startDate = \Carbon\Carbon::parse($contract->start_date);
+                $startDate = Carbon::parse($contract->start_date);
                 $contract->end_date = $startDate->copy()->addMonths($contract->duration_months)->subDay();
             }
 
@@ -96,7 +98,7 @@ class UnitContract extends Model
         static::updating(function ($contract) {
             // Recalculate end_date if start_date or duration_months changed
             if ($contract->isDirty(['start_date', 'duration_months']) && $contract->start_date && $contract->duration_months) {
-                $startDate = \Carbon\Carbon::parse($contract->start_date);
+                $startDate = Carbon::parse($contract->start_date);
                 $contract->end_date = $startDate->copy()->addMonths($contract->duration_months)->subDay();
             }
         });
@@ -212,7 +214,7 @@ class UnitContract extends Model
      */
     public function getPaymentsCountAttribute()
     {
-        return \App\Services\PropertyContractService::calculatePaymentsCount(
+        return PropertyContractService::calculatePaymentsCount(
             $this->duration_months ?? 0,
             $this->payment_frequency ?? 'monthly'
         );

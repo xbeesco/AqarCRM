@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use PDO;
+use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -23,11 +25,11 @@ class AnalyzeOldDatabaseContent extends Command
         
         foreach ($databases as $dbName) {
             try {
-                $this->oldDb = new \PDO("mysql:host=127.0.0.1;dbname={$dbName}", 'root', '');
+                $this->oldDb = new PDO("mysql:host=127.0.0.1;dbname={$dbName}", 'root', '');
                 $this->info("✅ Connected to database: {$dbName}");
                 $connected = true;
                 break;
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $this->warn("Could not connect to {$dbName}");
             }
         }
@@ -63,7 +65,7 @@ class AnalyzeOldDatabaseContent extends Command
                   GROUP BY post_type 
                   ORDER BY count DESC";
         
-        $postTypes = $this->oldDb->query($query)->fetchAll(\PDO::FETCH_ASSOC);
+        $postTypes = $this->oldDb->query($query)->fetchAll(PDO::FETCH_ASSOC);
 
         $this->table(['Post Type', 'Count', 'Status in New System'], array_map(function($type) {
             return [
@@ -86,7 +88,7 @@ class AnalyzeOldDatabaseContent extends Command
         $query = "SELECT COUNT(*) as count FROM wp_posts WHERE post_type = ? AND post_status != 'trash'";
         $stmt = $this->oldDb->prepare($query);
         $stmt->execute([$postType]);
-        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($result['count'] > 0) {
             $this->warn("  → Found {$result['count']} records for post type: {$postType}");
@@ -101,7 +103,7 @@ class AnalyzeOldDatabaseContent extends Command
                          LIMIT 10";
             $stmt = $this->oldDb->prepare($metaQuery);
             $stmt->execute([$postType]);
-            $metaKeys = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            $metaKeys = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             if (!empty($metaKeys)) {
                 $this->info("    Meta fields for {$postType}:");
@@ -123,7 +125,7 @@ class AnalyzeOldDatabaseContent extends Command
                   GROUP BY tt.taxonomy 
                   ORDER BY count DESC";
         
-        $taxonomies = $this->oldDb->query($query)->fetchAll(\PDO::FETCH_ASSOC);
+        $taxonomies = $this->oldDb->query($query)->fetchAll(PDO::FETCH_ASSOC);
 
         $this->table(['Taxonomy', 'Terms Count', 'Status in New System'], array_map(function($tax) {
             return [
@@ -148,7 +150,7 @@ class AnalyzeOldDatabaseContent extends Command
             
             $stmt = $this->oldDb->prepare($query);
             $stmt->execute([$taxName]);
-            $relations = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            $relations = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             if (!empty($relations)) {
                 $this->line("    {$taxName}:");
@@ -170,7 +172,7 @@ class AnalyzeOldDatabaseContent extends Command
                   WHERE post_type = 'acf-field-group' 
                   AND post_status = 'publish'";
         
-        $fieldGroups = $this->oldDb->query($query)->fetchAll(\PDO::FETCH_ASSOC);
+        $fieldGroups = $this->oldDb->query($query)->fetchAll(PDO::FETCH_ASSOC);
 
         if (empty($fieldGroups)) {
             $this->warn('  No ACF field groups found.');
@@ -189,7 +191,7 @@ class AnalyzeOldDatabaseContent extends Command
             
             $stmt = $this->oldDb->prepare($query);
             $stmt->execute([$group['ID']]);
-            $fields = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            $fields = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             foreach ($fields as $field) {
                 $fieldData = unserialize($field['post_content']);
@@ -216,7 +218,7 @@ class AnalyzeOldDatabaseContent extends Command
 
         // Get all tables in the database
         $query = "SHOW TABLES";
-        $tables = $this->oldDb->query($query)->fetchAll(\PDO::FETCH_COLUMN);
+        $tables = $this->oldDb->query($query)->fetchAll(PDO::FETCH_COLUMN);
 
         $customTables = [];
         foreach ($tables as $table) {
@@ -237,12 +239,12 @@ class AnalyzeOldDatabaseContent extends Command
         foreach ($customTables as $table) {
             $countQuery = "SELECT COUNT(*) as count FROM {$table}";
             try {
-                $count = $this->oldDb->query($countQuery)->fetch(\PDO::FETCH_ASSOC)['count'];
+                $count = $this->oldDb->query($countQuery)->fetch(PDO::FETCH_ASSOC)['count'];
                 $this->info("  Table: {$table} ({$count} records)");
                 
                 // Get table structure
                 $structureQuery = "DESCRIBE {$table}";
-                $columns = $this->oldDb->query($structureQuery)->fetchAll(\PDO::FETCH_ASSOC);
+                $columns = $this->oldDb->query($structureQuery)->fetchAll(PDO::FETCH_ASSOC);
                 
                 $this->line("    Columns:");
                 foreach ($columns as $column) {
@@ -257,7 +259,7 @@ class AnalyzeOldDatabaseContent extends Command
                         'records' => $count
                     ];
                 }
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $this->error("    Error reading table {$table}");
             }
         }

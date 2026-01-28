@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\CollectionPaymentResource\Pages;
 
+use Filament\Actions\Action;
 use App\Enums\PaymentStatus;
 use App\Exports\CollectionPaymentsExport;
 use App\Filament\Resources\CollectionPaymentResource;
@@ -19,7 +20,7 @@ class ListCollectionPayments extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\Action::make('export')
+            Action::make('export')
                 ->label('تصدير')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')

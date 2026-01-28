@@ -2,6 +2,9 @@
 
 namespace App\Filament\Widgets;
 
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\Filter;
 use App\Models\UnitContract;
 use Carbon\Carbon;
 use Filament\Tables;
@@ -38,26 +41,26 @@ class ExpiredContractsWidget extends BaseWidget
                     ->orderBy('end_date', 'desc')
             )
             ->columns([
-                Tables\Columns\TextColumn::make('index')
+                TextColumn::make('index')
                     ->label('#')
                     ->rowIndex(),
 
-                Tables\Columns\TextColumn::make('contract_number')
+                TextColumn::make('contract_number')
                     ->label('رقم العقد'),
 
-                Tables\Columns\TextColumn::make('property.name')
+                TextColumn::make('property.name')
                     ->label('العقار'),
 
-                Tables\Columns\TextColumn::make('unit.name')
+                TextColumn::make('unit.name')
                     ->label('الوحدة'),
 
-                Tables\Columns\TextColumn::make('tenant.name')
+                TextColumn::make('tenant.name')
                     ->label('المستأجر'),
 
-                Tables\Columns\TextColumn::make('tenant.phone')
+                TextColumn::make('tenant.phone')
                     ->label('الهاتف'),
 
-                Tables\Columns\TextColumn::make('end_date')
+                TextColumn::make('end_date')
                     ->label('انتهى في')
                     ->date('Y-m-d')
                     ->color('danger'),
@@ -90,17 +93,17 @@ class ExpiredContractsWidget extends BaseWidget
             )
             ->defaultSort('end_date', 'desc')
             ->filters([
-                Tables\Filters\SelectFilter::make('property_id')
+                SelectFilter::make('property_id')
                     ->label('العقار')
                     ->relationship('property', 'name')
                     ->searchable()
                     ->preload(),
 
-                Tables\Filters\Filter::make('expired_over_30')
+                Filter::make('expired_over_30')
                     ->label('منتهي منذ أكثر من 30 يوم')
                     ->query(fn ($query) => $query->where('end_date', '<', $this->getToday()->subDays(30))),
 
-                Tables\Filters\Filter::make('expired_over_60')
+                Filter::make('expired_over_60')
                     ->label('منتهي منذ أكثر من 60 يوم')
                     ->query(fn ($query) => $query->where('end_date', '<', $this->getToday()->subDays(60))),
             ])

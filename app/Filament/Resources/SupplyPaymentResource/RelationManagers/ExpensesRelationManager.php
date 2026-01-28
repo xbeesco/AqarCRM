@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\SupplyPaymentResource\RelationManagers;
 
+use App\Services\SupplyPaymentService;
 use App\Models\Expense;
 use App\Models\Unit;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -22,7 +23,7 @@ class ExpensesRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         $supplyPayment = $this->ownerRecord;
-        $supplyPaymentService = app(\App\Services\SupplyPaymentService::class);
+        $supplyPaymentService = app(SupplyPaymentService::class);
         $expenses = $supplyPaymentService->getExpensesDetails($supplyPayment);
 
         return $table

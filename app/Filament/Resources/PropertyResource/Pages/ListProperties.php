@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\PropertyResource\Pages;
 
+use Filament\Actions\CreateAction;
+use Filament\Actions\Action;
 use App\Exports\PropertiesExport;
 use App\Filament\Resources\PropertyResource;
 use Filament\Actions;
@@ -16,9 +18,9 @@ class ListProperties extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make()
+            CreateAction::make()
                 ->label('إضافة عقار'),
-            Actions\Action::make('export')
+            Action::make('export')
                 ->label('تصدير')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')

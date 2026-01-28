@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\SupplyPaymentResource\RelationManagers;
 
+use App\Services\PaymentAssignmentService;
+use App\Models\CollectionPayment;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -19,7 +21,7 @@ class CollectionPaymentsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         $supplyPayment = $this->ownerRecord;
-        $paymentAssignmentService = app(\App\Services\PaymentAssignmentService::class);
+        $paymentAssignmentService = app(PaymentAssignmentService::class);
 
         $invoiceDetails = $supplyPayment->invoice_details ?? [];
         $periodStart = $invoiceDetails['period_start'] ?? $supplyPayment->month_year.'-01';
@@ -49,7 +51,7 @@ class CollectionPaymentsRelationManager extends RelationManager
         $commissionRate = $supplyPayment->commission_rate;
 
         return $table
-            ->query(fn () => \App\Models\CollectionPayment::query()
+            ->query(fn () => CollectionPayment::query()
                 ->whereIn('id', $allCategorizedPayments->pluck('id'))
             )
             ->columns([

@@ -2,6 +2,16 @@
 
 namespace App\Filament\Resources;
 
+use App\Models\PropertyContract;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Hidden;
+use App\Models\User;
+use App\Models\Property;
+use App\Filament\Resources\SupplyPaymentResource\Pages\ListSupplyPayments;
+use App\Filament\Resources\SupplyPaymentResource\Pages\CreateSupplyPayment;
+use App\Filament\Resources\SupplyPaymentResource\Pages\ViewSupplyPayment;
+use App\Filament\Resources\SupplyPaymentResource\Pages\EditSupplyPayment;
 use App\Filament\Resources\SupplyPaymentResource\Pages;
 use App\Models\SupplyPayment;
 use Filament\Forms\Components\DatePicker;
@@ -30,7 +40,7 @@ class SupplyPaymentResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->schema([
+        return $schema->components([
             Section::make('إضافة دفعة مالك')
                 ->columnSpan('full')
                 ->schema([
@@ -40,7 +50,7 @@ class SupplyPaymentResource extends Resource
                         ->searchable()
                         ->preload()
                         ->options(function () {
-                            return \App\Models\PropertyContract::with(['property', 'owner'])
+                            return PropertyContract::with(['property', 'owner'])
                                 ->get()
                                 ->mapWithKeys(function ($contract) {
                                     $label = sprintf(
@@ -66,13 +76,13 @@ class SupplyPaymentResource extends Resource
                         ->helperText('اتركه فارغاً إذا لم يتم التوريد بعد')
                         ->columnSpan(['lg' => 1, 'xl' => 1]),
 
-                    \Filament\Forms\Components\Placeholder::make('approval_section')
+                    Placeholder::make('approval_section')
                         ->label('إقرار ما بعد التوريد')
                         ->content('')
                         ->visible(fn ($get) => $get('paid_date') !== null)
                         ->columnSpan(['lg' => 3, 'xl' => 4]),
 
-                    \Filament\Forms\Components\Radio::make('approval_status')
+                    Radio::make('approval_status')
                         ->label('أقر')
                         ->options([
                             'approved' => 'موافق',
@@ -83,8 +93,8 @@ class SupplyPaymentResource extends Resource
                         ->required(fn ($get) => $get('paid_date') !== null)
                         ->columnSpan(['lg' => 3, 'xl' => 4]),
 
-                    \Filament\Forms\Components\Hidden::make('owner_id'),
-                    \Filament\Forms\Components\Hidden::make('payment_number'),
+                    Hidden::make('owner_id'),
+                    Hidden::make('payment_number'),
                 ])->columns([
                     'sm' => 1,
                     'md' => 2,
@@ -98,7 +108,7 @@ class SupplyPaymentResource extends Resource
     {
         return $table
             ->defaultSort('due_date', 'asc')
-            ->modifyQueryUsing(function (\Illuminate\Database\Eloquent\Builder $query) {
+            ->modifyQueryUsing(function (Builder $query) {
                 $query->with(['propertyContract.property.owner', 'owner']);
             })
             ->columns([
@@ -179,7 +189,7 @@ class SupplyPaymentResource extends Resource
                 SelectFilter::make('owner_id')
                     ->label('المالك')
                     ->options(function () {
-                        return \App\Models\User::where('type', 'owner')
+                        return User::where('type', 'owner')
                             ->orderBy('name')
                             ->pluck('name', 'id');
                     })
@@ -189,7 +199,7 @@ class SupplyPaymentResource extends Resource
                 SelectFilter::make('property')
                     ->label('العقار')
                     ->options(function () {
-                        return \App\Models\Property::with('owner')
+                        return Property::with('owner')
                             ->get()
                             ->mapWithKeys(function ($property) {
                                 return [$property->id => $property->name.' - '.($property->owner?->name ?? 'بدون مالك')];
@@ -219,10 +229,10 @@ class SupplyPaymentResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListSupplyPayments::route('/'),
-            'create' => Pages\CreateSupplyPayment::route('/create'),
-            'view' => Pages\ViewSupplyPayment::route('/{record}'),
-            'edit' => Pages\EditSupplyPayment::route('/{record}/edit'),
+            'index' => ListSupplyPayments::route('/'),
+            'create' => CreateSupplyPayment::route('/create'),
+            'view' => ViewSupplyPayment::route('/{record}'),
+            'edit' => EditSupplyPayment::route('/{record}/edit'),
         ];
     }
 

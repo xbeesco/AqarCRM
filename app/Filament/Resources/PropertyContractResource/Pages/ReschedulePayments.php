@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\PropertyContractResource\Pages;
 
+use Illuminate\Support\HtmlString;
+use Exception;
 use App\Filament\Resources\PropertyContractResource;
 use App\Models\PropertyContract;
 use App\Services\PaymentGeneratorService;
@@ -77,7 +79,7 @@ class ReschedulePayments extends Page implements HasForms
     public function form(Schema $schema): Schema
     {
         return $schema
-            ->schema([
+            ->components([
                 Section::make(null)
                     ->columnspan(2)
                     ->schema([
@@ -262,7 +264,7 @@ class ReschedulePayments extends Page implements HasForms
 
                     $unpaidCount = app(PropertyContractService::class)->getUnpaidPaymentsCount($this->record);
 
-                    return new \Illuminate\Support\HtmlString(
+                    return new HtmlString(
                         "<div style='text-align: right; direction: rtl;'>
                             <p>رقم العقد: <strong>{$contractNumber}</strong></p>
                             <p>المالك: <strong>{$ownerName}</strong></p>
@@ -295,7 +297,7 @@ class ReschedulePayments extends Page implements HasForms
                             ->send();
 
                         return redirect()->route('filament.admin.resources.property-contracts.view', $this->record);
-                    } catch (\Exception $e) {
+                    } catch (Exception $e) {
                         Notification::make()
                             ->title('فشلت إعادة الجدولة')
                             ->body($e->getMessage())

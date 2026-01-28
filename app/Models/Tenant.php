@@ -47,7 +47,7 @@ class Tenant extends User
     public function currentContract()
     {
         // return $this->hasOne(UnitContract::class, 'tenant_id')
-        return $this->hasOne(\App\Models\UnitContract::class, 'tenant_id')
+        return $this->hasOne(UnitContract::class, 'tenant_id')
             ->where('contract_status', 'active')
             ->latest();
     }
@@ -59,7 +59,7 @@ class Tenant extends User
     public function rentalContracts()
     {
         // return $this->hasMany(UnitContract::class, 'tenant_id');
-        return $this->hasMany(\App\Models\UnitContract::class, 'tenant_id');
+        return $this->hasMany(UnitContract::class, 'tenant_id');
     }
 
     /**
@@ -69,7 +69,7 @@ class Tenant extends User
     public function unitContracts()
     {
         // return $this->hasMany(UnitContract::class, 'tenant_id');
-        return $this->hasMany(\App\Models\UnitContract::class, 'tenant_id');
+        return $this->hasMany(UnitContract::class, 'tenant_id');
     }
 
     /**
@@ -77,7 +77,7 @@ class Tenant extends User
      */
     public function collectionPayments()
     {
-        return $this->hasMany(\App\Models\CollectionPayment::class, 'tenant_id');
+        return $this->hasMany(CollectionPayment::class, 'tenant_id');
     }
 
     /**

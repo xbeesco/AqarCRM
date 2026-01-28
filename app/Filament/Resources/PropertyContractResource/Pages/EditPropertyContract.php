@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\PropertyContractResource\Pages;
 
+use App\Services\PropertyContractService;
 use App\Filament\Resources\PropertyContractResource;
 use Filament\Resources\Pages\EditRecord;
 
@@ -22,7 +23,7 @@ class EditPropertyContract extends EditRecord
     protected function mutateFormDataBeforeSave(array $data): array
     {
         // Calculate payments count before save
-        $data['payments_count'] = \App\Services\PropertyContractService::calculatePaymentsCount(
+        $data['payments_count'] = PropertyContractService::calculatePaymentsCount(
             $data['duration_months'] ?? 0,
             $data['payment_frequency'] ?? 'monthly'
         );

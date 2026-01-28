@@ -2,6 +2,10 @@
 
 namespace App\Filament\Widgets;
 
+use Filament\Tables\Columns\TextColumn;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Textarea;
+use Filament\Tables\Filters\SelectFilter;
 use App\Enums\PaymentStatus;
 use App\Models\CollectionPayment;
 use App\Services\CollectionPaymentService;
@@ -34,33 +38,33 @@ class TenantsPaymentDueWidget extends BaseWidget
                     ->orderBy('due_date_start', 'asc')
             )
             ->columns([
-                Tables\Columns\TextColumn::make('index')
+                TextColumn::make('index')
                     ->label('#')
                     ->rowIndex(),
 
-                Tables\Columns\TextColumn::make('property.name')
+                TextColumn::make('property.name')
                     ->label('العقار'),
 
-                Tables\Columns\TextColumn::make('tenant.name')
+                TextColumn::make('tenant.name')
                     ->label('المستأجر'),
 
-                Tables\Columns\TextColumn::make('unit.name')
+                TextColumn::make('unit.name')
                     ->label('الوحدة'),
 
-                Tables\Columns\TextColumn::make('amount')
+                TextColumn::make('amount')
                     ->label('القيمة')
                     ->money('SAR'),
 
-                Tables\Columns\TextColumn::make('due_date_start')
+                TextColumn::make('due_date_start')
                     ->label('التاريخ')
 
                     ->date('Y-m-d')
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('tenant.phone')
+                TextColumn::make('tenant.phone')
                     ->label('الهاتف'),
 
-                Tables\Columns\TextColumn::make('payment_status_label')
+                TextColumn::make('payment_status_label')
                     ->label('الحالة')
                     ->badge()
                     ->color(fn ($record): string => $record->payment_status_enum === PaymentStatus::OVERDUE ? 'danger' : 'gray'
@@ -76,14 +80,14 @@ class TenantsPaymentDueWidget extends BaseWidget
                     ->modalDescription('قم بتحديد مدة التأجيل وسبب التأجيل')
                     ->modalSubmitActionLabel('تأجيل')
                     ->modalCancelActionLabel('إلغاء')
-                    ->form([
-                        Forms\Components\TextInput::make('delay_duration')
+                    ->schema([
+                        TextInput::make('delay_duration')
                             ->label('مدة التأجيل (بالأيام)')
                             ->numeric()
                             ->required()
                             ->minValue(1)
                             ->maxValue(365),
-                        Forms\Components\Textarea::make('delay_reason')
+                        Textarea::make('delay_reason')
                             ->label('سبب التأجيل')
                             ->required()
                             ->rows(3),
@@ -124,13 +128,13 @@ class TenantsPaymentDueWidget extends BaseWidget
             ])
             ->defaultSort('property_id', 'asc')
             ->filters([
-                Tables\Filters\SelectFilter::make('property_id')
+                SelectFilter::make('property_id')
                     ->label('العقار')
                     ->relationship('property', 'name')
                     ->searchable()
                     ->preload(),
 
-                Tables\Filters\SelectFilter::make('payment_status')
+                SelectFilter::make('payment_status')
                     ->label('حالة الدفعة')
                     ->multiple()
                     ->options(PaymentStatus::options())

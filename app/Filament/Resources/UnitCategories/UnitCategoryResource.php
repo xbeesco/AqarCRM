@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\UnitCategories;
 
+use Str;
+use Filament\GlobalSearch\GlobalSearchResult;
 use App\Filament\Resources\UnitCategories\Pages\ManageUnitCategories;
 use App\Models\UnitCategory;
 use BackedEnum;
@@ -19,7 +21,7 @@ class UnitCategoryResource extends Resource
 {
     protected static ?string $model = UnitCategory::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string | \BackedEnum | null $navigationIcon = Heroicon::OutlinedRectangleStack;
     
     protected static ?string $navigationLabel = 'تصنيفات الوحدات';
     
@@ -153,14 +155,14 @@ class UnitCategoryResource extends Resource
                 ];
                 
                 if ($record->description) {
-                    $details['الوصف'] = \Str::limit($record->description, 50);
+                    $details['الوصف'] = Str::limit($record->description, 50);
                 }
                 
                 if ($record->sort_order > 0) {
                     $details['الترتيب'] = $record->sort_order;
                 }
                 
-                return new \Filament\GlobalSearch\GlobalSearchResult(
+                return new GlobalSearchResult(
                     title: $record->name_ar,
                     url: static::getUrl('index'),
                     details: $details,

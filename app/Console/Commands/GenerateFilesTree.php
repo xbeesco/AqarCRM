@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use ReflectionClass;
@@ -387,7 +388,7 @@ class GenerateFilesTree extends Command
 
             return 'PHP source file';
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return 'PHP file (analysis failed)';
         }
     }
@@ -454,12 +455,12 @@ class GenerateFilesTree extends Command
                 $functions = $this->extractPhpFunctionsRegex($content);
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Fallback to regex if file reading fails
             try {
                 $content = File::get($filePath);
                 $functions = $this->extractPhpFunctionsRegex($content);
-            } catch (\Exception $e2) {
+            } catch (Exception $e2) {
                 $functions = ['Unable to parse functions'];
             }
         }
@@ -552,7 +553,7 @@ class GenerateFilesTree extends Command
                     return [];
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $functions = ['Unable to parse content'];
         }
 

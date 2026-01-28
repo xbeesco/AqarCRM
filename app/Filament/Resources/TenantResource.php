@@ -2,6 +2,13 @@
 
 namespace App\Filament\Resources;
 
+use Illuminate\Database\Eloquent\Model;
+use App\Filament\Resources\TenantResource\Pages\ListTenants;
+use App\Filament\Resources\TenantResource\Pages\CreateTenant;
+use App\Filament\Resources\TenantResource\Pages\EditTenant;
+use App\Filament\Resources\TenantResource\Pages\ViewTenant;
+use Illuminate\Support\Collection;
+use Filament\GlobalSearch\GlobalSearchResult;
 use App\Filament\Resources\TenantResource\Pages;
 use App\Models\CollectionPayment;
 use App\Models\Tenant;
@@ -43,14 +50,14 @@ class TenantResource extends Resource
         return in_array($userType, ['super_admin', 'admin', 'manager']);
     }
 
-    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canEdit(Model $record): bool
     {
         $userType = auth()->user()?->type;
 
         return in_array($userType, ['super_admin', 'admin', 'manager']);
     }
 
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canDelete(Model $record): bool
     {
         return auth()->user()?->type === 'super_admin';
     }
@@ -63,7 +70,7 @@ class TenantResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema
-            ->schema([
+            ->components([
                 Section::make('معلومات عامة')
                     ->schema([
                         TextInput::make('name')
@@ -159,10 +166,10 @@ class TenantResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListTenants::route('/'),
-            'create' => Pages\CreateTenant::route('/create'),
-            'edit' => Pages\EditTenant::route('/{record}/edit'),
-            'view' => Pages\ViewTenant::route('/{record}'),
+            'index' => ListTenants::route('/'),
+            'create' => CreateTenant::route('/create'),
+            'edit' => EditTenant::route('/{record}/edit'),
+            'view' => ViewTenant::route('/{record}'),
         ];
     }
 
@@ -176,7 +183,7 @@ class TenantResource extends Resource
         return parent::getGlobalSearchEloquentQuery();
     }
 
-    public static function getGlobalSearchResults(string $search): \Illuminate\Support\Collection
+    public static function getGlobalSearchResults(string $search): Collection
     {
         // Normalize Arabic characters (hamza variants)
         $normalizedSearch = str_replace(
@@ -209,7 +216,7 @@ class TenantResource extends Resource
             ->limit(50)
             ->get()
             ->map(function ($record) {
-                return new \Filament\GlobalSearch\GlobalSearchResult(
+                return new GlobalSearchResult(
                     title: $record->name,
                     url: static::getUrl('edit', ['record' => $record]),
                     details: [
@@ -226,8 +233,8 @@ class TenantResource extends Resource
     public static function getTenantStatistics($tenant): array
     {
         // Ensure we're working with Tenant model
-        if (! ($tenant instanceof \App\Models\Tenant)) {
-            $tenant = \App\Models\Tenant::find($tenant->id);
+        if (! ($tenant instanceof Tenant)) {
+            $tenant = Tenant::find($tenant->id);
             if (! $tenant) {
                 return [];
             }
@@ -350,8 +357,8 @@ class TenantResource extends Resource
 
     public static function getRecentPayments($tenant, $limit = 5): \Illuminate\Database\Eloquent\Collection
     {
-        if (! ($tenant instanceof \App\Models\Tenant)) {
-            $tenant = \App\Models\Tenant::find($tenant->id);
+        if (! ($tenant instanceof Tenant)) {
+            $tenant = Tenant::find($tenant->id);
             if (! $tenant) {
                 return collect();
             }

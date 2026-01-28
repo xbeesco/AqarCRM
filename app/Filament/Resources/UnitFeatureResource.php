@@ -2,6 +2,13 @@
 
 namespace App\Filament\Resources;
 
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Enums\FiltersLayout;
+use App\Filament\Resources\UnitFeatureResource\Pages\ListUnitFeatures;
+use App\Filament\Resources\UnitFeatureResource\Pages\CreateUnitFeature;
+use App\Filament\Resources\UnitFeatureResource\Pages\ViewUnitFeature;
+use App\Filament\Resources\UnitFeatureResource\Pages\EditUnitFeature;
 use App\Filament\Resources\UnitFeatureResource\Pages;
 use App\Models\UnitFeature;
 use Filament\Schemas\Schema;
@@ -39,7 +46,7 @@ class UnitFeatureResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema
-            ->schema([
+            ->components([
                 Section::make('المعلومات الأساسية / Basic Information')
                     ->schema([
                         TextInput::make('name_ar')
@@ -137,19 +144,19 @@ class UnitFeatureResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name_display')
+                TextColumn::make('name_display')
                     ->label('الاسم / Name')
                     ->formatStateUsing(fn (UnitFeature $record): string => "{$record->name_ar} / {$record->name_en}")
                     ->searchable(['name_ar', 'name_en'])
                     ->sortable(['name_ar']),
                 
-                Tables\Columns\TextColumn::make('slug')
+                TextColumn::make('slug')
                     ->label('المعرف / Slug')
                     ->searchable()
                     ->sortable()
                     ->fontFamily('mono'),
                 
-                Tables\Columns\TextColumn::make('category')
+                TextColumn::make('category')
                     ->label('الفئة / Category')
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => UnitFeature::getCategoryOptions()[$state] ?? $state)
@@ -163,7 +170,7 @@ class UnitFeatureResource extends Resource
                     })
                     ->sortable(),
                 
-                Tables\Columns\TextColumn::make('value_configuration')
+                TextColumn::make('value_configuration')
                     ->label('إعدادات القيمة / Value Configuration')
                     ->formatStateUsing(function (UnitFeature $record): string {
                         if (!$record->requires_value) {
@@ -180,18 +187,18 @@ class UnitFeatureResource extends Resource
                         return $type;
                     }),
                 
-                Tables\Columns\TextColumn::make('sort_order')
+                TextColumn::make('sort_order')
                     ->label('الترتيب / Order')
                     ->sortable()
                     ->alignCenter(),
                 
-                Tables\Columns\IconColumn::make('is_active')
+                IconColumn::make('is_active')
                     ->label('نشط / Active')
                     ->boolean()
                     ->sortable()
                     ->alignCenter(),
             ])
-            ->filtersLayout(Tables\Enums\FiltersLayout::AboveContent)
+            ->filtersLayout(FiltersLayout::AboveContent)
             ->filters([
                 SelectFilter::make('category')
                     ->label('الفئة / Category')
@@ -234,10 +241,10 @@ class UnitFeatureResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListUnitFeatures::route('/'),
-            'create' => Pages\CreateUnitFeature::route('/create'),
-            'view' => Pages\ViewUnitFeature::route('/{record}'),
-            'edit' => Pages\EditUnitFeature::route('/{record}/edit'),
+            'index' => ListUnitFeatures::route('/'),
+            'create' => CreateUnitFeature::route('/create'),
+            'view' => ViewUnitFeature::route('/{record}'),
+            'edit' => EditUnitFeature::route('/{record}/edit'),
         ];
     }
     
@@ -346,7 +353,7 @@ class UnitFeatureResource extends Resource
                 $valueType = UnitFeature::getValueTypeOptions()[$record->value_type] ?? $record->value_type;
             }
             
-            return new \Filament\GlobalSearch\GlobalSearchResult(
+            return new GlobalSearchResult(
                 title: $record->name_ar . ' / ' . $record->name_en,
                 url: static::getUrl('edit', ['record' => $record]),
                 details: [

@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\UnitFeatureResource\Pages;
 
+use Filament\Actions\ViewAction;
+use Filament\Actions\DeleteAction;
 use App\Filament\Resources\UnitFeatureResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
@@ -13,9 +15,9 @@ class EditUnitFeature extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\ViewAction::make()
+            ViewAction::make()
                 ->label('عرض / View'),
-            Actions\DeleteAction::make()
+            DeleteAction::make()
                 ->label('حذف / Delete'),
         ];
     }

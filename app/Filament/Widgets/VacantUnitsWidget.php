@@ -2,6 +2,8 @@
 
 namespace App\Filament\Widgets;
 
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Grouping\Group;
@@ -31,36 +33,36 @@ class VacantUnitsWidget extends BaseWidget
                     ->orderBy('name')
             )
             ->columns([
-                Tables\Columns\TextColumn::make('index')
+                TextColumn::make('index')
                     ->label('#')
                     ->rowIndex(),
                     
-                Tables\Columns\TextColumn::make('property.name')
+                TextColumn::make('property.name')
                     ->label('العقار'),
                     
-                Tables\Columns\TextColumn::make('name')
+                TextColumn::make('name')
                     ->label('الوحدة'),
                     
-                Tables\Columns\TextColumn::make('unitType.name')
+                TextColumn::make('unitType.name')
                     ->label('النوع'),
                     
-                Tables\Columns\TextColumn::make('unitCategory.name')
+                TextColumn::make('unitCategory.name')
                     ->label('التصنيف'),
                     
-                Tables\Columns\TextColumn::make('annual_rent')
+                TextColumn::make('annual_rent')
                     ->label('الإيجار السنوي')
                     ->getStateUsing(fn ($record) => $record->rent_price * 12)
                     ->money('SAR'),
             ])
             ->defaultSort('property_id', 'asc')
             ->filters([
-                Tables\Filters\SelectFilter::make('property_id')
+                SelectFilter::make('property_id')
                     ->label('العقار')
                     ->relationship('property', 'name')
                     ->searchable()
                     ->preload(),
                     
-                Tables\Filters\SelectFilter::make('unit_type_id')
+                SelectFilter::make('unit_type_id')
                     ->label('نوع الوحدة')
                     ->relationship('unitType', 'name_ar')
                     ->searchable()

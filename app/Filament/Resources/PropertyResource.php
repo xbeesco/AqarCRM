@@ -2,6 +2,11 @@
 
 namespace App\Filament\Resources;
 
+use App\Models\Location;
+use App\Filament\Resources\PropertyResource\Pages\ListProperties;
+use App\Filament\Resources\PropertyResource\Pages\CreateProperty;
+use App\Filament\Resources\PropertyResource\Pages\EditProperty;
+use App\Filament\Resources\PropertyResource\Pages\ViewProperty;
 use App\Filament\Resources\PropertyResource\Pages;
 use App\Models\CollectionPayment;
 use App\Models\Property;
@@ -37,7 +42,7 @@ class PropertyResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->schema([
+        return $schema->components([
             Section::make('البيانات الأساسية')
                 ->schema([
                     Grid::make(2)->schema([
@@ -74,7 +79,7 @@ class PropertyResource extends Resource
                 ->schema([
                     Select::make('location_id')
                         ->label('الموقع')
-                        ->options(\App\Models\Location::getHierarchicalOptions())
+                        ->options(Location::getHierarchicalOptions())
                         ->searchable()
                         ->allowHtml()
                         ->nullable(),
@@ -202,10 +207,10 @@ class PropertyResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListProperties::route('/'),
-            'create' => Pages\CreateProperty::route('/create'),
-            'edit' => Pages\EditProperty::route('/{record}/edit'),
-            'view' => Pages\ViewProperty::route('/{record}'),
+            'index' => ListProperties::route('/'),
+            'create' => CreateProperty::route('/create'),
+            'edit' => EditProperty::route('/{record}/edit'),
+            'view' => ViewProperty::route('/{record}'),
         ];
     }
 
