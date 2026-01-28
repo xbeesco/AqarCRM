@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Filament\Concerns\HasFormComponents;
 use Filament\Tables\Columns\ImageColumn;
 use App\Filament\Resources\OwnerResource\Pages\ListOwners;
 use App\Filament\Resources\OwnerResource\Pages\CreateOwner;
@@ -27,6 +28,7 @@ use Illuminate\Support\Collection;
 
 class OwnerResource extends Resource
 {
+    use HasFormComponents;
     protected static ?string $model = Owner::class;
 
     protected static ?string $navigationLabel = 'الملاك';
@@ -80,23 +82,10 @@ class OwnerResource extends Resource
                             ->maxLength(255)
                             ->columnSpan('full'),
 
-                        TextInput::make('phone')
-                            ->tel()
-                            ->regex('/^[0-9]+$/')
-                            ->required()
-                            ->unique('users', 'phone', ignoreRecord: true, modifyRuleUsing: function ($rule) {
-                                return $rule->where('type', 'owner');
-                            })
-                            ->label('الهاتف الأول')
-                            ->maxLength(20)
-                            ->columnSpan(6),
+                        static::phoneInput('phone', 'الهاتف الأول', true, 'owner')
+                            ->required(),
 
-                        TextInput::make('secondary_phone')
-                            ->tel()
-                            ->regex('/^[0-9]+$/')
-                            ->label('الهاتف الثاني')
-                            ->maxLength(20)
-                            ->columnSpan(6),
+                        static::secondaryPhoneInput('secondary_phone', 'الهاتف الثاني'),
 
                         FileUpload::make('identity_file')
                             ->label('ملف الهوية')

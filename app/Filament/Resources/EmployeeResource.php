@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Filament\Concerns\HasFormComponents;
 use App\Filament\Resources\EmployeeResource\Pages\ListEmployees;
 use App\Filament\Resources\EmployeeResource\Pages\CreateEmployee;
 use App\Filament\Resources\EmployeeResource\Pages\EditEmployee;
@@ -25,6 +26,7 @@ use Illuminate\Support\Facades\Hash;
 
 class EmployeeResource extends Resource
 {
+    use HasFormComponents;
     protected static ?string $model = Employee::class;
 
     protected static ?string $navigationLabel = 'الموظفين';
@@ -76,24 +78,10 @@ class EmployeeResource extends Resource
                             ->maxLength(255)
                             ->columnSpan('full'),
 
-                        TextInput::make('phone')
-                            ->tel()
-                            ->regex('/^[0-9]+$/')
-                            ->required()
-                            ->unique('users', 'phone', ignoreRecord: true)
-                            // ->unique('users', 'phone', ignoreRecord: true, modifyRuleUsing: function ($rule, $get) {
-                            //     return $rule->where('type', $get('type'));
-                            // })
-                            ->label('الهاتف الأول')
-                            ->maxLength(20)
-                            ->columnSpan(6),
+                        static::phoneInput('phone', 'الهاتف الأول', true)
+                            ->required(),
 
-                        TextInput::make('secondary_phone')
-                            ->tel()
-                            ->regex('/^[0-9]+$/')
-                            ->label('الهاتف الثاني')
-                            ->maxLength(20)
-                            ->columnSpan(6),
+                        static::secondaryPhoneInput('secondary_phone', 'الهاتف الثاني'),
 
                         FileUpload::make('identity_file')
                             ->label('ملف الهوية')

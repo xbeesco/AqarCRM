@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Filament\Concerns\HasFormComponents;
 use App\Filament\Resources\TenantResource\Pages\ListTenants;
 use App\Filament\Resources\TenantResource\Pages\CreateTenant;
 use App\Filament\Resources\TenantResource\Pages\EditTenant;
@@ -26,6 +27,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 class TenantResource extends Resource
 {
+    use HasFormComponents;
     protected static ?string $model = Tenant::class;
 
     protected static ?string $navigationLabel = 'المستأجرين';
@@ -79,23 +81,10 @@ class TenantResource extends Resource
                             ->maxLength(255)
                             ->columnSpan('full'),
 
-                        TextInput::make('phone')
-                            ->tel()
-                            ->regex('/^[0-9]+$/')
-                            ->required()
-                            ->unique('users', 'phone', ignoreRecord: true, modifyRuleUsing: function ($rule) {
-                                return $rule->where('type', 'tenant');
-                            })
-                            ->label('الهاتف الأول')
-                            ->maxLength(20)
-                            ->columnSpan(6),
+                        static::phoneInput('phone', 'الهاتف الأول', true, 'tenant')
+                            ->required(),
 
-                        TextInput::make('secondary_phone')
-                            ->tel()
-                            ->regex('/^[0-9]+$/')
-                            ->label('الهاتف الثاني')
-                            ->maxLength(20)
-                            ->columnSpan(6),
+                        static::secondaryPhoneInput('secondary_phone', 'الهاتف الثاني'),
 
                         FileUpload::make('identity_file')
                             ->label('ملف الهوية')
