@@ -2,6 +2,10 @@
 
 namespace App\Services;
 
+use Exception;
+use App\Models\PropertyStatus;
+use Log;
+use Illuminate\Database\Eloquent\Collection;
 use App\Models\Property;
 use App\Models\PropertyContract;
 use Illuminate\Support\Facades\Auth;
@@ -38,7 +42,7 @@ class PropertyContractService
             $oldContract = PropertyContract::findOrFail($contractId);
 
             if (! $oldContract->canRenew()) {
-                throw new \Exception('Contract is not eligible for renewal');
+                throw new Exception('Contract is not eligible for renewal');
             }
 
             // Create new contract based on existing terms
@@ -63,7 +67,7 @@ class PropertyContractService
             // Mark old contract as renewed
             $oldContract->update([
                 'contract_status' => 'renewed',
-                'notes' => $oldContract->notes."\n\nRenewed with contract: ".$newContract->contract_number,
+                'notes' => $oldContract->notes . "\n\nRenewed with contract: " . $newContract->contract_number,
             ]);
 
             // Log renewal
@@ -85,7 +89,7 @@ class PropertyContractService
             $contract = PropertyContract::findOrFail($contractId);
 
             if ($contract->contract_status !== 'active') {
-                throw new \Exception('Only active contracts can be terminated');
+                throw new Exception('Only active contracts can be terminated');
             }
 
             $contract->update([
@@ -95,7 +99,7 @@ class PropertyContractService
             ]);
 
             // Update property status
-            $availableStatusId = \App\Models\PropertyStatus::where('slug', 'available')->first()?->id ?? 1;
+            $availableStatusId = PropertyStatus::where('slug', 'available')->first()?->id ?? 1;
             $contract->property->update(['status_id' => $availableStatusId]);
 
             // Log termination
@@ -125,9 +129,9 @@ class PropertyContractService
             try {
                 $this->renewContract($contract->id, $contract->duration_months);
                 $renewed++;
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 // Log error but continue with other contracts
-                \Log::error("Failed to auto-renew contract {$contract->contract_number}: ".$e->getMessage());
+                Log::error("Failed to auto-renew contract {$contract->contract_number}: " . $e->getMessage());
             }
         }
 
@@ -159,7 +163,7 @@ class PropertyContractService
     /**
      * Get contracts expiring soon.
      */
-    public function getExpiringContracts(int $days = 30): \Illuminate\Database\Eloquent\Collection
+    public function getExpiringContracts(int $days = 30): Collection
     {
         return PropertyContract::expiring($days)
             ->with(['owner', 'property'])
@@ -196,7 +200,7 @@ class PropertyContractService
 
         // Check division yields integer
         if ($durationMonths % $monthsPerPayment !== 0) {
-            return 'Invalid division';
+            return 'قسمة لا تصح';
         }
 
         return $durationMonths / $monthsPerPayment;
@@ -228,5 +232,55 @@ class PropertyContractService
             'annually' => 12,
             default => 1,
         };
+    }
+
+    /**
+     * Calculate paid months count for property contract.
+     */
+    public function getPaidMonthsCount(PropertyContract $contract): int
+    {
+        $paidPayments = $contract->supplyPayments()
+            ->collected()
+            ->get();
+
+        if ($paidPayments->isEmpty()) {
+            return 0;
+        }
+
+        // For supply payments, we calculate based on payment frequency
+        $monthsPerPayment = self::getMonthsPerPayment($contract->payment_frequency ?? 'monthly');
+
+        return $paidPayments->count() * $monthsPerPayment;
+    }
+
+    /**
+     * Calculate remaining adjustable months.
+     */
+    public function getRemainingMonths(PropertyContract $contract): int
+    {
+        $totalMonths = $contract->duration_months ?? 0;
+        $paidMonths = $this->getPaidMonthsCount($contract);
+
+        return max(0, $totalMonths - $paidMonths);
+    }
+
+    /**
+     * Get paid payments count.
+     */
+    public function getPaidPaymentsCount(PropertyContract $contract): int
+    {
+        return $contract->supplyPayments()
+            ->collected()
+            ->count();
+    }
+
+    /**
+     * Get unpaid payments count.
+     */
+    public function getUnpaidPaymentsCount(PropertyContract $contract): int
+    {
+        return $contract->supplyPayments()
+            ->whereNull('paid_date')
+            ->count();
     }
 }

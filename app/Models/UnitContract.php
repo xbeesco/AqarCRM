@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use App\Services\PropertyContractService;
 use App\Services\UnitContractService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -62,12 +64,12 @@ class UnitContract extends Model
             // Generate contract number if not set
             if (empty($contract->contract_number)) {
                 // Use millisecond timestamp to ensure uniqueness
-                $contract->contract_number = 'UC-'.round(microtime(true) * 1000);
+                $contract->contract_number = 'UC-' . round(microtime(true) * 1000);
             }
 
             // Calculate end_date if not set
             if (empty($contract->end_date) && $contract->start_date && $contract->duration_months) {
-                $startDate = \Carbon\Carbon::parse($contract->start_date);
+                $startDate = Carbon::parse($contract->start_date);
                 $contract->end_date = $startDate->copy()->addMonths($contract->duration_months)->subDay();
             }
 
@@ -96,7 +98,7 @@ class UnitContract extends Model
         static::updating(function ($contract) {
             // Recalculate end_date if start_date or duration_months changed
             if ($contract->isDirty(['start_date', 'duration_months']) && $contract->start_date && $contract->duration_months) {
-                $startDate = \Carbon\Carbon::parse($contract->start_date);
+                $startDate = Carbon::parse($contract->start_date);
                 $contract->end_date = $startDate->copy()->addMonths($contract->duration_months)->subDay();
             }
         });
@@ -134,6 +136,14 @@ class UnitContract extends Model
      * Relationship: Contract has many collection payments.
      */
     public function collectionPayments()
+    {
+        return $this->hasMany(CollectionPayment::class, 'unit_contract_id');
+    }
+
+    /**
+     * Relationship: Contract has many payments (alias for collectionPayments).
+     */
+    public function payments()
     {
         return $this->hasMany(CollectionPayment::class, 'unit_contract_id');
     }
@@ -204,7 +214,7 @@ class UnitContract extends Model
      */
     public function getPaymentsCountAttribute()
     {
-        return \App\Services\PropertyContractService::calculatePaymentsCount(
+        return PropertyContractService::calculatePaymentsCount(
             $this->duration_months ?? 0,
             $this->payment_frequency ?? 'monthly'
         );
@@ -241,11 +251,35 @@ class UnitContract extends Model
     }
 
     /**
+     * Get status label (method wrapper for accessor).
+     */
+    public function getStatusLabel(): string
+    {
+        return $this->status_label;
+    }
+
+    /**
+     * Get status color (method wrapper for accessor).
+     */
+    public function getStatusColor(): string
+    {
+        return $this->status_color;
+    }
+
+    /**
      * Get remaining days attribute.
      */
     public function getRemainingDaysAttribute(): int
     {
         return app(UnitContractService::class)->getRemainingDays($this);
+    }
+
+    /**
+     * Get remaining days (method wrapper for accessor).
+     */
+    public function getRemainingDays(): int
+    {
+        return $this->remaining_days;
     }
 
     /**

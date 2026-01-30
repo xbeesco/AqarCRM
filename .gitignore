@@ -33,3 +33,4 @@ nul
 .playwright-mcp*
 .docs/progress-tasks*
 .htaccess
+/app/filament/resources copy

@@ -2,6 +2,8 @@
 
 namespace App\Services\Financial;
 
+use Exception;
+use App\Models\PropertyContract;
 use App\Enums\PaymentStatus;
 use App\Models\CollectionPayment;
 use App\Models\SupplyPayment;
@@ -46,7 +48,7 @@ class PaymentService
                     'success' => $success,
                     'receipt_number' => $success ? $payment->receipt_number : null,
                 ];
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $results[] = [
                     'payment_id' => $payment->id,
                     'payment_number' => $payment->payment_number,
@@ -118,7 +120,7 @@ class PaymentService
     public function calculateOwnerPayment(int $propertyContractId, string $monthYear): array
     {
         // Get property contract to find the property_id
-        $propertyContract = \App\Models\PropertyContract::find($propertyContractId);
+        $propertyContract = PropertyContract::find($propertyContractId);
 
         if (! $propertyContract) {
             return [

@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\PropertyFeatures;
 
+use Str;
+use Filament\GlobalSearch\GlobalSearchResult;
 use App\Filament\Resources\PropertyFeatures\Pages\ManagePropertyFeatures;
 use App\Models\PropertyFeature;
 use Filament\Actions\EditAction;
@@ -203,10 +205,10 @@ class PropertyFeatureResource extends Resource
                 }
                 
                 if ($record->description_ar) {
-                    $details['الوصف'] = \Str::limit($record->description_ar, 50);
+                    $details['الوصف'] = Str::limit($record->description_ar, 50);
                 }
                 
-                return new \Filament\GlobalSearch\GlobalSearchResult(
+                return new GlobalSearchResult(
                     title: $record->name_ar,
                     url: static::getUrl('index'),
                     details: $details,

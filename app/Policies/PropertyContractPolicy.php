@@ -14,7 +14,7 @@ class PropertyContractPolicy extends BasePolicy
     {
         // Admins, employees can view all
         // Owners can only view their own contracts
-        return match($user->type) {
+        return match ($user->type) {
             'super_admin', 'admin', 'employee' => true,
             'owner' => true, // Will be filtered in query
             default => false,
@@ -26,7 +26,7 @@ class PropertyContractPolicy extends BasePolicy
      */
     public function view(User $user, PropertyContract $contract): bool
     {
-        return match($user->type) {
+        return match ($user->type) {
             'super_admin', 'admin', 'employee' => true,
             'owner' => $contract->owner_id === $user->id,
             default => false,
@@ -49,12 +49,12 @@ class PropertyContractPolicy extends BasePolicy
     public function update(User $user, PropertyContract $contract): bool
     {
         // Super admin handled in before() method
-        
+
         // Log attempt for non-super admins
         if ($user->type !== 'super_admin') {
             $this->logUnauthorizedAccess($user, 'update_property_contract', $contract);
         }
-        
+
         // Others cannot update
         return false;
     }
@@ -66,12 +66,12 @@ class PropertyContractPolicy extends BasePolicy
     public function delete(User $user, PropertyContract $contract): bool
     {
         // Super admin handled in before() method
-        
+
         // Log attempt for non-super admins
         if ($user->type !== 'super_admin') {
             $this->logUnauthorizedAccess($user, 'delete_property_contract', $contract);
         }
-        
+
         // Others cannot delete
         return false;
     }
@@ -91,7 +91,7 @@ class PropertyContractPolicy extends BasePolicy
     {
         // Log the attempt
         $this->logUnauthorizedAccess($user, 'force_delete_property_contract', $contract);
-        
+
         return false;
     }
 
@@ -102,5 +102,15 @@ class PropertyContractPolicy extends BasePolicy
     public function terminate(User $user, PropertyContract $contract): bool
     {
         return $this->isAdmin($user) && $contract->contract_status === 'active';
+    }
+
+    /**
+     * Determine whether the user can reschedule payments.
+     * Admins and employees can reschedule payments
+     */
+    public function reschedule(User $user, PropertyContract $contract): bool
+    {
+        return ($this->isAdmin($user) || $this->isEmployee($user))
+            && $contract->canReschedule();
     }
 }

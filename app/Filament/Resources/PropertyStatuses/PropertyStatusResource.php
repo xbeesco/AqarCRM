@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\PropertyStatuses;
 
+use Str;
+use Filament\GlobalSearch\GlobalSearchResult;
 use App\Filament\Resources\PropertyStatuses\Pages\ManagePropertyStatuses;
 use App\Models\PropertyStatus;
 use Filament\Actions\EditAction;
@@ -199,10 +201,10 @@ class PropertyStatusResource extends Resource
                 }
                 
                 if ($record->description_ar) {
-                    $details['الوصف'] = \Str::limit($record->description_ar, 50);
+                    $details['الوصف'] = Str::limit($record->description_ar, 50);
                 }
                 
-                return new \Filament\GlobalSearch\GlobalSearchResult(
+                return new GlobalSearchResult(
                     title: $record->name_ar,
                     url: static::getUrl('index'),
                     details: $details,

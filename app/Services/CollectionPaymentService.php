@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Exception;
 use App\Enums\PaymentStatus;
 use App\Models\CollectionPayment;
 use App\Models\Setting;
@@ -124,7 +125,7 @@ class CollectionPaymentService
                     'success' => $success,
                     'receipt_number' => $success ? $payment->receipt_number : null,
                 ];
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $results[] = [
                     'payment_id' => $payment->id,
                     'payment_number' => $payment->payment_number,

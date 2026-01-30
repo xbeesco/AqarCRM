@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\UnitTypes;
 
+use Str;
+use Filament\GlobalSearch\GlobalSearchResult;
 use App\Filament\Resources\UnitTypes\Pages\ManageUnitTypes;
 use App\Models\UnitType;
 use BackedEnum;
@@ -19,7 +21,7 @@ class UnitTypeResource extends Resource
 {
     protected static ?string $model = UnitType::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string | \BackedEnum | null $navigationIcon = Heroicon::OutlinedRectangleStack;
     
     protected static ?string $navigationLabel = 'أنواع الوحدات';
     
@@ -151,14 +153,14 @@ class UnitTypeResource extends Resource
                 ];
                 
                 if ($record->description) {
-                    $details['الوصف'] = \Str::limit($record->description, 50);
+                    $details['الوصف'] = Str::limit($record->description, 50);
                 }
                 
                 if ($record->sort_order > 0) {
                     $details['الترتيب'] = $record->sort_order;
                 }
                 
-                return new \Filament\GlobalSearch\GlobalSearchResult(
+                return new GlobalSearchResult(
                     title: $record->name_ar,
                     url: static::getUrl('index'),
                     details: $details,

@@ -2,6 +2,10 @@
 
 namespace App\Filament\Widgets;
 
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Forms\Components\DatePicker;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
@@ -40,31 +44,31 @@ class PostponedPaymentsWidget extends BaseWidget
                     ->orderBy('due_date_end', 'asc')
             )
             ->columns([
-                Tables\Columns\TextColumn::make('index')
+                TextColumn::make('index')
                     ->label('#')
                     ->rowIndex(),
                     
-                Tables\Columns\TextColumn::make('payment_number')
+                TextColumn::make('payment_number')
                     ->label('الرقم'),
                     
-                Tables\Columns\TextColumn::make('tenant.name')
+                TextColumn::make('tenant.name')
                     ->label('المستأجر'),
                     
-                Tables\Columns\TextColumn::make('property.name')
+                TextColumn::make('property.name')
                     ->label('العقار'),
                     
-                Tables\Columns\TextColumn::make('unit.name')
+                TextColumn::make('unit.name')
                     ->label('الوحدة'),
                     
-                Tables\Columns\TextColumn::make('total_amount')
+                TextColumn::make('total_amount')
                     ->label('المبلغ')
                     ->money('SAR'),
                     
-                Tables\Columns\TextColumn::make('due_date_start')
+                TextColumn::make('due_date_start')
                     ->label('التاريخ')
                     ->date('d/m'),
                     
-                Tables\Columns\TextColumn::make('delay_duration')
+                TextColumn::make('delay_duration')
                     ->label('التأجيل')
                     ->getStateUsing(function ($record) {
                         if (!$record->delay_duration) {
@@ -76,35 +80,35 @@ class PostponedPaymentsWidget extends BaseWidget
                     ->badge()
                     ->color(fn ($state) => intval($state) > 30 ? 'danger' : 'gray'),
                     
-                Tables\Columns\TextColumn::make('delay_reason')
+                TextColumn::make('delay_reason')
                     ->label('السبب')
                     ->limit(30)
                     ->tooltip(fn ($record) => $record->delay_reason),
                     
-                Tables\Columns\TextColumn::make('tenant.phone')
+                TextColumn::make('tenant.phone')
                     ->label('الهاتف'),
             ])
             ->defaultSort('due_date_end', 'asc')
             ->filters([
-                Tables\Filters\Filter::make('critical')
+                Filter::make('critical')
                     ->label('حرجة (أكثر من 30 يوم)')
                     ->query(fn ($query) => $query->criticalPostponed()),
                     
-                Tables\Filters\Filter::make('recent')
+                Filter::make('recent')
                     ->label('مؤجلة حديثاً (آخر 7 أيام)')
                     ->query(fn ($query) => $query->recentPostponed()),
                     
-                Tables\Filters\SelectFilter::make('property_id')
+                SelectFilter::make('property_id')
                     ->label('العقار')
                     ->relationship('property', 'name')
                     ->searchable()
                     ->preload(),
                     
-                Tables\Filters\Filter::make('date_range')
-                    ->form([
-                        Forms\Components\DatePicker::make('from')
+                Filter::make('date_range')
+                    ->schema([
+                        DatePicker::make('from')
                             ->label('من تاريخ'),
-                        Forms\Components\DatePicker::make('to')
+                        DatePicker::make('to')
                             ->label('إلى تاريخ'),
                     ])
                     ->query(function ($query, array $data) {
@@ -129,7 +133,7 @@ class PostponedPaymentsWidget extends BaseWidget
                     ])
                     ->fileName(fn () => 'postponed-payments-' . date('Y-m-d')),
            ])
-            ->bulkActions([
+            ->toolbarActions([
             ])
             ->paginated([10, 25, 50])
             ->emptyStateHeading('لا توجد دفعات مؤجلة')

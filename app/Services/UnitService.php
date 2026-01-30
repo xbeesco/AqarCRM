@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Exception;
 use App\Models\Unit;
 use App\Models\UnitContract;
 use App\Models\User;
@@ -50,7 +51,7 @@ class UnitService
             $tenant = User::findOrFail($tenantId);
 
             if (! $unit->isAvailable()) {
-                throw new \Exception('Unit is not available for assignment');
+                throw new Exception('Unit is not available for assignment');
             }
 
             // Create contract for tenant assignment
@@ -83,7 +84,7 @@ class UnitService
             $unit = Unit::with(['activeContract.tenant'])->findOrFail($unitId);
 
             if (! $unit->isOccupied()) {
-                throw new \Exception('Unit is not currently occupied');
+                throw new Exception('Unit is not currently occupied');
             }
 
             $previousTenant = $unit->current_tenant;

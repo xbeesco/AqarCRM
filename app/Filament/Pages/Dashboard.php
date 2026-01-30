@@ -2,6 +2,10 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\StatsOverviewWidget;
+use App\Filament\Widgets\VacantUnitsWidget;
+use App\Filament\Widgets\TenantsPaymentDueWidget;
+use App\Filament\Widgets\ExpiredContractsWidget;
 use Filament\Pages\Dashboard as BaseDashboard;
 use App\Helpers\DateHelper;
 use Carbon\Carbon;
@@ -11,7 +15,7 @@ class Dashboard extends BaseDashboard
 {
     protected static ?string $navigationLabel = 'الرئيسية';
     
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-home';
+    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-home';
     
     protected static ?int $navigationSort = -2;
     
@@ -38,20 +42,20 @@ class Dashboard extends BaseDashboard
     protected function getHeaderWidgets(): array
     {
         return [
-            \App\Filament\Widgets\StatsOverviewWidget::class,
+            StatsOverviewWidget::class,
         ];
     }
     
     public function getWidgets(): array
     {
         return [
-            \App\Filament\Widgets\VacantUnitsWidget::class,
-            \App\Filament\Widgets\TenantsPaymentDueWidget::class,
-            \App\Filament\Widgets\ExpiredContractsWidget::class,
+            VacantUnitsWidget::class,
+            TenantsPaymentDueWidget::class,
+            ExpiredContractsWidget::class,
         ];
     }
     
-    public function getColumns(): int | array
+    public function getColumns(): int|array
     {
         return [
             'md' => 2,

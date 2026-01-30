@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use InvalidArgumentException;
 use App\Models\Traits\HasHierarchicalPath;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -53,7 +54,7 @@ class Location extends Model
             if ($location->exists && $location->isDirty('parent_id') && $location->parent_id) {
                 $parent = self::find($location->parent_id);
                 if (! $parent || $parent->level !== ($location->level - 1)) {
-                    throw new \InvalidArgumentException('Invalid parent location for this level');
+                    throw new InvalidArgumentException('Invalid parent location for this level');
                 }
             }
         });

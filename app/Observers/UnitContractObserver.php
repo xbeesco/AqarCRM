@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use Exception;
 use App\Models\UnitContract;
 use App\Services\PaymentGeneratorService;
 use App\Services\UnitContractService;
@@ -50,7 +51,7 @@ class UnitContractObserver
                 'user_id' => auth()->id(),
                 'ip' => request()->ip(),
             ]);
-            throw new \Exception('Start date must be before end date');
+            throw new Exception('Start date must be before end date');
         }
     }
 
@@ -118,7 +119,7 @@ class UnitContractObserver
             $endDate = Carbon::parse($contract->end_date);
 
             if ($startDate->greaterThan($endDate)) {
-                throw new \Exception('Start date cannot be after end date');
+                throw new Exception('Start date cannot be after end date');
             }
         }
     }
@@ -178,7 +179,7 @@ class UnitContractObserver
                 'ip' => request()->ip(),
             ]);
 
-            throw new \Exception(sprintf(
+            throw new Exception(sprintf(
                 'Cannot save contract: Unit is reserved by contract #%s from %s to %s',
                 $overlappingContract->contract_number,
                 $overlappingContract->start_date->format('Y-m-d'),
@@ -257,7 +258,7 @@ class UnitContractObserver
             // Log success
             Log::info("Auto-generated {$count} collection payments for contract {$contract->contract_number} on {$event}");
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Log error without stopping the process
             Log::warning("Failed to auto-generate payments for contract {$contract->contract_number}: ".$e->getMessage());
         }
