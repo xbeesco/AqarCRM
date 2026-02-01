@@ -14,18 +14,13 @@ class Location extends Model
 
     protected $fillable = [
         'name',
-        'code',
         'parent_id',
         'level',
         'path',
-        'coordinates',
-        'postal_code',
-        'is_active',
     ];
 
     protected $casts = [
         'level' => 'integer',
-        'is_active' => 'boolean',
     ];
 
     protected static function boot(): void
@@ -142,7 +137,7 @@ class Location extends Model
 
                 $siblingOrder = array_search($this->id, $siblings) + 1;
 
-                return $parent->path.'/'.str_pad($siblingOrder, 4, '0', STR_PAD_LEFT);
+                return $parent->path . '/' . str_pad($siblingOrder, 4, '0', STR_PAD_LEFT);
             }
 
             return '/0001';
@@ -155,7 +150,7 @@ class Location extends Model
 
         $rootOrder = array_search($this->id, $roots) + 1;
 
-        return '/'.str_pad($rootOrder, 4, '0', STR_PAD_LEFT);
+        return '/' . str_pad($rootOrder, 4, '0', STR_PAD_LEFT);
     }
 
     /**
