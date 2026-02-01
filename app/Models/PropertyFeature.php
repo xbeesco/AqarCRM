@@ -15,13 +15,8 @@ class PropertyFeature extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'name_ar',
-        'name_en',
+        'name',
         'slug',
-        'category',
-        'icon',
-        'requires_value',
-        'value_type'
     ];
 
     /**
@@ -30,7 +25,7 @@ class PropertyFeature extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'requires_value' => 'boolean',
+        //
     ];
 
     /**
@@ -42,50 +37,15 @@ class PropertyFeature extends Model
 
         static::creating(function ($model) {
             if (empty($model->slug)) {
-                $model->slug = Str::slug($model->name_en ?: $model->name_ar);
+                $model->slug = Str::slug($model->name);
             }
         });
 
         static::updating(function ($model) {
             if (empty($model->slug)) {
-                $model->slug = Str::slug($model->name_en ?: $model->name_ar);
+                $model->slug = Str::slug($model->name);
             }
         });
-    }
-
-    /**
-     * The valid categories for features.
-     *
-     * @var array<string>
-     */
-    public static array $validCategories = [
-        'basics', 'amenities', 'security', 'extras'
-    ];
-
-
-
-    /**
-     * Get the localized name attribute.
-     */
-    public function getNameAttribute(): string
-    {
-        return app()->getLocale() === 'ar' ? $this->name_ar : $this->name_en;
-    }
-
-
-    /**
-     * Get the localized category name.
-     */
-    public function getCategoryNameAttribute(): string
-    {
-        $categories = [
-            'basics' => app()->getLocale() === 'ar' ? 'أساسيات' : 'Basics',
-            'amenities' => app()->getLocale() === 'ar' ? 'مرافق' : 'Amenities',
-            'security' => app()->getLocale() === 'ar' ? 'أمان' : 'Security',
-            'extras' => app()->getLocale() === 'ar' ? 'إضافات' : 'Extras',
-        ];
-
-        return $categories[$this->category] ?? $this->category;
     }
 
     /**
@@ -94,59 +54,16 @@ class PropertyFeature extends Model
     public function properties(): BelongsToMany
     {
         return $this->belongsToMany(Property::class, 'property_feature_property')
-                    ->withPivot('value')
-                    ->withTimestamps();
+            ->withPivot('value')
+            ->withTimestamps();
     }
 
 
     /**
-     * Scope a query to filter by category.
-     */
-    public function scopeByCategory(Builder $query, string $category): Builder
-    {
-        return $query->where('category', $category);
-    }
-
-    /**
-     * Scope a query to order features by category.
+     * Scope a query to order features by name.
      */
     public function scopeOrdered(Builder $query): Builder
     {
-        return $query->orderBy('category')->orderBy('name_en');
-    }
-
-
-
-    /**
-     * Get all valid category options.
-     */
-    public static function getCategoryOptions(): array
-    {
-        return [
-            'basics' => app()->getLocale() === 'ar' ? 'أساسيات' : 'Basics',
-            'amenities' => app()->getLocale() === 'ar' ? 'مرافق' : 'Amenities',
-            'security' => app()->getLocale() === 'ar' ? 'أمان' : 'Security',
-            'extras' => app()->getLocale() === 'ar' ? 'إضافات' : 'Extras',
-        ];
-    }
-
-
-    /**
-     * Get features grouped by category.
-     */
-    public static function getGroupedByCategory(): array
-    {
-        return self::ordered()
-                  ->get()
-                  ->groupBy('category')
-                  ->map(function ($features, $category) {
-                      return [
-                          'category' => $category,
-                          'category_name' => self::getCategoryOptions()[$category] ?? $category,
-                          'features' => $features
-                      ];
-                  })
-                  ->values()
-                  ->toArray();
+        return $query->orderBy('name');
     }
 }
