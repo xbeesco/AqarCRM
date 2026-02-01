@@ -67,9 +67,7 @@ class Property extends Model
 
     public function features(): BelongsToMany
     {
-        return $this->belongsToMany(PropertyFeature::class, 'property_feature_property')
-            ->withPivot('value')
-            ->withTimestamps();
+        return $this->belongsToMany(PropertyFeature::class, 'property_feature_property');
     }
 
     public function expenses(): MorphMany
