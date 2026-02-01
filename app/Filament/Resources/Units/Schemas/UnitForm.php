@@ -30,7 +30,7 @@ class UnitForm
 
                     Select::make('unit_type_id')
                         ->label('نوع الوحدة')
-                        ->relationship('unitType', 'name_ar')
+                        ->relationship('unitType', 'name')
                         ->required()
                         ->native(false)
                         ->columnSpan(3),
@@ -43,7 +43,7 @@ class UnitForm
 
                     Select::make('unit_category_id')
                         ->label('تصنيف الوحدة')
-                        ->relationship('unitCategory', 'name_ar')
+                        ->relationship('unitCategory', 'name')
                         ->required()
                         ->native(false)
                         ->columnSpan(3),
