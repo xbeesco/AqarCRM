@@ -44,7 +44,7 @@ class PropertyForm
 
                         Select::make('type_id')
                             ->label('نوع العقار')
-                            ->options(PropertyType::all()->pluck('name_ar', 'id'))
+                            ->options(PropertyType::all()->pluck('name', 'id'))
                             ->searchable()
                             ->required(),
                     ]),
