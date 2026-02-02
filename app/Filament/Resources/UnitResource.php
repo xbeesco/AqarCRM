@@ -57,6 +57,7 @@ class UnitResource extends Resource
                         ->searchable()
                         ->required()
                         ->preload()
+                        ->disabledOn('edit')
                         ->columnSpan(3),
                     
                     Select::make('unit_type_id')
