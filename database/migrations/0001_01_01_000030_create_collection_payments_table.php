@@ -15,7 +15,7 @@ return new class extends Migration
             $table->foreignId('unit_id')->constrained('units')->cascadeOnDelete();
             $table->foreignId('property_id')->constrained('properties')->cascadeOnDelete();
             $table->foreignId('tenant_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('payment_method_id')->nullable()->constrained('payment_methods')->nullOnDelete();
+            // $table->foreignId('payment_method_id')->nullable()->constrained('payment_methods')->nullOnDelete();
             $table->decimal('amount', 10, 2);
             $table->decimal('late_fee', 8, 2)->default(0.00);
             $table->decimal('total_amount', 10, 2);
