@@ -19,7 +19,7 @@ class PaymentService
 
     public function processCollectionPayment(
         CollectionPayment $payment,
-        int $paymentMethodId,
+        ?int $paymentMethodId = null,
         ?string $paidDate = null,
         ?string $paymentReference = null
     ): bool {
@@ -28,7 +28,7 @@ class PaymentService
 
     public function bulkCollectPayments(
         array $paymentIds,
-        int $paymentMethodId,
+        ?int $paymentMethodId = null,
         ?string $paidDate = null
     ): array {
         $results = [];
