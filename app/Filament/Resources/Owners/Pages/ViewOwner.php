@@ -4,9 +4,9 @@ namespace App\Filament\Resources\Owners\Pages;
 
 use App\Filament\Resources\Owners\OwnerResource;
 use App\Models\CollectionPayment;
+use App\Models\Expense;
 use App\Models\Property;
 use App\Models\PropertyContract;
-use App\Models\PropertyRepair;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
@@ -203,11 +203,6 @@ class ViewOwner extends ViewRecord
         ];
 
         foreach ($properties as $property) {
-            // Property maintenance expenses
-            $maintenanceExpenses = PropertyRepair::where('property_id', $property->id)
-                ->whereYear('maintenance_date', date('Y'))
-                ->sum('total_cost');
-
             $propertyIncome = CollectionPayment::where('property_id', $property->id)
                 ->collectedPayments()
                 ->sum('total_amount');
@@ -218,6 +213,10 @@ class ViewOwner extends ViewRecord
 
             $adminPercentage = $propertyContract ? $propertyContract->commission_rate : 0;
             $adminFee = $propertyIncome * ($adminPercentage / 100);
+
+            $maintenanceExpenses = Expense::forProperty($property->id)
+                ->ofType('maintenance')
+                ->sum('cost');
 
             $netIncome = $propertyIncome - $adminFee - $maintenanceExpenses;
 
