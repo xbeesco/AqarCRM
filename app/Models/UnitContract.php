@@ -34,7 +34,6 @@ class UnitContract extends Model
         'monthly_rent' => 'decimal:2',
         'security_deposit' => 'decimal:2',
         'duration_months' => 'integer',
-        'duration_months' => 'integer',
     ];
 
     protected static function boot()
