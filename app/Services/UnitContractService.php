@@ -60,21 +60,20 @@ class UnitContractService
         return DB::transaction(function () use ($contractId, $reason) {
             $contract = UnitContract::findOrFail($contractId);
 
-            if ($contract->contract_status !== 'active') {
-                throw new Exception('Only active contracts can be terminated');
+            if ($contract->hasExpired()) {
+                throw new Exception('Expired contracts cannot be terminated');
             }
 
             // Calculate early termination penalty if applicable
             $penalty = 0;
-            if ($contract->canTerminateEarly()) {
-                $penalty = $contract->calculateEarlyTerminationPenalty();
+            if ($this->canTerminateEarly($contract)) {
+                $penalty = $this->calculateEarlyTerminationPenalty($contract);
             }
 
             $contract->update([
                 'contract_status' => 'terminated',
-                'terminated_reason' => $reason,
-                'terminated_at' => now(),
-                'notes' => $contract->notes."\n\nEarly termination penalty: SAR ".number_format($penalty, 2),
+                'end_date' => now(),
+                'notes' => $contract->notes . "\n\nEarly termination penalty: SAR " . number_format($penalty, 2),
             ]);
 
             // Mark unit as available (find available status ID)
@@ -116,22 +115,12 @@ class UnitContractService
                 'duration_months' => $newDurationMonths,
                 'start_date' => $oldContract->end_date->addDay(),
                 'payment_frequency' => $oldContract->payment_frequency,
-                'payment_method' => $oldContract->payment_method,
-                'grace_period_days' => $oldContract->grace_period_days,
-                'late_fee_rate' => $oldContract->late_fee_rate,
-                'utilities_included' => $oldContract->utilities_included,
-                'furnished' => $oldContract->furnished,
-                'evacuation_notice_days' => $oldContract->evacuation_notice_days,
-                'terms_and_conditions' => $oldContract->terms_and_conditions,
                 'contract_status' => 'active',
-                'created_by' => Auth::id(),
-                'approved_by' => Auth::id(),
-                'approved_at' => now(),
             ], $additionalData);
 
             $newContract = UnitContract::create($newContractData);
 
-            // Mark old contract as renewed
+           // Mark old contract as renewed
             $oldContract->update([
                 'contract_status' => 'renewed',
                 'notes' => $oldContract->notes."\n\nRenewed with contract: ".$newContract->contract_number,
@@ -154,8 +143,8 @@ class UnitContractService
     {
         $contract = UnitContract::findOrFail($contractId);
 
-        if ($contract->contract_status !== 'active') {
-            throw new Exception('Can only generate payments for active contracts');
+        if ($contract->hasExpired()) {
+            throw new Exception('Can only generate payments for non-expired contracts');
         }
 
         $payments = $contract->generatePaymentSchedule();
@@ -229,8 +218,8 @@ class UnitContractService
                 'name' => $unit->name,
                 'rent_price' => $unit->rent_price,
                 'is_available' => $isAvailable,
-                'display_name' => $unit->name.
-                    ' - '.number_format($unit->rent_price).' SAR'.
+                'display_name' => $unit->name .
+                    ' - ' . number_format($unit->rent_price) . ' SAR' .
                     (! $isAvailable ? ' (Reserved for this period)' : ''),
             ];
         });
@@ -468,10 +457,10 @@ class UnitContractService
 
         // Validate required data
         return $contract->tenant_id &&
-               $contract->unit_id &&
-               $contract->monthly_rent > 0 &&
-               $contract->start_date &&
-               $contract->end_date;
+            $contract->unit_id &&
+            $contract->monthly_rent > 0 &&
+            $contract->start_date &&
+            $contract->end_date;
     }
 
     /**
@@ -570,9 +559,11 @@ class UnitContractService
      */
     public function getRemainingDays(UnitContract $contract): int
     {
-        if ($contract->contract_status !== 'active' ||
+        if (
+            $contract->contract_status !== 'active' ||
             $contract->start_date > now() ||
-            $contract->end_date < now()) {
+            $contract->end_date < now()
+        ) {
             return 0;
         }
 
@@ -584,7 +575,7 @@ class UnitContractService
      */
     public function canRenew(UnitContract $contract): bool
     {
-        // Can renew if contract is active
+       // Can renew if contract is active
         if (! in_array($contract->contract_status, ['active'])) {
             return false;
         }
@@ -618,7 +609,7 @@ class UnitContractService
     public function canTerminateEarly(UnitContract $contract): bool
     {
         return $contract->contract_status === 'active' &&
-               $contract->end_date > now();
+            $contract->end_date > now();
     }
 
     /**
@@ -627,8 +618,8 @@ class UnitContractService
     public function getFinancialSummary(UnitContract $contract): array
     {
         $payments = $contract->collectionPayments()->get();
-        $paidPayments = $payments->filter(fn ($p) => $p->collection_date !== null);
-        $unpaidPayments = $payments->filter(fn ($p) => $p->collection_date === null);
+        $paidPayments = $payments->filter(fn($p) => $p->collection_date !== null);
+        $unpaidPayments = $payments->filter(fn($p) => $p->collection_date === null);
 
         return [
             'total_contract_value' => $this->calculateTotalContractValue($contract),

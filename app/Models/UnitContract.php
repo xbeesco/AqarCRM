@@ -24,21 +24,8 @@ class UnitContract extends Model
         'end_date',
         'contract_status',
         'payment_frequency',
-        'payment_method',
-        'grace_period_days',
-        'late_fee_rate',
-        'utilities_included',
-        'furnished',
-        'evacuation_notice_days',
-        'terms_and_conditions',
-        'special_conditions',
         'notes',
         'file',
-        'created_by',
-        'approved_by',
-        'approved_at',
-        'terminated_reason',
-        'terminated_at',
     ];
 
     protected $casts = [
@@ -47,13 +34,7 @@ class UnitContract extends Model
         'monthly_rent' => 'decimal:2',
         'security_deposit' => 'decimal:2',
         'duration_months' => 'integer',
-        'grace_period_days' => 'integer',
-        'late_fee_rate' => 'decimal:2',
-        'utilities_included' => 'boolean',
-        'furnished' => 'boolean',
-        'evacuation_notice_days' => 'integer',
-        'approved_at' => 'datetime',
-        'terminated_at' => 'datetime',
+        'duration_months' => 'integer',
     ];
 
     protected static function boot()
@@ -71,27 +52,6 @@ class UnitContract extends Model
             if (empty($contract->end_date) && $contract->start_date && $contract->duration_months) {
                 $startDate = Carbon::parse($contract->start_date);
                 $contract->end_date = $startDate->copy()->addMonths($contract->duration_months)->subDay();
-            }
-
-            // Set default values if not provided
-            if (is_null($contract->security_deposit)) {
-                $contract->security_deposit = $contract->monthly_rent ?? 0;
-            }
-
-            if (is_null($contract->grace_period_days)) {
-                $contract->grace_period_days = 5;
-            }
-
-            if (is_null($contract->late_fee_rate)) {
-                $contract->late_fee_rate = 5.00;
-            }
-
-            if (is_null($contract->evacuation_notice_days)) {
-                $contract->evacuation_notice_days = 30;
-            }
-
-            if (is_null($contract->contract_status)) {
-                $contract->contract_status = 'active';
             }
         });
 

@@ -13,36 +13,19 @@ class PropertyContract extends Model
 {
     use HasFactory;
 
-    /**
-     * Default attribute values - contracts are active upon creation.
-     */
-    protected $attributes = [
-        'contract_status' => 'active',
-    ];
-
     protected $fillable = [
         'contract_number',
         'owner_id',
         'property_id',
+        'contract_status',
         'commission_rate',
         'duration_months',
         'start_date',
         'end_date',
-        'contract_status',
-        'notary_number',
-        'payment_day',
-        'auto_renew',
-        'notice_period_days',
         'payment_frequency',
         'payments_count',
-        'terms_and_conditions',
         'notes',
         'file',
-        'created_by',
-        'approved_by',
-        'approved_at',
-        'terminated_reason',
-        'terminated_at',
     ];
 
     protected $casts = [
@@ -50,11 +33,6 @@ class PropertyContract extends Model
         'end_date' => 'date',
         'commission_rate' => 'decimal:2',
         'duration_months' => 'integer',
-        'payment_day' => 'integer',
-        'auto_renew' => 'boolean',
-        'notice_period_days' => 'integer',
-        'approved_at' => 'datetime',
-        'terminated_at' => 'datetime',
     ];
 
     protected static function boot()
@@ -266,11 +244,6 @@ class PropertyContract extends Model
      */
     public function canReschedule(): bool
     {
-        // Contract must be active or draft
-        if (!in_array($this->contract_status, ['active', 'draft'])) {
-            return false;
-        }
-
         // Must have existing payments
         if (!$this->supplyPayments()->exists()) {
             return false;

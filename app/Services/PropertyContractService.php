@@ -19,7 +19,6 @@ class PropertyContractService
     public function createContract(array $data): PropertyContract
     {
         return DB::transaction(function () use ($data) {
-            $data['created_by'] = Auth::id();
 
             $contract = PropertyContract::create($data);
 
@@ -52,19 +51,12 @@ class PropertyContractService
                 'commission_rate' => $oldContract->commission_rate,
                 'duration_months' => $newDurationMonths,
                 'start_date' => $oldContract->end_date->addDay(),
-                'payment_day' => $oldContract->payment_day,
-                'auto_renew' => $oldContract->auto_renew,
-                'notice_period_days' => $oldContract->notice_period_days,
-                'terms_and_conditions' => $oldContract->terms_and_conditions,
                 'contract_status' => 'active',
-                'created_by' => Auth::id(),
-                'approved_by' => Auth::id(),
-                'approved_at' => now(),
             ], $additionalData);
 
             $newContract = PropertyContract::create($newContractData);
 
-            // Mark old contract as renewed
+            // Update old contract notes
             $oldContract->update([
                 'contract_status' => 'renewed',
                 'notes' => $oldContract->notes . "\n\nRenewed with contract: " . $newContract->contract_number,
@@ -88,14 +80,13 @@ class PropertyContractService
         return DB::transaction(function () use ($contractId, $reason) {
             $contract = PropertyContract::findOrFail($contractId);
 
-            if ($contract->contract_status !== 'active') {
-                throw new Exception('Only active contracts can be terminated');
+            if ($contract->hasExpired()) {
+                throw new Exception('Expired contracts cannot be terminated');
             }
 
             $contract->update([
                 'contract_status' => 'terminated',
-                'terminated_reason' => $reason,
-                'terminated_at' => now(),
+                'end_date' => now(),
             ]);
 
             // Update property status
@@ -153,7 +144,6 @@ class PropertyContractService
             $schedules[] = [
                 'unit_id' => $unit->id,
                 'monthly_commission' => $contract->calculateCommission($unit->rent_amount ?? 0),
-                'payment_day' => $contract->payment_day,
             ];
         }
 
@@ -181,7 +171,7 @@ class PropertyContractService
 
         return [
             'total_contracts' => $contracts->count(),
-            'active_contracts' => $contracts->where('contract_status', 'active')->count(),
+            'active_contracts' => $contracts->filter(fn($c) => $c->isActive())->count(),
             'total_commission_rate' => $contracts->avg('commission_rate'),
             'contracts' => $contracts,
         ];

@@ -46,12 +46,12 @@ class UnitsTable
                         return 'الموقع: '.implode(' > ', $path);
                     }),
 
-                TextColumn::make('unitType.name_ar')
+                TextColumn::make('unitType.name')
                     ->label('نوع الوحدة')
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('unitCategory.name_ar')
+                TextColumn::make('unitCategory.name')
                     ->label('تصنيف الوحدة')
                     ->searchable()
                     ->sortable(),
