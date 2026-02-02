@@ -18,19 +18,19 @@ class ContractValidationService
         }
 
         $startDate = Carbon::parse($startDate);
-        
+
         // البحث عن عقود تحتوي على تاريخ البداية هذا
         $query = UnitContract::where('unit_id', $unitId)
-            ->whereIn('contract_status', ['active', 'renewed', 'draft'])
+            ->whereIn('contract_status', ['active', 'draft'])  // renewed contracts don't block new contracts
             ->where('start_date', '<=', $startDate)
             ->where('end_date', '>=', $startDate);
-            
+
         if ($excludeId) {
             $query->where('id', '!=', $excludeId);
         }
-        
+
         $overlapping = $query->first();
-        
+
         if ($overlapping) {
             return sprintf(
                 'تاريخ البداية يقع داخل عقد آخر من %s إلى %s',
@@ -38,10 +38,10 @@ class ContractValidationService
                 $overlapping->end_date->format('Y-m-d')
             );
         }
-        
+
         return null;
     }
-    
+
     /**
      * التحقق من المدة فقط
      * يُظهر خطأ إذا كانت المدة ستؤدي لتداخل مع نهاية العقد
@@ -51,13 +51,13 @@ class ContractValidationService
         if (!$unitId || !$startDate || !$duration) {
             return null;
         }
-        
+
         $startDate = Carbon::parse($startDate);
         $endDate = $startDate->copy()->addMonths((int)$duration)->subDay();
-        
+
         // البحث عن عقود يتعارض معها تاريخ النهاية المحسوب
         $query = UnitContract::where('unit_id', $unitId)
-            ->whereIn('contract_status', ['active', 'renewed', 'draft'])
+            ->whereIn('contract_status', ['active', 'draft'])  // renewed contracts don't block
             ->where(function($q) use ($startDate, $endDate) {
                 // العقد الجديد ينتهي داخل عقد آخر
                 $q->where(function($q1) use ($endDate) {
@@ -70,13 +70,13 @@ class ContractValidationService
                        ->where('end_date', '<=', $endDate);
                 });
             });
-            
+
         if ($excludeId) {
             $query->where('id', '!=', $excludeId);
         }
-        
+
         $overlapping = $query->first();
-        
+
         if ($overlapping) {
             // تحديد نوع التداخل
             if ($endDate >= $overlapping->start_date && $endDate <= $overlapping->end_date) {
@@ -94,17 +94,17 @@ class ContractValidationService
                 );
             }
         }
-        
+
         return null;
     }
-    
+
     /**
      * التحقق الكامل للتوافق (للاستخدام في Model/Observer)
      */
     public function validateFullAvailability($unitId, $startDate, $endDate, $excludeId = null): ?string
     {
         $query = UnitContract::where('unit_id', $unitId)
-            ->whereIn('contract_status', ['active', 'renewed', 'draft'])
+            ->whereIn('contract_status', ['active', 'draft'])  // renewed contracts don't block
             ->where(function ($q) use ($startDate, $endDate) {
                 $q->where(function ($q1) use ($startDate, $endDate) {
                     // أي نوع من التداخل
@@ -112,13 +112,13 @@ class ContractValidationService
                        ->where('end_date', '>=', $startDate);
                 });
             });
-        
+
         if ($excludeId) {
             $query->where('id', '!=', $excludeId);
         }
-        
+
         $overlapping = $query->first();
-        
+
         if ($overlapping) {
             return sprintf(
                 'الوحدة محجوزة بالعقد رقم %s من %s إلى %s',
@@ -127,7 +127,7 @@ class ContractValidationService
                 $overlapping->end_date->format('Y-m-d')
             );
         }
-        
+
         return null;
     }
 }

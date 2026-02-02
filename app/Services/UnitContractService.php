@@ -200,7 +200,7 @@ class UnitContractService
             if ($startDate && $endDate) {
                 // Check if unit has any overlapping contracts
                 $hasOverlap = UnitContract::where('unit_id', $unit->id)
-                    ->whereIn('contract_status', ['active', 'renewed', 'draft'])
+                    ->whereIn('contract_status', ['active', 'draft'])  // renewed contracts don't block
                     ->where(function ($q) use ($startDate, $endDate) {
                         $q->where(function ($q1) use ($startDate, $endDate) {
                             // Check all overlap conditions
@@ -245,7 +245,7 @@ class UnitContractService
         // Build query for overlapping contracts
         $query = UnitContract::lockForUpdate()
             ->where('unit_id', $unitId)
-            ->whereIn('contract_status', ['active', 'renewed', 'draft'])
+            ->whereIn('contract_status', ['active', 'draft'])  // renewed contracts don't block
             ->where(function ($q) use ($startDate, $endDate) {
                 // Comprehensive overlap detection
                 $q->where(function ($q1) use ($startDate) {
@@ -575,17 +575,8 @@ class UnitContractService
      */
     public function canRenew(UnitContract $contract): bool
     {
-       // Can renew if contract is active
-        if (! in_array($contract->contract_status, ['active'])) {
-            return false;
-        }
-
-        // Cannot renew if already renewed
-        if ($contract->contract_status === 'renewed') {
-            return false;
-        }
-
-        return true;
+        // Can renew if contract is active (not draft, not expired, not terminated, not already renewed)
+        return $contract->contract_status === 'active';
     }
 
     /**
