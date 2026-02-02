@@ -22,7 +22,7 @@ use BackedEnum;
 class SystemManagement extends Page implements HasSchemas
 {
     use InteractsWithSchemas;
-    
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
     protected static ?string $navigationLabel = 'إدارة النظام';
     protected static ?string $title = 'إدارة النظام';
@@ -37,7 +37,7 @@ class SystemManagement extends Page implements HasSchemas
 
     public static function canAccess(): bool
     {
-        return Auth::user()?->type === 'super_admin';
+        return Auth::user()?->isSuperAdmin() || Auth::user()?->isAdmin();
     }
 
     protected function getSchemas(): array
@@ -47,7 +47,7 @@ class SystemManagement extends Page implements HasSchemas
             'cleanupForm',
         ];
     }
-    
+
     public function mount(): void
     {
         if (!static::canAccess()) {
@@ -60,7 +60,7 @@ class SystemManagement extends Page implements HasSchemas
             'allowed_delay_days' => Setting::get('allowed_delay_days', 5),
             'test_date' => Setting::get('test_date', null),
         ]);
-        
+
         // Initialize cleanup form
         $this->cleanupForm->fill([
             'cleanup_type' => 'financial',
@@ -82,7 +82,7 @@ class SystemManagement extends Page implements HasSchemas
                             ->minValue(0)
                             ->maxValue(30)
                             ->suffix('أيام'),
-                            
+
                         TextInput::make('allowed_delay_days')
                             ->label('أيام إضافية قبل الإجراءات')
                             ->numeric()
@@ -91,7 +91,7 @@ class SystemManagement extends Page implements HasSchemas
                             ->maxValue(30)
                             ->suffix('أيام')
                             ->disabled(),
-                            
+
                         DatePicker::make('test_date')
                             ->label('التاريخ الاختباري للنظام')
                             ->native(false)
@@ -103,7 +103,7 @@ class SystemManagement extends Page implements HasSchemas
             ])
             ->statePath('data');
     }
-    
+
     public function cleanupForm(Schema $schema): Schema
     {
         return $schema
@@ -121,7 +121,7 @@ class SystemManagement extends Page implements HasSchemas
                             ->default('financial')
                             ->required()
                             ->native(false),
-                            
+
                     ])
                     ->columns(1),
             ])
@@ -142,7 +142,7 @@ class SystemManagement extends Page implements HasSchemas
                 ->modalSubmitActionLabel('نعم، احفظ'),
         ];
     }
-    
+
     protected function getCleanupFormActions(): array
     {
         return [
@@ -153,13 +153,13 @@ class SystemManagement extends Page implements HasSchemas
                 ->action('executeCleanup')
                 ->requiresConfirmation()
                 ->modalHeading('⚠️ تأكيد نهائي للحذف')
-                ->modalDescription(fn () => match ($this->cleanupData['cleanup_type'] ?? 'financial') {
+                ->modalDescription(fn() => match ($this->cleanupData['cleanup_type'] ?? 'financial') {
                     'financial' => '⚠️ سيتم حذف جميع دفعات المستأجرين ودفعات الملاك والمصروفات نهائياً. هذا الإجراء لا يمكن التراجع عنه!',
                     'financial_contracts' => '⚠️ سيتم حذف الماليات بالإضافة إلى جميع عقود الوحدات وعقود العقارات نهائياً.',
                     'financial_contracts_properties' => '⚠️ سيتم حذف الماليات + العقود + العقارات والوحدات، وسيتم حذف الملاك والمستأجرين (كمستخدمين).',
                     default => '⚠️⚠️⚠️ سيتم حذف كافة البيانات (الماليات + العقود + العقارات + بيانات التأسيس). هذا الإجراء خطير جداً ولا يمكن التراجع عنه!'
                 })
-                ->modalSubmitActionLabel(fn () => match ($this->cleanupData['cleanup_type'] ?? 'financial') {
+                ->modalSubmitActionLabel(fn() => match ($this->cleanupData['cleanup_type'] ?? 'financial') {
                     'financial' => 'نعم، امسح البيانات المالية نهائياً',
                     'financial_contracts' => 'نعم، امسح الماليات والتعاقدات',
                     'financial_contracts_properties' => 'نعم، امسح الماليات + التعاقدات + العقارات',
@@ -170,49 +170,53 @@ class SystemManagement extends Page implements HasSchemas
                 ->modalCancelActionLabel('إلغاء'),
         ];
     }
-    
+
     public function executeCleanup(): void
     {
         try {
+            if (!Auth::user()->isSuperAdmin()) {
+                throw new \Exception('غير مصرح لك بتنفيذ هذا الإجراء');
+            }
+
             $data = $this->cleanupForm->getState();
             $cleanupType = $data['cleanup_type'] ?? 'financial';
 
             // Execute centralized purge service
             $service = new SystemPurgeService();
             $summary = $service->purge($cleanupType);
-            
+
             $message = match ($cleanupType) {
                 'financial' => 'تم حذف جميع البيانات المالية بنجاح',
                 'financial_contracts' => 'تم حذف الماليات وجميع التعاقدات بنجاح',
                 'financial_contracts_properties' => 'تم حذف الماليات + التعاقدات + العقارات والملاك والمستأجرين بنجاح',
                 default => 'تم حذف كافة البيانات (الماليات + التعاقدات + العقارات + التأسيس) بنجاح',
             };
-            
+
             logger()->info('System Data Cleanup Executed', [
                 'user' => Auth::user()->email,
                 'cleanup_type' => $cleanupType,
                 'summary' => $summary,
                 'timestamp' => now(),
             ]);
-            
+
             Notification::make()
                 ->title('تم التنظيف بنجاح')
                 ->body($message)
                 ->success()
                 ->duration(5000)
                 ->send();
-            
+
             // Reset the form
             $this->cleanupForm->fill([
                 'cleanup_type' => 'financial',
             ]);
-            
+
         } catch (\Exception $e) {
             logger()->error('Data Cleanup Failed', [
                 'error' => $e->getMessage(),
                 'user' => Auth::user()->email,
             ]);
-            
+
             Notification::make()
                 ->title('فشلت عملية التنظيف')
                 ->body('حدث خطأ: ' . $e->getMessage())
@@ -226,21 +230,21 @@ class SystemManagement extends Page implements HasSchemas
     {
         try {
             $data = $this->form->getState();
-            
+
             // Save settings to database
             Setting::setMany([
                 'allowed_delay_days' => $data['allowed_delay_days'] ?? 5,
                 'payment_due_days' => $data['payment_due_days'] ?? 5,
                 'test_date' => $data['test_date'] ?? null,
             ]);
-            
+
             // Set test date using DateHelper
             if (!empty($data['test_date'])) {
                 DateHelper::setTestDate($data['test_date']);
             } else {
                 DateHelper::clearTestDate();
             }
-            
+
             logger()->info('System Settings Saved', [
                 'user' => Auth::user()->email,
                 'settings' => $data,
@@ -253,7 +257,7 @@ class SystemManagement extends Page implements HasSchemas
                 ->success()
                 ->duration(2000)
                 ->send();
-            
+
             // Reload the page after a short delay to apply the new test date
             $this->redirect(static::getUrl(), navigate: true);
 
