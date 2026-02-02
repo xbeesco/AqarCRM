@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 class Unit extends Model
 {
     use HasFactory;
-    
+
     protected $fillable = [
         'name',
         'property_id',
@@ -115,5 +115,13 @@ class Unit extends Model
     public function getCurrentMonthExpensesAttribute(): float
     {
         return $this->expenses()->thisMonth()->sum('cost');
+    }
+
+    /**
+     * الحصول على حالة إشغال الوحدة
+     */
+    public function getOccupancyStatusAttribute(): \App\Enums\UnitOccupancyStatus
+    {
+        return \App\Enums\UnitOccupancyStatus::fromUnit($this);
     }
 }
