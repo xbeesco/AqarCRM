@@ -86,7 +86,7 @@ class UnitResource extends Resource
                 ->schema([
                     Grid::make(3)->schema([
                         TextInput::make('rent_price')
-                            ->label('سعر الايجار الاستدلالي')
+                            ->label(' الايجار الشهري الاستدلالي')
                             ->numeric()
                             ->required()
                             ->minValue(0)
