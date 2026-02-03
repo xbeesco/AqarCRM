@@ -3,10 +3,10 @@
 namespace Tests\Feature\Filament;
 
 use App\Enums\UserType;
-use App\Filament\Resources\EmployeeResource;
-use App\Filament\Resources\EmployeeResource\Pages\CreateEmployee;
-use App\Filament\Resources\EmployeeResource\Pages\EditEmployee;
-use App\Filament\Resources\EmployeeResource\Pages\ListEmployees;
+use App\Filament\Resources\Employees\EmployeeResource;
+use App\Filament\Resources\Employees\Pages\CreateEmployee;
+use App\Filament\Resources\Employees\Pages\EditEmployee;
+use App\Filament\Resources\Employees\Pages\ListEmployees;
 use App\Models\Employee;
 use App\Models\Location;
 use App\Models\PropertyStatus;
@@ -83,19 +83,19 @@ class EmployeeResourceTest extends TestCase
         // Create default Location
         Location::firstOrCreate(
             ['id' => 1],
-            ['name' => 'Default Location', 'level' => 1, 'is_active' => true]
+            ['name' => 'Default Location', 'level' => 1]
         );
 
         // Create default PropertyType
         PropertyType::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'شقة', 'name_en' => 'Apartment', 'slug' => 'apartment', 'is_active' => true]
+            ['name' => 'Apartment', 'slug' => 'apartment']
         );
 
         // Create default PropertyStatus
         PropertyStatus::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'متاح', 'name_en' => 'Available', 'slug' => 'available', 'is_active' => true]
+            ['name' => 'Available', 'slug' => 'available']
         );
     }
 
