@@ -56,7 +56,6 @@ class ReschedulePayments extends Page implements HasForms
 
         $this->form->fill([
             'new_commission_rate' => $this->record->commission_rate,
-            'additional_months' => 1,
             'new_frequency' => $this->record->payment_frequency ?? 'monthly',
         ]);
     }
@@ -83,38 +82,7 @@ class ReschedulePayments extends Page implements HasForms
                                 ->maxValue(100)
                                 ->columnSpan(3),
 
-                            TextInput::make('additional_months')
-                                ->label('المدة المعاد جدولتها')
-                                ->numeric()
-                                ->required()
-                                ->minValue(1)
-                                ->suffix('شهر')
-                                ->live(onBlur: true)
-                                ->afterStateUpdated(function ($get, $set, $state) {
-                                    $this->validateDuration($get, $set);
-                                })
-                                ->columnSpan(3),
-
-                            Select::make('new_frequency')
-                                ->label('التوريد تلك المدة سيكون كل')
-                                ->required()
-                                ->options([
-                                    'monthly' => 'شهر',
-                                    'quarterly' => 'ربع سنة',
-                                    'semi_annually' => 'نصف سنة',
-                                    'annually' => 'سنة',
-                                ])
-                                ->live()
-                                ->afterStateUpdated(function ($get, $set, $state) {
-                                    $this->validateDuration($get, $set);
-                                })
-                                ->columnSpan(3),
-
-                            TextInput::make('new_payments_count')
-                                ->label('عدد الدفعات الجديدة')
-                                ->disabled()
-                                ->dehydrated(false)
-                                ->columnSpan(3),
+                            ...(\App\Filament\Forms\ContractFormSchema::getDurationFields('property', $this->record)),
                         ]),
                     ]),
 

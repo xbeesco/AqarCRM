@@ -61,12 +61,11 @@ class ReschedulePayments extends Page implements HasForms
         // تحميل البيانات الافتراضية
         $this->form->fill([
             'new_monthly_rent' => $record->monthly_rent,
-            'additional_months' => $record->getRemainingMonths(),
             'new_frequency' => $record->payment_frequency ?? 'monthly',
         ]);
     }
 
-    public function getTitle(): string | Htmlable
+    public function getTitle(): string|Htmlable
     {
         return "إعادة جدولة دفعات العقد: {$this->record->contract_number}";
     }
@@ -88,93 +87,7 @@ class ReschedulePayments extends Page implements HasForms
                                 ->postfix('ريال')
                                 ->columnSpan(3),
 
-                            TextInput::make('additional_months')
-                                ->label('المدة المعاد جدولتها')
-                                ->numeric()
-                                ->required()
-                                ->minValue(1)
-                                ->suffix('شهر')
-                                ->live(onBlur: true)
-                                ->afterStateUpdated(function ($state, $get, $set) {
-                                    $frequency = $get('new_frequency') ?? 'monthly';
-                                    $count = PropertyContractService::calculatePaymentsCount($state ?? 0, $frequency);
-                                    $set('new_payments_count', $count);
-
-                                    if ($state && !PropertyContractService::isValidDuration($state, $frequency)) {
-                                        $set('frequency_error', true);
-                                    } else {
-                                        $set('frequency_error', false);
-                                    }
-                                })
-                                ->rules([
-                                    fn ($get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
-                                        $frequency = $get('new_frequency') ?? 'monthly';
-                                        if (!PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
-                                            $periodName = match($frequency) {
-                                                'quarterly' => 'ربع سنة',
-                                                'semi_annually' => 'نصف سنة',
-                                                'annually' => 'سنة',
-                                                default => $frequency,
-                                            };
-
-                                            $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
-                                        }
-                                    },
-                                ])
-                                ->validationAttribute('مدة التعاقد')
-                                ->columnSpan(3),
-
-                            Select::make('new_frequency')
-                                ->label('تحصيل تلك المدة سيكون كل')
-                                ->required()
-                                ->searchable()
-                                ->options([
-                                    'monthly' => 'شهر',
-                                    'quarterly' => 'ربع سنة',
-                                    'semi_annually' => 'نصف سنة',
-                                    'annually' => 'سنة',
-                                ])
-                                ->default('monthly')
-                                ->live()
-                                ->afterStateUpdated(function ($state, $get, $set) {
-                                    $duration = $get('additional_months') ?? 0;
-                                    $count = PropertyContractService::calculatePaymentsCount($duration, $state ?? 'monthly');
-                                    $set('new_payments_count', $count);
-
-                                    if ($duration && !PropertyContractService::isValidDuration($duration, $state ?? 'monthly')) {
-                                        $set('frequency_error', true);
-                                    } else {
-                                        $set('frequency_error', false);
-                                    }
-                                })
-                                ->rules([
-                                    fn ($get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
-                                        $duration = $get('additional_months') ?? 0;
-                                        if (!PropertyContractService::isValidDuration($duration, $value ?? 'monthly')) {
-                                            $periodName = match($value) {
-                                                'quarterly' => 'ربع سنة',
-                                                'semi_annually' => 'نصف سنة',
-                                                'annually' => 'سنة',
-                                                default => $value,
-                                            };
-                                            $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
-                                        }
-                                    },
-                                ])
-                                ->validationAttribute('تكرار التحصيل')
-                                ->columnSpan(3),
-
-                            TextInput::make('new_payments_count')
-                                ->label('عدد الدفعات')
-                                ->disabled()
-                                ->dehydrated(false)
-                                ->default(function ($get) {
-                                    $duration = $get('additional_months') ?? 0;
-                                    $frequency = $get('new_frequency') ?? 'monthly';
-                                    $result = PropertyContractService::calculatePaymentsCount($duration, $frequency);
-                                    return $result;
-                                })
-                                ->columnSpan(3),
+                            ...(\App\Filament\Forms\ContractFormSchema::getDurationFields('unit', $this->record)),
                         ]),
                     ]),
 
