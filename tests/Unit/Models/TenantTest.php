@@ -37,8 +37,7 @@ class TenantTest extends TestCase
         PropertyType::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'شقة',
-                'name_en' => 'Apartment',
+                'name' => 'Apartment',
                 'slug' => 'apartment',
             ]
         );
@@ -47,8 +46,7 @@ class TenantTest extends TestCase
         PropertyStatus::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'متاح',
-                'name_en' => 'Available',
+                'name' => 'Available',
                 'slug' => 'available',
             ]
         );
@@ -58,8 +56,6 @@ class TenantTest extends TestCase
             ['id' => 1],
             [
                 'name' => 'Test Location',
-                'name_ar' => 'موقع اختبار',
-                'name_en' => 'Test Location',
                 'level' => 1,
             ]
         );
@@ -68,8 +64,7 @@ class TenantTest extends TestCase
         UnitType::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'شقة',
-                'name_en' => 'Apartment',
+                'name' => 'Apartment',
                 'slug' => 'apartment',
             ]
         );
