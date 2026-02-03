@@ -16,7 +16,7 @@ class CollectionPayment extends Model
             return false;
         });
     }
-    
+
     protected $fillable = [
         'payment_number',
         'unit_contract_id',
@@ -56,23 +56,23 @@ class CollectionPayment extends Model
     protected static function boot()
     {
         parent::boot();
-        
+
         static::creating(function ($payment) {
             // توليد رقم الدفعة تلقائياً
             if (empty($payment->payment_number)) {
                 $payment->payment_number = self::generatePaymentNumber();
             }
-            
+
             // تم حذف تعيين payment_status - سنحسبها ديناميكياً
-            
+
             // قيمة افتراضية للغرامة
             if (is_null($payment->late_fee)) {
                 $payment->late_fee = 0;
             }
-            
+
             // حساب المجموع الكلي
             $payment->total_amount = ($payment->amount ?? 0) + ($payment->late_fee ?? 0);
-            
+
             // توليد الشهر والسنة للتقارير
             if (empty($payment->month_year)) {
                 // استخدم due_date_start إن وجد، وإلا استخدم التاريخ الحالي
@@ -84,7 +84,7 @@ class CollectionPayment extends Model
         static::updating(function ($payment) {
             // إعادة حساب المجموع الكلي
             $payment->total_amount = ($payment->amount ?? 0) + ($payment->late_fee ?? 0);
-            
+
             // تحديث الشهر والسنة
             if (empty($payment->month_year) && !empty($payment->due_date_start)) {
                 $payment->month_year = \Carbon\Carbon::parse($payment->due_date_start)->format('Y-m');
@@ -156,7 +156,7 @@ class CollectionPayment extends Model
         // إذا كانت قادمة (لم يصل تاريخها بعد)
         return PaymentStatus::UPCOMING;
     }
-    
+
     public function getPaymentStatusLabelAttribute(): string
     {
         return $this->payment_status->label();
@@ -402,7 +402,8 @@ class CollectionPayment extends Model
         }
 
         $totalGraceDays = $this->getTotalGraceThreshold();
-        $overdueDate = $this->due_date_start->copy()->addDays($totalGraceDays);
+        $baseDate = $this->due_date_start;
+        $overdueDate = ($baseDate instanceof \Carbon\Carbon ? $baseDate->copy() : \Carbon\Carbon::parse($baseDate))->addDays($totalGraceDays);
 
         return (int) Carbon::now()->startOfDay()->diffInDays($overdueDate);
     }
