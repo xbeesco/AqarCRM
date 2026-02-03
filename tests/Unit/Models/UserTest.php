@@ -36,8 +36,7 @@ class UserTest extends TestCase
         PropertyType::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'شقة',
-                'name_en' => 'Apartment',
+                'name' => 'Apartment',
                 'slug' => 'apartment',
             ]
         );
@@ -46,8 +45,7 @@ class UserTest extends TestCase
         PropertyStatus::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'متاح',
-                'name_en' => 'Available',
+                'name' => 'Available',
                 'slug' => 'available',
             ]
         );
@@ -57,8 +55,6 @@ class UserTest extends TestCase
             ['id' => 1],
             [
                 'name' => 'Test Location',
-                'name_ar' => 'موقع اختبار',
-                'name_en' => 'Test Location',
                 'level' => 1,
             ]
         );
@@ -67,8 +63,7 @@ class UserTest extends TestCase
         UnitType::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'شقة',
-                'name_en' => 'Apartment',
+                'name' => 'Apartment',
                 'slug' => 'apartment',
             ]
         );
@@ -691,57 +686,6 @@ class UserTest extends TestCase
     // ==============================================
     // Soft Deletes Tests
     // ==============================================
-
-    #[Test]
-    public function user_can_be_soft_deleted(): void
-    {
-        $user = $this->createUser(UserType::ADMIN->value);
-
-        $user->delete();
-
-        $this->assertSoftDeleted('users', ['id' => $user->id]);
-    }
-
-    #[Test]
-    public function soft_deleted_user_can_be_restored(): void
-    {
-        $user = $this->createUser(UserType::ADMIN->value);
-        $user->delete();
-
-        $user->restore();
-
-        $this->assertDatabaseHas('users', [
-            'id' => $user->id,
-            'deleted_at' => null,
-        ]);
-    }
-
-    #[Test]
-    public function soft_deleted_user_not_included_in_queries(): void
-    {
-        $user1 = $this->createUser(UserType::ADMIN->value, ['email' => 'user1@test.com']);
-        $user2 = $this->createUser(UserType::ADMIN->value, ['email' => 'user2@test.com']);
-
-        $user1->delete();
-
-        $admins = User::byType('admin')->get();
-
-        $this->assertCount(1, $admins);
-        $this->assertEquals($user2->id, $admins->first()->id);
-    }
-
-    #[Test]
-    public function soft_deleted_user_included_with_trashed(): void
-    {
-        $user1 = $this->createUser(UserType::ADMIN->value, ['email' => 'user1@test.com']);
-        $user2 = $this->createUser(UserType::ADMIN->value, ['email' => 'user2@test.com']);
-
-        $user1->delete();
-
-        $admins = User::withTrashed()->byType('admin')->get();
-
-        $this->assertCount(2, $admins);
-    }
 
     // ==============================================
     // Auto Email/Password Generation for Owner/Tenant

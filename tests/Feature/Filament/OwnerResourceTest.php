@@ -3,11 +3,11 @@
 namespace Tests\Feature\Filament;
 
 use App\Enums\UserType;
-use App\Filament\Resources\OwnerResource;
-use App\Filament\Resources\OwnerResource\Pages\CreateOwner;
-use App\Filament\Resources\OwnerResource\Pages\EditOwner;
-use App\Filament\Resources\OwnerResource\Pages\ListOwners;
-use App\Filament\Resources\OwnerResource\Pages\ViewOwner;
+use App\Filament\Resources\Owners\OwnerResource;
+use App\Filament\Resources\Owners\Pages\CreateOwner;
+use App\Filament\Resources\Owners\Pages\EditOwner;
+use App\Filament\Resources\Owners\Pages\ListOwners;
+use App\Filament\Resources\Owners\Pages\ViewOwner;
 use App\Models\CollectionPayment;
 use App\Models\Location;
 use App\Models\Owner;
@@ -94,25 +94,25 @@ class OwnerResourceTest extends TestCase
         // Create default Location
         Location::firstOrCreate(
             ['id' => 1],
-            ['name' => 'Default Location', 'level' => 1, 'is_active' => true]
+            ['name' => 'Default Location', 'level' => 1]
         );
 
         // Create default PropertyType
         PropertyType::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'شقة', 'name_en' => 'Apartment', 'slug' => 'apartment', 'is_active' => true]
+            ['name' => 'Apartment', 'slug' => 'apartment']
         );
 
         // Create default PropertyStatus
         PropertyStatus::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'متاح', 'name_en' => 'Available', 'slug' => 'available', 'is_active' => true]
+            ['name' => 'Available', 'slug' => 'available']
         );
 
         // Create default UnitType
         UnitType::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'شقة', 'name_en' => 'Apartment', 'slug' => 'apartment', 'is_active' => true]
+            ['name' => 'Apartment', 'slug' => 'apartment']
         );
 
         // Create payment_due_days setting
