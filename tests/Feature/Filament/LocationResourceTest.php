@@ -3,8 +3,8 @@
 namespace Tests\Feature\Filament;
 
 use App\Enums\UserType;
-use App\Filament\Resources\LocationResource;
-use App\Filament\Resources\LocationResource\Pages\ManageLocations;
+use App\Filament\Resources\Locations\LocationResource;
+use App\Filament\Resources\Locations\Pages\ManageLocations;
 use App\Models\Location;
 use App\Models\User;
 use Filament\Facades\Filament;
@@ -69,25 +69,24 @@ class LocationResourceTest extends TestCase
         $region = Location::create([
             'name' => 'Test Region',
             'level' => 1,
-            'is_active' => true,
         ]);
 
         $city = Location::create([
             'name' => 'Test City',
             'parent_id' => $region->id,
-            'is_active' => true,
+            'level' => 2,
         ]);
 
         $district = Location::create([
             'name' => 'Test District',
             'parent_id' => $city->id,
-            'is_active' => true,
+            'level' => 3,
         ]);
 
         $neighborhood = Location::create([
             'name' => 'Test Neighborhood',
             'parent_id' => $district->id,
-            'is_active' => true,
+            'level' => 4,
         ]);
 
         return [
@@ -144,7 +143,6 @@ class LocationResourceTest extends TestCase
         $location = Location::create([
             'name' => 'Display Test Location',
             'level' => 1,
-            'is_active' => true,
         ]);
 
         Livewire::test(ManageLocations::class)
@@ -173,11 +171,11 @@ class LocationResourceTest extends TestCase
         $this->actingAs($this->admin);
 
         // Create multiple root locations
-        $region1 = Location::create(['name' => 'Region A', 'level' => 1, 'is_active' => true]);
-        $region2 = Location::create(['name' => 'Region B', 'level' => 1, 'is_active' => true]);
+        $region1 = Location::create(['name' => 'Region A', 'level' => 1]);
+        $region2 = Location::create(['name' => 'Region B', 'level' => 1]);
 
         // Create city under first region
-        $city = Location::create(['name' => 'City 1', 'parent_id' => $region1->id, 'is_active' => true]);
+        $city = Location::create(['name' => 'City 1', 'parent_id' => $region1->id, 'level' => 2]);
 
         // Verify all are visible
         Livewire::test(ManageLocations::class)
@@ -194,7 +192,6 @@ class LocationResourceTest extends TestCase
             Location::create([
                 'name' => "Region {$i}",
                 'level' => 1,
-                'is_active' => true,
             ]);
         }
 
