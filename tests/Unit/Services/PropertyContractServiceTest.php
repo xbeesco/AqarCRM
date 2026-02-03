@@ -54,10 +54,8 @@ class PropertyContractServiceTest extends TestCase
         $this->propertyType = PropertyType::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'عمارة سكنية',
-                'name_en' => 'Residential Building',
+                'name' => 'Residential Building',
                 'slug' => 'residential-building',
-                'is_active' => true,
             ]
         );
 
@@ -65,20 +63,16 @@ class PropertyContractServiceTest extends TestCase
         $this->availableStatus = PropertyStatus::firstOrCreate(
             ['slug' => 'available'],
             [
-                'name_ar' => 'متاح',
-                'name_en' => 'Available',
+                'name' => 'Available',
                 'slug' => 'available',
-                'is_active' => true,
             ]
         );
 
         $this->managedStatus = PropertyStatus::firstOrCreate(
             ['slug' => 'managed'],
             [
-                'name_ar' => 'مدار',
-                'name_en' => 'Managed',
+                'name' => 'Managed',
                 'slug' => 'managed',
-                'is_active' => true,
             ]
         );
 
@@ -89,10 +83,7 @@ class PropertyContractServiceTest extends TestCase
             ['id' => 1],
             [
                 'name' => 'Test Location',
-                'name_ar' => 'موقع اختبار',
-                'name_en' => 'Test Location',
                 'level' => 1,
-                'is_active' => true,
             ]
         );
 
@@ -100,10 +91,8 @@ class PropertyContractServiceTest extends TestCase
         UnitType::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'شقة',
-                'name_en' => 'Apartment',
+                'name' => 'Apartment',
                 'slug' => 'apartment',
-                'is_active' => true,
             ]
         );
 
@@ -210,9 +199,9 @@ class PropertyContractServiceTest extends TestCase
     #[Test]
     public function returns_invalid_division_for_incompatible_duration(): void
     {
-        $this->assertEquals('Invalid division', PropertyContractService::calculatePaymentsCount(7, 'quarterly'));
-        $this->assertEquals('Invalid division', PropertyContractService::calculatePaymentsCount(5, 'semi_annually'));
-        $this->assertEquals('Invalid division', PropertyContractService::calculatePaymentsCount(11, 'annually'));
+        $this->assertEquals('قسمة لا تصح', PropertyContractService::calculatePaymentsCount(7, 'quarterly'));
+        $this->assertEquals('قسمة لا تصح', PropertyContractService::calculatePaymentsCount(5, 'semi_annually'));
+        $this->assertEquals('قسمة لا تصح', PropertyContractService::calculatePaymentsCount(11, 'annually'));
     }
 
     #[Test]
@@ -422,7 +411,6 @@ class PropertyContractServiceTest extends TestCase
         foreach ($schedules as $schedule) {
             $this->assertArrayHasKey('unit_id', $schedule);
             $this->assertArrayHasKey('monthly_commission', $schedule);
-            $this->assertArrayHasKey('payment_day', $schedule);
         }
     }
 

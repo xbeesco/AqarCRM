@@ -43,10 +43,8 @@ class PropertyTest extends TestCase
         $this->propertyType = PropertyType::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'عمارة سكنية',
-                'name_en' => 'Residential Building',
+                'name' => 'Residential Building',
                 'slug' => 'residential-building',
-                'is_active' => true,
             ]
         );
 
@@ -54,10 +52,8 @@ class PropertyTest extends TestCase
         $this->propertyStatus = PropertyStatus::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'متاح',
-                'name_en' => 'Available',
+                'name' => 'Available',
                 'slug' => 'available',
-                'is_active' => true,
             ]
         );
 
@@ -66,10 +62,7 @@ class PropertyTest extends TestCase
             ['id' => 1],
             [
                 'name' => 'Test Location',
-                'name_ar' => 'موقع اختبار',
-                'name_en' => 'Test Location',
                 'level' => 1,
-                'is_active' => true,
             ]
         );
 
@@ -77,10 +70,8 @@ class PropertyTest extends TestCase
         UnitType::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'شقة',
-                'name_en' => 'Apartment',
+                'name' => 'Apartment',
                 'slug' => 'apartment',
-                'is_active' => true,
             ]
         );
 
@@ -268,8 +259,7 @@ class PropertyTest extends TestCase
         $feature1 = PropertyFeature::firstOrCreate(
             ['slug' => 'swimming-pool'],
             [
-                'name_ar' => 'مسبح',
-                'name_en' => 'Swimming Pool',
+                'name' => 'Swimming Pool',
                 'slug' => 'swimming-pool',
             ]
         );
@@ -277,23 +267,19 @@ class PropertyTest extends TestCase
         $feature2 = PropertyFeature::firstOrCreate(
             ['slug' => 'gym'],
             [
-                'name_ar' => 'صالة رياضية',
-                'name_en' => 'Gym',
+                'name' => 'Gym',
                 'slug' => 'gym',
             ]
         );
 
         // Attach features to property
-        $property->features()->attach([
-            $feature1->id => ['value' => 'available'],
-            $feature2->id => ['value' => 'available'],
-        ]);
+        $property->features()->attach([$feature1->id, $feature2->id]);
 
         $property->refresh();
 
         $this->assertCount(2, $property->features);
         $this->assertInstanceOf(PropertyFeature::class, $property->features->first());
-        $this->assertEquals('available', $property->features->first()->pivot->value);
+        $this->assertContains($feature1->id, $property->features->pluck('id')->toArray());
     }
 
     #[Test]

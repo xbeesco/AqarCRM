@@ -48,27 +48,18 @@ class PropertyContractPolicyTest extends TestCase
 
         // Create required reference data
         $this->propertyType = PropertyType::create([
-            'name_ar' => 'عمارة',
-            'name_en' => 'Building',
+            'name' => 'Building',
             'slug' => 'building',
-            'is_active' => true,
-            'sort_order' => 1,
         ]);
 
         $this->propertyStatus = PropertyStatus::create([
-            'name_ar' => 'متاح',
-            'name_en' => 'Available',
+            'name' => 'Available',
             'slug' => 'available',
-            'color' => 'green',
-            'is_available' => true,
-            'is_active' => true,
-            'sort_order' => 1,
         ]);
 
         $this->location = Location::create([
             'name' => 'الرياض',
             'level' => 1,
-            'is_active' => true,
         ]);
 
         // Create users with different types
@@ -97,9 +88,6 @@ class PropertyContractPolicyTest extends TestCase
             'start_date' => now(),
             'end_date' => now()->addMonths(12)->subDay(),
             'contract_status' => 'active',
-            'payment_day' => 1,
-            'auto_renew' => false,
-            'notice_period_days' => 30,
             'payment_frequency' => 'monthly',
             'created_by' => $this->superAdmin->id,
         ]);
@@ -183,9 +171,6 @@ class PropertyContractPolicyTest extends TestCase
             'start_date' => now(),
             'end_date' => now()->addMonths(12)->subDay(),
             'contract_status' => 'active',
-            'payment_day' => 1,
-            'auto_renew' => false,
-            'notice_period_days' => 30,
             'payment_frequency' => 'monthly',
             'created_by' => $this->superAdmin->id,
         ]);
