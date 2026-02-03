@@ -139,10 +139,11 @@ class CollectionPayment extends Model
         }
 
         $today = Carbon::now()->startOfDay();
-        $paymentsDueDays = Setting::get('payment_due_days', 7);
-        $overdueDate = $today->copy()->subDays($paymentsDueDays);
+        $totalGraceDays = $this->getTotalGraceThreshold();
 
-        // إذا كانت متأخرة (تجاوزت مدة السماح)
+        $overdueDate = $today->copy()->subDays($totalGraceDays);
+
+        // إذا كانت متأخرة (تجاوزت مدة السماح الكلية)
         if ($this->due_date_start < $overdueDate) {
             return PaymentStatus::OVERDUE;
         }
@@ -188,36 +189,47 @@ class CollectionPayment extends Model
     {
         return $query->where('month_year', $monthYear);
     }
-    
+
     // تم حذف scopePostponed المكرر - استخدم scopePostponedPayments بدلاً منه
-    
+
     public function scopePostponedWithDetails($query)
     {
         return $query->postponedPayments()
-                     ->with(['tenant:id,name,phone', 'unit:id,name', 'property:id,name'])
-                     ->select(['id', 'payment_number', 'tenant_id', 'unit_id', 'property_id', 
-                              'amount', 'total_amount', 'delay_reason', 'delay_duration',
-                              'due_date_start', 'due_date_end', 'late_payment_notes',
-                              'created_at']);
+            ->with(['tenant:id,name,phone', 'unit:id,name', 'property:id,name'])
+            ->select([
+                'id',
+                'payment_number',
+                'tenant_id',
+                'unit_id',
+                'property_id',
+                'amount',
+                'total_amount',
+                'delay_reason',
+                'delay_duration',
+                'due_date_start',
+                'due_date_end',
+                'late_payment_notes',
+                'created_at'
+            ]);
     }
-    
+
     public function scopeCriticalPostponed($query)
     {
         return $query->postponedPayments()
-                     ->where(function($q) {
-                         $q->where('delay_duration', '>', 30)
-                           ->orWhere('due_date_end', '<', Carbon::now()->subDays(30));
-                     });
+            ->where(function ($q) {
+                $q->where('delay_duration', '>', 30)
+                    ->orWhere('due_date_end', '<', Carbon::now()->subDays(30));
+            });
     }
-    
+
     public function scopeRecentPostponed($query, $days = 7)
     {
         return $query->postponedPayments()
-                     ->where('created_at', '>=', Carbon::now()->subDays($days));
+            ->where('created_at', '>=', Carbon::now()->subDays($days));
     }
-    
+
     // New Scopes for actual payment status (not relying on collection_status field)
-    
+
     /**
      * Scope للدفعات المستحقة للتحصيل
      * دفعات وصل تاريخ استحقاقها ولم تُحصّل ولا يوجد تأجيل
@@ -226,13 +238,13 @@ class CollectionPayment extends Model
     {
         $today = Carbon::now()->startOfDay();
         return $query->where('due_date_start', '<=', $today)
-                    ->whereNull('collection_date')
-                    ->where(function($q) {
-                        $q->whereNull('delay_duration')
-                          ->orWhere('delay_duration', 0);
-                    });
+            ->whereNull('collection_date')
+            ->where(function ($q) {
+                $q->whereNull('delay_duration')
+                    ->orWhere('delay_duration', 0);
+            });
     }
-    
+
     /**
      * Scope للدفعات المؤجلة
      * دفعات وصل تاريخ استحقاقها ولكن يوجد عدد أيام تأجيل
@@ -241,29 +253,29 @@ class CollectionPayment extends Model
     {
         $today = Carbon::now()->startOfDay();
         return $query->where('due_date_start', '<=', $today)
-                    ->whereNull('collection_date')
-                    ->whereNotNull('delay_duration')
-                    ->where('delay_duration', '>', 0);
+            ->whereNull('collection_date')
+            ->whereNotNull('delay_duration')
+            ->where('delay_duration', '>', 0);
     }
-    
+
     /**
      * Scope للدفعات المتأخرة
      * دفعات تجاوزت مدة السماح المحددة في إعدادات النظام وليست مؤجلة
      */
     public function scopeOverduePayments($query)
     {
-        $paymentDueDays = Setting::get('payment_due_days', 7);
         $today = Carbon::now()->startOfDay();
-        $overdueDate = $today->copy()->subDays($paymentDueDays);
-        
+        $totalGraceDays = (new self)->getTotalGraceThreshold();
+        $overdueDate = $today->copy()->subDays($totalGraceDays);
+
         return $query->where('due_date_start', '<', $overdueDate)
-                    ->whereNull('collection_date')
-                    ->where(function($q) {
-                        $q->whereNull('delay_duration')
-                          ->orWhere('delay_duration', 0);
-                    });
+            ->whereNull('collection_date')
+            ->where(function ($q) {
+                $q->whereNull('delay_duration')
+                    ->orWhere('delay_duration', 0);
+            });
     }
-    
+
     /**
      * Scope للدفعات المحصلة
      */
@@ -271,7 +283,7 @@ class CollectionPayment extends Model
     {
         return $query->whereNotNull('collection_date');
     }
-    
+
     /**
      * Scope للدفعات القادمة (لم يحن موعدها بعد)
      */
@@ -279,15 +291,15 @@ class CollectionPayment extends Model
     {
         $today = Carbon::now()->startOfDay();
         return $query->whereNull('collection_date')
-                    ->where('due_date_start', '>', $today);
+            ->where('due_date_start', '>', $today);
     }
-    
+
     /**
      * Scope لفلترة حسب حالة معينة (باستخدام الحساب الديناميكي)
      */
     public function scopeByStatus($query, PaymentStatus $status)
     {
-        return match($status) {
+        return match ($status) {
             PaymentStatus::COLLECTED => $this->scopeCollectedPayments($query),
             PaymentStatus::POSTPONED => $this->scopePostponedPayments($query),
             PaymentStatus::OVERDUE => $this->scopeOverduePayments($query),
@@ -295,16 +307,16 @@ class CollectionPayment extends Model
             PaymentStatus::UPCOMING => $this->scopeUpcomingPayments($query),
         };
     }
-    
+
     /**
      * Scope لفلترة حسب حالات متعددة (باستخدام الحساب الديناميكي)
      */
     public function scopeByStatuses($query, array $statuses)
     {
-        return $query->where(function($q) use ($statuses) {
+        return $query->where(function ($q) use ($statuses) {
             foreach ($statuses as $status) {
                 $statusEnum = $status instanceof PaymentStatus ? $status : PaymentStatus::from($status);
-                $q->orWhere(function($subQuery) use ($statusEnum) {
+                $q->orWhere(function ($subQuery) use ($statusEnum) {
                     $this->scopeByStatus($subQuery, $statusEnum);
                 });
             }
@@ -312,16 +324,16 @@ class CollectionPayment extends Model
     }
 
     // Attributes using Enum
-        
+
     /**
      * هل يمكن تأجيل الدفعة؟
      */
     public function getCanBePostponedAttribute(): bool
     {
-        return $this->collection_date === null && 
-               ($this->delay_duration === null || $this->delay_duration == 0);
+        return $this->collection_date === null &&
+            ($this->delay_duration === null || $this->delay_duration == 0);
     }
-    
+
     /**
      * هل يمكن تأكيد استلام الدفعة؟
      */
@@ -329,7 +341,7 @@ class CollectionPayment extends Model
     {
         return $this->collection_date === null;
     }
-    
+
     /**
      * تأجيل الدفعة
      */
@@ -340,7 +352,7 @@ class CollectionPayment extends Model
             'delay_reason' => $reason,
         ]);
     }
-    
+
     /**
      * تأكيد استلام الدفعة
      */
@@ -352,13 +364,23 @@ class CollectionPayment extends Model
             'paid_date' => $currentDate,
         ]);
     }
-    
+
     // Methods
     public static function generatePaymentNumber(): string
     {
         $year = date('Y');
         $count = self::whereYear('created_at', $year)->count() + 1;
         return 'COLLECTION-' . $year . '-' . str_pad($count, 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * الحصول على إجمالي أيام السماح (فترة السماح + الأيام الإضافية)
+     */
+    public function getTotalGraceThreshold(): int
+    {
+        $paymentDueDays = Setting::get('payment_due_days', 7);
+        $allowedDelayDays = Setting::get('allowed_delay_days', 5);
+        return (int) ($paymentDueDays + $allowedDelayDays);
     }
 
     public function calculateLateFee(): float
@@ -368,8 +390,8 @@ class CollectionPayment extends Model
         }
 
         $daysOverdue = $this->getDaysOverdue();
-        $dailyFeeRate = 0.05; // 5% per day (configurable)
-        
+        $dailyFeeRate = 0.05; // 0.05% per day
+
         return round($this->amount * ($dailyFeeRate / 100) * $daysOverdue, 2);
     }
 
@@ -379,19 +401,24 @@ class CollectionPayment extends Model
             return 0;
         }
 
-        return Carbon::parse($this->due_date_end)->diffInDays(Carbon::now());
+        $totalGraceDays = $this->getTotalGraceThreshold();
+        $overdueDate = $this->due_date_start->copy()->addDays($totalGraceDays);
+
+        return (int) Carbon::now()->startOfDay()->diffInDays($overdueDate);
     }
 
     public function isOverdue(): bool
     {
-        return Carbon::parse($this->due_date_end)->isPast() && 
-               !$this->paymentStatus->is_paid_status;
+        return $this->payment_status === PaymentStatus::OVERDUE;
     }
 
     public function canTransitionTo($statusId): bool
     {
-        $newStatus = PaymentStatus::find($statusId);
-        return $this->paymentStatus->canTransitionTo($newStatus);
+        // تم تبسيط المنطق ليعتمد على الـ Enum مباشرة
+        $newStatus = is_string($statusId) ? PaymentStatus::from($statusId) : $statusId;
+
+        // هنا يمكن إضافة قواعد الانتقال إذا لزم الأمر
+        return true;
     }
 
     public function processPayment($paymentMethodId, $paidDate = null, $paymentReference = null): bool
@@ -411,8 +438,8 @@ class CollectionPayment extends Model
     {
         $year = date('Y');
         $count = self::whereYear('paid_date', $year)
-                    ->whereNotNull('receipt_number')
-                    ->count() + 1;
+            ->whereNotNull('receipt_number')
+            ->count() + 1;
         return 'REC-' . $year . '-' . str_pad($count, 6, '0', STR_PAD_LEFT);
     }
 
@@ -420,7 +447,7 @@ class CollectionPayment extends Model
     // Scopes إضافية جديدة لدعم ميزة إعادة الجدولة
     // Additional Scopes for Rescheduling Feature
     // ==========================================
-    
+
     /**
      * Scope للدفعات المحصلة (بناءً على collection_date)
      * Scope for paid/collected payments
@@ -429,7 +456,7 @@ class CollectionPayment extends Model
     {
         return $query->whereNotNull('collection_date');
     }
-    
+
     /**
      * Scope للدفعات غير المحصلة (بناءً على collection_date)
      * Scope for unpaid payments

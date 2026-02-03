@@ -89,8 +89,8 @@ class SystemManagement extends Page implements HasSchemas
                             ->default(5)
                             ->minValue(0)
                             ->maxValue(30)
-                            ->suffix('أيام')
-                            ->disabled(),
+                            ->suffix('أيام'),
+                        // ->disabled(),
 
                         DatePicker::make('test_date')
                             ->label('التاريخ الاختباري للنظام')
