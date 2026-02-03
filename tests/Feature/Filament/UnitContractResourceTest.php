@@ -3,9 +3,9 @@
 namespace Tests\Feature\Filament;
 
 use App\Enums\UserType;
-use App\Filament\Resources\UnitContractResource;
-use App\Filament\Resources\UnitContractResource\Pages\CreateUnitContract;
-use App\Filament\Resources\UnitContractResource\Pages\ListUnitContracts;
+use App\Filament\Resources\UnitContracts\UnitContractResource;
+use App\Filament\Resources\UnitContracts\Pages\CreateUnitContract;
+use App\Filament\Resources\UnitContracts\Pages\ListUnitContracts;
 use App\Models\CollectionPayment;
 use App\Models\Location;
 use App\Models\Property;
@@ -88,25 +88,25 @@ class UnitContractResourceTest extends TestCase
         // Create default Location
         Location::firstOrCreate(
             ['id' => 1],
-            ['name' => 'Default Location', 'level' => 1, 'is_active' => true]
+            ['name' => 'Default Location', 'level' => 1]
         );
 
         // Create default PropertyType
         PropertyType::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'شقة', 'name_en' => 'Apartment', 'slug' => 'apartment', 'is_active' => true]
+            ['name' => 'Apartment', 'slug' => 'apartment']
         );
 
         // Create default PropertyStatus
         PropertyStatus::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'متاح', 'name_en' => 'Available', 'slug' => 'available', 'is_active' => true]
+            ['name' => 'Available', 'slug' => 'available']
         );
 
         // Create default UnitType
         UnitType::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'شقة', 'name_en' => 'Apartment', 'slug' => 'apartment', 'is_active' => true]
+            ['name' => 'Apartment', 'slug' => 'apartment']
         );
 
         // Create payment_due_days setting
@@ -670,10 +670,9 @@ class UnitContractResourceTest extends TestCase
         $this->assertEquals(2, PropertyContractService::calculatePaymentsCount(12, 'semi_annually'));
         $this->assertEquals(1, PropertyContractService::calculatePaymentsCount(12, 'annually'));
 
-        // Test invalid durations return error string
-        $this->assertEquals('Invalid division', PropertyContractService::calculatePaymentsCount(7, 'quarterly'));
-        $this->assertEquals('Invalid division', PropertyContractService::calculatePaymentsCount(7, 'semi_annually'));
-        $this->assertEquals('Invalid division', PropertyContractService::calculatePaymentsCount(5, 'annually'));
+        $this->assertEquals('قسمة لا تصح', PropertyContractService::calculatePaymentsCount(7, 'quarterly'));
+        $this->assertEquals('قسمة لا تصح', PropertyContractService::calculatePaymentsCount(7, 'semi_annually'));
+        $this->assertEquals('قسمة لا تصح', PropertyContractService::calculatePaymentsCount(5, 'annually'));
     }
 
     #[Test]
