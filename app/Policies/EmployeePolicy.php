@@ -12,12 +12,8 @@ class EmployeePolicy extends BasePolicy
      */
     public function viewAny(User $user): bool
     {
-        // Only admins can view employees list
-        if (!$this->isAdmin($user)) {
-            $this->logUnauthorizedAccess($user, 'viewAny', Employee::class);
-            return false;
-        }
-        return true;
+        // Admins and employees can view employees list
+        return in_array($user->type, ['super_admin', 'admin', 'employee']);
     }
 
     /**

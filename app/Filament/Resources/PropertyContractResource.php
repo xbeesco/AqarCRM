@@ -238,19 +238,19 @@ class PropertyContractResource extends Resource
                     ->icon('heroicon-m-calendar-days')
                     ->color('warning')
                     ->url(fn(PropertyContract $record): string => PropertyContractResource::getUrl('reschedule', ['record' => $record]))
-                    ->visible(fn(PropertyContract $record) => $record->canBeRescheduled() && auth()->user()->isSuperAdmin()),
+                    ->visible(fn(PropertyContract $record) => $record->canBeRescheduled() && in_array(auth()->user()?->type, ['super_admin', 'admin', 'employee'])),
 
                 Action::make('renewContract')
                     ->label('تجديد العقد')
                     ->icon('heroicon-o-arrow-path')
                     ->color('primary')
                     ->url(fn(PropertyContract $record): string => PropertyContractResource::getUrl('renew', ['record' => $record]))
-                    ->visible(fn(PropertyContract $record) => $record->canBeRescheduled() && auth()->user()->isSuperAdmin()),
+                    ->visible(fn(PropertyContract $record) => $record->canBeRescheduled() && in_array(auth()->user()?->type, ['super_admin', 'admin', 'employee'])),
 
                 // EditAction::make()
                 //     ->label('تعديل')
                 //     ->icon('heroicon-o-pencil-square')
-                //     ->visible(fn() => auth()->user()?->type === 'super_admin'),
+                //     ->visible(fn() => in_array(auth()->user()?->type, ['super_admin', 'admin', 'employee'])),
             ])
             ->defaultSort('created_at', 'desc');
     }
@@ -301,7 +301,7 @@ class PropertyContractResource extends Resource
     {
         $user = auth()->user();
 
-        return $user && in_array($user->type, ['super_admin', 'admin']);
+        return $user && in_array($user->type, ['super_admin', 'admin', 'employee']);
     }
 
     /**

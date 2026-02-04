@@ -305,7 +305,7 @@ class UnitContractResource extends Resource
                     ->visible(fn($record) => $record && $record->canReschedule()),
                 EditAction::make()
                     ->label('تعديل')
-                    ->icon('heroicon-o-pencil-square')->visible(fn() => auth()->user()?->type === 'super_admin'),
+                    ->icon('heroicon-o-pencil-square')->visible(fn() => in_array(auth()->user()?->type, ['super_admin', 'admin', 'employee'])),
             ])
             ->defaultSort('created_at', 'desc');
     }

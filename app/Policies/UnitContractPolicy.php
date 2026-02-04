@@ -33,7 +33,7 @@ class UnitContractPolicy extends BasePolicy
     {
         // Everyone except tenants can view contracts list
         // Tenants can only see their own
-        return match($user->type) {
+        return match ($user->type) {
             'super_admin', 'admin', 'employee', 'owner' => true,
             'tenant' => true, // Will be filtered in query
             default => false,
@@ -45,7 +45,7 @@ class UnitContractPolicy extends BasePolicy
      */
     public function view(User $user, UnitContract $contract): bool
     {
-        return match($user->type) {
+        return match ($user->type) {
             'super_admin', 'admin', 'employee' => true,
             'owner' => $contract->property?->owner_id === $user->id,
             'tenant' => $contract->tenant_id === $user->id,
@@ -103,7 +103,7 @@ class UnitContractPolicy extends BasePolicy
     {
         // Log the attempt
         $this->logUnauthorizedAccess($user, 'force_delete_unit_contract', $contract);
-        
+
         return false;
     }
 
@@ -113,7 +113,7 @@ class UnitContractPolicy extends BasePolicy
      */
     public function terminate(User $user, UnitContract $contract): bool
     {
-        return $this->isAdmin($user) && $contract->contract_status === 'active';
+        return in_array($user->type, ['super_admin', 'admin', 'employee']) && $contract->contract_status === 'active';
     }
 
     /**
@@ -122,7 +122,7 @@ class UnitContractPolicy extends BasePolicy
      */
     public function approve(User $user, UnitContract $contract): bool
     {
-        return $this->isAdmin($user) && $contract->contract_status === 'draft';
+        return in_array($user->type, ['super_admin', 'admin', 'employee']) && $contract->contract_status === 'draft';
     }
 
     /**
