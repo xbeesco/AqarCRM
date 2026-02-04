@@ -3,26 +3,24 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\OwnerResource\Pages;
+use App\Models\CollectionPayment;
 use App\Models\Owner;
-use Filament\Resources\Resource;
-use Filament\Schemas\Schema;
-use Filament\Tables\Table;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\FileUpload;
-use Filament\Schemas\Components\Section;
-use Filament\Tables\Columns\TextColumn;
+use App\Models\SupplyPayment;
+use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Actions\Action;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\TextInput;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Hash;
-use Filament\GlobalSearch\GlobalSearchResult;
 use Illuminate\Support\Collection;
-use App\Models\CollectionPayment;
-use App\Models\SupplyPayment;
-use App\Models\Property;
-use Carbon\Carbon;
-use App\Enums\PaymentStatus;
+
 class OwnerResource extends Resource
 {
     protected static ?string $model = Owner::class;
@@ -39,13 +37,15 @@ class OwnerResource extends Resource
     public static function canViewAny(): bool
     {
         $userType = auth()->user()?->type;
+
         // الكل يمكنه رؤية الملاك ماعدا owner و tenant
-        return !in_array($userType, ['owner', 'tenant']);
+        return ! in_array($userType, ['owner', 'tenant']);
     }
 
     public static function canCreate(): bool
     {
         $userType = auth()->user()?->type;
+
         // super_admin و admin و employee يمكنهم إضافة ملاك
         return in_array($userType, ['super_admin', 'admin', 'employee']);
     }
@@ -53,6 +53,7 @@ class OwnerResource extends Resource
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
         $userType = auth()->user()?->type;
+
         // super_admin و admin و employee يمكنهم تعديل الملاك
         return in_array($userType, ['super_admin', 'admin', 'employee']);
     }
@@ -150,7 +151,86 @@ class OwnerResource extends Resource
                     ->label('تعديل')
                     ->icon('heroicon-o-pencil-square'),
             ])
-            ->toolbarActions([])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    BulkAction::make('view_properties')
+                        ->label('العقارات')
+                        ->icon('heroicon-o-building-office-2')
+                        ->color('info')
+                        ->action(function (Collection $records) {
+                            $ownerId = $records->first()->id;
+
+                            return redirect(PropertyResource::getUrl('index').'?owner_id='.$ownerId);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
+                    BulkAction::make('view_units')
+                        ->label('الوحدات')
+                        ->icon('heroicon-o-building-office')
+                        ->color('primary')
+                        ->action(function (Collection $records) {
+                            $ownerId = $records->first()->id;
+
+                            return redirect(UnitResource::getUrl('index').'?owner_id='.$ownerId);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
+                    BulkAction::make('view_property_contracts')
+                        ->label('عقود العقارات')
+                        ->icon('heroicon-o-document-text')
+                        ->color('warning')
+                        ->action(function (Collection $records) {
+                            $ownerId = $records->first()->id;
+
+                            return redirect(PropertyContractResource::getUrl('index').'?owner_id='.$ownerId);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
+                    BulkAction::make('view_unit_contracts')
+                        ->label('عقود الوحدات')
+                        ->icon('heroicon-o-clipboard-document-list')
+                        ->color('success')
+                        ->action(function (Collection $records) {
+                            $ownerId = $records->first()->id;
+
+                            return redirect(UnitContractResource::getUrl('index').'?owner_id='.$ownerId);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
+                    BulkAction::make('view_supply_payments')
+                        ->label('دفعات المالك')
+                        ->icon('heroicon-o-banknotes')
+                        ->color('danger')
+                        ->action(function (Collection $records) {
+                            $ownerId = $records->first()->id;
+
+                            return redirect(SupplyPaymentResource::getUrl('index').'?owner_id='.$ownerId);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
+                    BulkAction::make('view_collection_payments')
+                        ->label('دفعات المستأجرين')
+                        ->icon('heroicon-o-credit-card')
+                        ->color('gray')
+                        ->action(function (Collection $records) {
+                            $ownerId = $records->first()->id;
+
+                            return redirect(CollectionPaymentResource::getUrl('index').'?owner_id='.$ownerId);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
+                    BulkAction::make('view_expenses')
+                        ->label('النفقات')
+                        ->icon('heroicon-o-currency-dollar')
+                        ->color('pink')
+                        ->action(function (Collection $records) {
+                            $ownerId = $records->first()->id;
+
+                            return redirect(ExpenseResource::getUrl('index').'?owner_id='.$ownerId);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                ])->label('عرض البيانات'),
+            ])
             ->defaultSort('created_at', 'desc');
     }
 
@@ -286,7 +366,7 @@ class OwnerResource extends Resource
                     };
 
                     $details = array_merge([
-                        "مدفوعات {$statusLabel}" => $count . ' دفعة'
+                        "مدفوعات {$statusLabel}" => $count.' دفعة',
                     ], $details);
                 }
 
@@ -437,5 +517,4 @@ class OwnerResource extends Resource
             'performance_level' => $transferRate >= 80 ? 'excellent' : ($transferRate >= 50 ? 'good' : 'needs_attention'),
         ];
     }
-
 }

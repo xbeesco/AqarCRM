@@ -3,37 +3,31 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\PropertyResource\Pages;
-use App\Models\Property;
-use App\Models\PropertyType;
-use App\Models\PropertyStatus;
-use App\Models\PropertyFeature;
-use Filament\Forms;
-use Filament\Schemas\Schema;
-use Filament\Resources\Resource;
-use Filament\Tables;
-use Filament\Tables\Columns\Column;
-use Filament\Tables\Table;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Grid;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\CheckboxList;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Toggle;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
-use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\Action;
-use Filament\GlobalSearch\GlobalSearchResult;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 use App\Models\CollectionPayment;
+use App\Models\Property;
 use App\Models\PropertyRepair;
+use App\Models\PropertyStatus;
+use App\Models\PropertyType;
 use App\Models\UnitContract;
 use Carbon\Carbon;
+use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
+use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\GlobalSearch\GlobalSearchResult;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 class PropertyResource extends Resource
 {
@@ -165,12 +159,24 @@ class PropertyResource extends Resource
                     ->default(0)
                     ->alignCenter(),
 
+                TextColumn::make('occupancy_rate')
+                    ->label('نسبة الإشغال')
+                    ->suffix('%')
+                    ->badge()
+                    ->color(fn ($state) => match (true) {
+                        $state >= 80 => 'success',
+                        $state >= 50 => 'warning',
+                        default => 'danger',
+                    })
+                    ->tooltip(fn ($record) => "مشغول: {$record->occupied_units_count} | شاغر: {$record->vacant_units_count}")
+                    ->alignCenter(),
+
                 TextColumn::make('location.name')
                     ->label('الموقع')
                     ->searchable()
                     ->sortable()
                     ->getStateUsing(function ($record) {
-                        if (!$record->location) {
+                        if (! $record->location) {
                             return '-';
                         }
 
@@ -187,7 +193,28 @@ class PropertyResource extends Resource
                     }),
             ])
             ->searchable()
-            ->filters([])
+            ->filters([
+                SelectFilter::make('owner_id')
+                    ->label('المالك')
+                    ->relationship('owner', 'name')
+                    ->searchable()
+                    ->preload(),
+                SelectFilter::make('status_id')
+                    ->label('حالة العقار')
+                    ->relationship('propertyStatus', 'name_ar')
+                    ->searchable()
+                    ->preload(),
+                SelectFilter::make('type_id')
+                    ->label('نوع العقار')
+                    ->relationship('propertyType', 'name_ar')
+                    ->searchable()
+                    ->preload(),
+                SelectFilter::make('location_id')
+                    ->label('الموقع')
+                    ->relationship('location', 'name')
+                    ->searchable()
+                    ->preload(),
+            ])
             ->recordActions([
                 ViewAction::make()
                     ->label('تقرير')
@@ -195,6 +222,71 @@ class PropertyResource extends Resource
                 EditAction::make()
                     ->label('تعديل')
                     ->icon('heroicon-o-pencil-square'),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    BulkAction::make('view_units')
+                        ->label('الوحدات')
+                        ->icon('heroicon-o-building-office')
+                        ->color('info')
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $propertyId = $records->first()->id;
+
+                            return redirect(UnitResource::getUrl('index').'?property_id='.$propertyId);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('view_property_contracts')
+                        ->label('عقود العقار')
+                        ->icon('heroicon-o-document-text')
+                        ->color('warning')
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $propertyId = $records->first()->id;
+
+                            return redirect(PropertyContractResource::getUrl('index').'?property_id='.$propertyId);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('view_unit_contracts')
+                        ->label('عقود الوحدات')
+                        ->icon('heroicon-o-clipboard-document-list')
+                        ->color('success')
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $propertyId = $records->first()->id;
+
+                            return redirect(UnitContractResource::getUrl('index').'?property_id='.$propertyId);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('view_supply_payments')
+                        ->label('دفعات المالك')
+                        ->icon('heroicon-o-banknotes')
+                        ->color('danger')
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $propertyId = $records->first()->id;
+
+                            return redirect(SupplyPaymentResource::getUrl('index').'?property_id='.$propertyId);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('view_collection_payments')
+                        ->label('دفعات المستأجرين')
+                        ->icon('heroicon-o-credit-card')
+                        ->color('primary')
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $propertyId = $records->first()->id;
+
+                            return redirect(CollectionPaymentResource::getUrl('index').'?property_id='.$propertyId);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
+                    BulkAction::make('view_expenses')
+                        ->label('النفقات')
+                        ->icon('heroicon-o-banknotes')
+                        ->color('danger')
+                        ->action(function (\Illuminate\Support\Collection $records) {
+                            $propertyId = $records->first()->id;
+
+                            return redirect(ExpenseResource::getUrl('index').'?property_id='.$propertyId);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                ])->label('الإجراءات'),
             ])
             ->paginated([25, 50, 100, 'all'])
             ->defaultPaginationPageOption(25);
@@ -241,7 +333,7 @@ class PropertyResource extends Resource
             'propertyStatus.name_ar',
             'propertyStatus.name_en',
             'created_at',
-            'updated_at'
+            'updated_at',
         ];
     }
 

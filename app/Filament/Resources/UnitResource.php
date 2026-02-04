@@ -3,36 +3,30 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\UnitResource\Pages;
+use App\Models\CollectionPayment;
+use App\Models\Owner;
+use App\Models\PropertyRepair;
+use App\Models\Tenant;
 use App\Models\Unit;
-use App\Models\Property;
-use App\Models\UnitType;
-use App\Models\UnitCategory;
-use Filament\Forms;
-use Filament\Forms\Form;
-use Filament\Resources\Resource;
-use Filament\Tables;
-use Filament\Tables\Table;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Grid;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Toggle;
-use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\CheckboxList;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
+use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\Action;
+use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use App\Models\CollectionPayment;
-use App\Models\PropertyRepair;
-use Carbon\Carbon;
 
 class UnitResource extends Resource
 {
@@ -125,7 +119,6 @@ class UnitResource extends Resource
                             ->maxValue(10)
                             ->nullable(),
 
-
                         Select::make('has_laundry_room')
                             ->label('غرفة غسيل')
                             ->options([
@@ -192,7 +185,7 @@ class UnitResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->tooltip(function ($record) {
-                        if (!$record->property || !$record->property->location) {
+                        if (! $record->property || ! $record->property->location) {
                             return null;
                         }
 
@@ -205,20 +198,20 @@ class UnitResource extends Resource
                             $current = $current->parent;
                         }
 
-                        return 'الموقع: ' . implode(' > ', $path);
+                        return 'الموقع: '.implode(' > ', $path);
                     }),
 
                 TextColumn::make('occupancy_status')
                     ->label('حالة الإشغال')
                     ->badge()
-                    ->color(fn($state) => $state->color())
-                    ->formatStateUsing(fn($state) => $state->label())
+                    ->color(fn ($state) => $state->color())
+                    ->formatStateUsing(fn ($state) => $state->label())
                     ->sortable(query: function (Builder $query, string $direction) {
                         return $query->leftJoin('unit_contracts', function ($join) {
                             $join->on('units.id', '=', 'unit_contracts.unit_id')
                                 ->where('unit_contracts.contract_status', '=', 'active');
                         })
-                            ->orderByRaw('CASE WHEN unit_contracts.id IS NOT NULL THEN 1 ELSE 0 END ' . $direction);
+                            ->orderByRaw('CASE WHEN unit_contracts.id IS NOT NULL THEN 1 ELSE 0 END '.$direction);
                     }),
 
                 TextColumn::make('unitType.name_ar')
@@ -255,7 +248,7 @@ class UnitResource extends Resource
 
                 TextColumn::make('rent_price')
                     ->label('الإيجار الشهري')
-                    ->formatStateUsing(fn($state) => $state ? number_format($state) . ' ريال' : '-')
+                    ->formatStateUsing(fn ($state) => $state ? number_format($state).' ريال' : '-')
                     ->searchable(query: function ($query, $search) {
                         // البحث بالإيجار الشهري أو السنوي
                         $monthlyRent = str_replace(',', '', $search);
@@ -263,14 +256,53 @@ class UnitResource extends Resource
                         $yearlyRent = $monthlyRent / 12;
 
                         return $query
-                            ->orWhere('rent_price', 'like', '%' . $search . '%')
+                            ->orWhere('rent_price', 'like', '%'.$search.'%')
                             ->orWhere('rent_price', $monthlyRent)
                             ->orWhere('rent_price', $yearlyRent);
                     })
                     ->sortable()
                     ->alignEnd(),
             ])
-            ->filters([])
+            ->filters([
+                SelectFilter::make('property')
+                    ->label('العقار')
+                    ->relationship('property', 'name')
+                    ->multiple()
+                    ->searchable()
+                    ->preload(),
+
+                Filter::make('owner')
+                    ->label('المالك')
+                    ->form([
+                        Select::make('owner_id')
+                            ->label('المالك')
+                            ->options(Owner::pluck('name', 'id'))
+                            ->searchable()
+                            ->preload(),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['owner_id'] ?? null,
+                            fn (Builder $query, $value) => $query->whereHas('property', fn ($q) => $q->where('owner_id', $value))
+                        );
+                    }),
+
+                Filter::make('tenant')
+                    ->label('المستأجر')
+                    ->form([
+                        Select::make('tenant_id')
+                            ->label('المستأجر')
+                            ->options(Tenant::pluck('name', 'id'))
+                            ->searchable()
+                            ->preload(),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['tenant_id'] ?? null,
+                            fn (Builder $query, $value) => $query->whereHas('activeContract', fn ($q) => $q->where('tenant_id', $value))
+                        );
+                    }),
+            ])
             ->recordActions([
                 ViewAction::make()
                     ->label('تقرير')
@@ -279,7 +311,42 @@ class UnitResource extends Resource
                     ->label('تعديل')
                     ->icon('heroicon-o-pencil-square'),
             ])
-            ->toolbarActions([])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    BulkAction::make('view_unit_contracts')
+                        ->label('عقود الوحدة')
+                        ->icon('heroicon-o-document-text')
+                        ->color('warning')
+                        ->action(function (Collection $records) {
+                            $unitId = $records->first()->id;
+
+                            return redirect(UnitContractResource::getUrl('index').'?unit_id='.$unitId);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
+                    BulkAction::make('view_collection_payments')
+                        ->label('دفعات المستأجرين')
+                        ->icon('heroicon-o-credit-card')
+                        ->color('success')
+                        ->action(function (Collection $records) {
+                            $unit = $records->first();
+
+                            return redirect(CollectionPaymentResource::getUrl('index').'?property_id='.$unit->property_id.'&unit_id='.$unit->id);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
+                    BulkAction::make('view_expenses')
+                        ->label('النفقات')
+                        ->icon('heroicon-o-banknotes')
+                        ->color('danger')
+                        ->action(function (Collection $records) {
+                            $unit = $records->first();
+
+                            return redirect(ExpenseResource::getUrl('index').'?property_id='.$unit->property_id.'&unit_id='.$unit->id);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                ])->label('عرض البيانات'),
+            ])
             ->paginated([25, 50, 100, 'all'])
             ->defaultPaginationPageOption(25);
     }

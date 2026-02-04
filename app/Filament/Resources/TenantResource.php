@@ -3,29 +3,22 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\TenantResource\Pages;
+use App\Models\CollectionPayment;
 use App\Models\Tenant;
-use Filament\Resources\Resource;
-use Filament\Schemas\Schema;
-use Filament\Tables\Table;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\FileUpload;
-use Filament\Schemas\Components\Section;
-use Filament\Tables\Columns\TextColumn;
+use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Actions\Action;
-use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\Filter;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\TextInput;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Enums\FiltersLayout;
-use Filament\Forms\Components\TextInput as FilterTextInput;
-use Filament\Forms\Components\Select;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Hash;
-use Filament\GlobalSearch\GlobalSearchResult;
 use Illuminate\Support\Collection;
-use App\Models\CollectionPayment;
-use App\Models\UnitContract;
-use Carbon\Carbon;
 
 class TenantResource extends Resource
 {
@@ -43,13 +36,15 @@ class TenantResource extends Resource
     public static function canViewAny(): bool
     {
         $userType = auth()->user()?->type;
+
         // الكل يمكنه رؤية المستأجرين ماعدا owner و tenant
-        return !in_array($userType, ['owner', 'tenant']);
+        return ! in_array($userType, ['owner', 'tenant']);
     }
 
     public static function canCreate(): bool
     {
         $userType = auth()->user()?->type;
+
         // super_admin و admin و employee يمكنهم إضافة مستأجرين
         return in_array($userType, ['super_admin', 'admin', 'employee']);
     }
@@ -57,6 +52,7 @@ class TenantResource extends Resource
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
         $userType = auth()->user()?->type;
+
         // super_admin و admin و employee يمكنهم تعديل المستأجرين
         return in_array($userType, ['super_admin', 'admin', 'employee']);
     }
@@ -148,10 +144,44 @@ class TenantResource extends Resource
                     ->label('تعديل')
                     ->icon('heroicon-o-pencil-square'),
             ])
-            ->toolbarActions([])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    BulkAction::make('view_units')
+                        ->label('الوحدات')
+                        ->icon('heroicon-o-building-office')
+                        ->color('info')
+                        ->action(function (Collection $records) {
+                            $tenantId = $records->first()->id;
+
+                            return redirect(UnitResource::getUrl('index').'?tenant_id='.$tenantId);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
+                    BulkAction::make('view_unit_contracts')
+                        ->label('عقود الوحدات')
+                        ->icon('heroicon-o-document-text')
+                        ->color('warning')
+                        ->action(function (Collection $records) {
+                            $tenantId = $records->first()->id;
+
+                            return redirect(UnitContractResource::getUrl('index').'?tenant_id='.$tenantId);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
+                    BulkAction::make('view_collection_payments')
+                        ->label('دفعات المستأجر')
+                        ->icon('heroicon-o-credit-card')
+                        ->color('success')
+                        ->action(function (Collection $records) {
+                            $tenantId = $records->first()->id;
+
+                            return redirect(CollectionPaymentResource::getUrl('index').'?tenant_id='.$tenantId);
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                ])->label('عرض البيانات'),
+            ])
             ->defaultSort('created_at', 'desc');
     }
-
 
     public static function getEloquentQuery(): Builder
     {
@@ -242,10 +272,10 @@ class TenantResource extends Resource
     public static function getTenantStatistics($tenant): array
     {
         // التأكد من أننا نعمل مع Tenant وليس User
-        if (!($tenant instanceof \App\Models\Tenant)) {
+        if (! ($tenant instanceof \App\Models\Tenant)) {
             // إذا كان User، نحوله إلى Tenant
             $tenant = \App\Models\Tenant::find($tenant->id);
-            if (!$tenant) {
+            if (! $tenant) {
                 return [];
             }
         }
@@ -397,9 +427,9 @@ class TenantResource extends Resource
     public static function getRecentPayments($tenant, $limit = 5): \Illuminate\Database\Eloquent\Collection
     {
         // التأكد من أننا نعمل مع Tenant وليس User
-        if (!($tenant instanceof \App\Models\Tenant)) {
+        if (! ($tenant instanceof \App\Models\Tenant)) {
             $tenant = \App\Models\Tenant::find($tenant->id);
-            if (!$tenant) {
+            if (! $tenant) {
                 return collect();
             }
         }
@@ -410,5 +440,4 @@ class TenantResource extends Resource
             ->limit($limit)
             ->get();
     }
-
 }
