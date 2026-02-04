@@ -10,7 +10,6 @@ use Filament\GlobalSearch\GlobalSearchResult;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -119,8 +118,8 @@ class SupplyPaymentResource extends Resource
                     })
                     ->getStateUsing(function ($record) {
                         return $record->owner?->name ??
-                               $record->propertyContract?->property?->owner?->name ??
-                               'غير محدد';
+                            $record->propertyContract?->property?->owner?->name ??
+                            'غير محدد';
                     }),
 
                 TextColumn::make('propertyContract.property.name')
@@ -201,10 +200,11 @@ class SupplyPaymentResource extends Resource
                                 return [$property->id => $property->name.' - '.($property->owner?->name ?? 'بدون مالك')];
                             });
                     })
+                    ->multiple()
                     ->query(function ($query, $data) {
-                        if ($data['value']) {
+                        if (! empty($data['values'])) {
                             return $query->whereHas('propertyContract.property', function ($q) use ($data) {
-                                $q->where('id', $data['value']);
+                                $q->whereIn('id', $data['values']);
                             });
                         }
 

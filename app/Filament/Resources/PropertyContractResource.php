@@ -45,7 +45,7 @@ class PropertyContractResource extends Resource
                             ->searchable()
                             ->relationship('property', 'name')
                             ->options(Property::with('owner')->get()->pluck('name', 'id'))
-                            ->getOptionLabelFromRecordUsing(fn($record) => $record->name . ' - ' . $record->owner?->name)
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->name.' - '.$record->owner?->name)
                             ->columnSpan(6),
 
                         TextInput::make('commission_rate')
@@ -65,9 +65,9 @@ class PropertyContractResource extends Resource
                             ->rules([
                                 'required',
                                 'date',
-                                fn($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
+                                fn ($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
                                     $propertyId = $get('property_id');
-                                    if (!$propertyId || !$value) {
+                                    if (! $propertyId || ! $value) {
                                         return;
                                     }
 
@@ -133,7 +133,7 @@ class PropertyContractResource extends Resource
 
                 TextColumn::make('payment_frequency')
                     ->label('نوع التوريد')
-                    ->formatStateUsing(fn($state) => match ($state) {
+                    ->formatStateUsing(fn ($state) => match ($state) {
                         'monthly' => 'شهري',
                         'quarterly' => 'ربع سنوي',
                         'semi_annually' => 'نصف سنوي',
@@ -141,7 +141,7 @@ class PropertyContractResource extends Resource
                         default => $state
                     })
                     ->badge()
-                    ->color(fn($state) => match ($state) {
+                    ->color(fn ($state) => match ($state) {
                         'monthly' => 'success',
                         'quarterly' => 'info',
                         'semi_annually' => 'warning',
@@ -154,10 +154,17 @@ class PropertyContractResource extends Resource
                     ->suffix('%'),
             ])
             ->filters([
-                SelectFilter::make('property_id')
+                SelectFilter::make('property')
                     ->label('العقار')
                     ->relationship('property', 'name')
-                    ->searchable(),
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->query(function (Builder $query, array $data) {
+                        if (! empty($data['values'])) {
+                            $query->whereIn('property_id', $data['values']);
+                        }
+                    }),
 
                 Filter::make('owner')
                     ->label('المالك')
@@ -173,7 +180,7 @@ class PropertyContractResource extends Resource
                     ->query(function (Builder $query, array $data): Builder {
                         return $query->when(
                             $data['owner_id'],
-                            fn(Builder $query, $value): Builder => $query->whereHas('property', function ($q) use ($value) {
+                            fn (Builder $query, $value): Builder => $query->whereHas('property', function ($q) use ($value) {
                                 $q->where('owner_id', $value);
                             })
                         );
@@ -203,7 +210,7 @@ class PropertyContractResource extends Resource
                         );
                     })
                     ->modalSubmitActionLabel('توليد')
-                    ->visible(fn($record) => $record->canGeneratePayments())
+                    ->visible(fn ($record) => $record->canGeneratePayments())
                     ->action(function ($record) {
                         $service = app(\App\Services\PaymentGeneratorService::class);
 
@@ -228,24 +235,24 @@ class PropertyContractResource extends Resource
                     ->label('عرض الدفعات')
                     ->icon('heroicon-o-eye')
                     ->color('info')
-                    ->url(fn($record) => route('filament.admin.resources.supply-payments.index', [
+                    ->url(fn ($record) => route('filament.admin.resources.supply-payments.index', [
                         'property_contract_id' => $record->id,
                     ]))
-                    ->visible(fn($record) => $record->supplyPayments()->exists()),
+                    ->visible(fn ($record) => $record->supplyPayments()->exists()),
 
                 Action::make('reschedule')
                     ->label('إعادة جدولة')
                     ->icon('heroicon-m-calendar-days')
                     ->color('warning')
-                    ->url(fn(PropertyContract $record): string => PropertyContractResource::getUrl('reschedule', ['record' => $record]))
-                    ->visible(fn(PropertyContract $record) => $record->canBeRescheduled() && in_array(auth()->user()?->type, ['super_admin', 'admin', 'employee'])),
+                    ->url(fn (PropertyContract $record): string => PropertyContractResource::getUrl('reschedule', ['record' => $record]))
+                    ->visible(fn (PropertyContract $record) => $record->canBeRescheduled() && in_array(auth()->user()?->type, ['super_admin', 'admin', 'employee'])),
 
                 Action::make('renewContract')
                     ->label('تجديد العقد')
                     ->icon('heroicon-o-arrow-path')
                     ->color('primary')
-                    ->url(fn(PropertyContract $record): string => PropertyContractResource::getUrl('renew', ['record' => $record]))
-                    ->visible(fn(PropertyContract $record) => $record->canBeRescheduled() && in_array(auth()->user()?->type, ['super_admin', 'admin', 'employee'])),
+                    ->url(fn (PropertyContract $record): string => PropertyContractResource::getUrl('renew', ['record' => $record]))
+                    ->visible(fn (PropertyContract $record) => $record->canBeRescheduled() && in_array(auth()->user()?->type, ['super_admin', 'admin', 'employee'])),
 
                 // EditAction::make()
                 //     ->label('تعديل')

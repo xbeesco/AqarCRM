@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\UnitContractResource\Pages;
+use App\Models\Owner;
 use App\Models\Property;
 use App\Models\Unit;
 use App\Models\UnitContract;
@@ -20,8 +21,10 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class UnitContractResource extends Resource
 {
@@ -71,7 +74,7 @@ class UnitContractResource extends Resource
                             ->options(function (callable $get) {
                                 $propertyId = $get('property_id');
 
-                                if (!$propertyId) {
+                                if (! $propertyId) {
                                     return [];
                                 }
 
@@ -80,7 +83,7 @@ class UnitContractResource extends Resource
                                     ->pluck('name', 'id');
                             })
                             ->searchable(false) // Disable search to show all options immediately
-                            ->disabled(fn(callable $get): bool => !$get('property_id'))
+                            ->disabled(fn (callable $get): bool => ! $get('property_id'))
                             ->live()
                             ->afterStateUpdated(function (callable $set, $state) {
                                 if ($state) {
@@ -116,9 +119,9 @@ class UnitContractResource extends Resource
                             ->rules([
                                 'required',
                                 'date',
-                                fn($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
+                                fn ($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
                                     $unitId = $get('unit_id');
-                                    if (!$unitId || !$value) {
+                                    if (! $unitId || ! $value) {
                                         return;
                                     }
 
@@ -187,7 +190,7 @@ class UnitContractResource extends Resource
 
                 TextColumn::make('payment_frequency')
                     ->label('نوع التحصيل')
-                    ->formatStateUsing(fn($state) => match ($state) {
+                    ->formatStateUsing(fn ($state) => match ($state) {
                         'monthly' => 'شهري',
                         'quarterly' => 'ربع سنوي',
                         'semi_annually' => 'نصف سنوي',
@@ -195,7 +198,7 @@ class UnitContractResource extends Resource
                         default => $state
                     })
                     ->badge()
-                    ->color(fn($state) => match ($state) {
+                    ->color(fn ($state) => match ($state) {
                         'monthly' => 'success',
                         'quarterly' => 'info',
                         'semi_annually' => 'warning',
@@ -208,10 +211,33 @@ class UnitContractResource extends Resource
                     ->money('SAR', 1, null, 0),
             ])
             ->filters([
-                SelectFilter::make('property_id')
+                SelectFilter::make('property')
                     ->label('العقار')
                     ->relationship('property', 'name')
-                    ->searchable(),
+                    ->multiple()
+                    ->searchable()
+                    ->preload()
+                    ->query(function (Builder $query, array $data) {
+                        if (! empty($data['values'])) {
+                            $query->whereIn('property_id', $data['values']);
+                        }
+                    }),
+
+                Filter::make('owner')
+                    ->label('المالك')
+                    ->form([
+                        Select::make('owner_id')
+                            ->label('المالك')
+                            ->options(Owner::pluck('name', 'id'))
+                            ->searchable()
+                            ->preload(),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['owner_id'] ?? null,
+                            fn (Builder $query, $value) => $query->whereHas('property', fn ($q) => $q->where('owner_id', $value))
+                        );
+                    }),
 
                 SelectFilter::make('unit_id')
                     ->label('الوحدة')
@@ -238,10 +264,10 @@ class UnitContractResource extends Resource
                     ->label('عرض الدفعات')
                     ->icon('heroicon-o-eye')
                     ->color('info')
-                    ->url(fn($record) => $record ? route('filament.admin.resources.collection-payments.index', [
+                    ->url(fn ($record) => $record ? route('filament.admin.resources.collection-payments.index', [
                         'unit_contract_id' => $record->id,
                     ]) : '#')
-                    ->visible(fn($record) => $record && $record->payments()->exists()),
+                    ->visible(fn ($record) => $record && $record->payments()->exists()),
                 Action::make('generatePayments')
                     ->label('توليد الدفعات')
                     ->icon('heroicon-o-calculator')
@@ -249,7 +275,7 @@ class UnitContractResource extends Resource
                     ->requiresConfirmation()
                     ->modalHeading('توليد دفعات التحصيل')
                     ->modalDescription(function ($record) {
-                        if (!$record) {
+                        if (! $record) {
                             return '';
                         }
 
@@ -271,7 +297,7 @@ class UnitContractResource extends Resource
                         );
                     })
                     ->modalSubmitActionLabel('توليد')
-                    ->visible(fn($record) => $record && $record->canGeneratePayments())
+                    ->visible(fn ($record) => $record && $record->canGeneratePayments())
                     ->action(function ($record) {
                         try {
                             $paymentService = app(\App\Services\PaymentGeneratorService::class);
@@ -295,17 +321,17 @@ class UnitContractResource extends Resource
                     ->label('جدولة الدفعات')
                     ->icon('heroicon-o-calendar')
                     ->color('warning')
-                    ->url(fn($record) => $record ? route('filament.admin.resources.unit-contracts.reschedule', $record) : '#')
-                    ->visible(fn($record) => $record && $record->canReschedule()),
+                    ->url(fn ($record) => $record ? route('filament.admin.resources.unit-contracts.reschedule', $record) : '#')
+                    ->visible(fn ($record) => $record && $record->canReschedule()),
                 Action::make('renewContract')
                     ->label('تجديد العقد')
                     ->icon('heroicon-o-arrow-path')
                     ->color('primary')
-                    ->url(fn($record) => $record ? route('filament.admin.resources.unit-contracts.renew', $record) : '#')
-                    ->visible(fn($record) => $record && $record->canReschedule()),
+                    ->url(fn ($record) => $record ? route('filament.admin.resources.unit-contracts.renew', $record) : '#')
+                    ->visible(fn ($record) => $record && $record->canReschedule()),
                 EditAction::make()
                     ->label('تعديل')
-                    ->icon('heroicon-o-pencil-square')->visible(fn() => in_array(auth()->user()?->type, ['super_admin', 'admin', 'employee'])),
+                    ->icon('heroicon-o-pencil-square')->visible(fn () => in_array(auth()->user()?->type, ['super_admin', 'admin', 'employee'])),
             ])
             ->defaultSort('created_at', 'desc');
     }

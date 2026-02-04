@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Enums\PaymentStatus;
 use App\Filament\Resources\CollectionPaymentResource\Pages;
 use App\Models\CollectionPayment;
+use App\Models\Owner;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -19,6 +20,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class CollectionPaymentResource extends Resource
 {
@@ -233,6 +235,22 @@ class CollectionPaymentResource extends Resource
                     ->relationship('tenant', 'name', fn ($query) => $query->where('type', 'tenant'))
                     ->searchable()
                     ->preload(),
+
+                Filter::make('owner')
+                    ->label('المالك')
+                    ->form([
+                        Select::make('owner_id')
+                            ->label('المالك')
+                            ->options(Owner::pluck('name', 'id'))
+                            ->searchable()
+                            ->preload(),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['owner_id'] ?? null,
+                            fn (Builder $query, $value) => $query->whereHas('property', fn ($q) => $q->where('owner_id', $value))
+                        );
+                    }),
 
                 SelectFilter::make('payment_status')
                     ->label('حالة الدفعة')
