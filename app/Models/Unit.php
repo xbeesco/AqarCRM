@@ -2,11 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Unit extends Model
 {
@@ -71,8 +71,8 @@ class Unit extends Model
     public function features(): BelongsToMany
     {
         return $this->belongsToMany(UnitFeature::class, 'unit_unit_feature')
-                    ->withPivot('value')
-                    ->withTimestamps();
+            ->withPivot('value')
+            ->withTimestamps();
     }
 
     /**
@@ -84,13 +84,15 @@ class Unit extends Model
     }
 
     /**
-     * Get the active contract for this unit
+     * Get the active contract for this unit (currently running today)
      */
     public function activeContract()
     {
         return $this->hasOne(UnitContract::class)
-                    ->where('contract_status', 'active')
-                    ->latest();
+            ->where('contract_status', 'active')
+            ->where('start_date', '<=', now())
+            ->where('end_date', '>=', now())
+            ->latest();
     }
 
     /**
@@ -100,7 +102,7 @@ class Unit extends Model
     {
         return $this->morphMany(Expense::class, 'subject');
     }
-    
+
     /**
      * حساب إجمالي النفقات للوحدة
      */
@@ -108,7 +110,7 @@ class Unit extends Model
     {
         return $this->expenses()->sum('cost');
     }
-    
+
     /**
      * حساب نفقات الشهر الحالي للوحدة
      */

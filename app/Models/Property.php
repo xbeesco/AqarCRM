@@ -12,69 +12,69 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 class Property extends Model
 {
     use HasFactory;
-    
+
     protected $fillable = [
-        'name', 
+        'name',
         'owner_id',
         'type_id',
         'status_id',
         'location_id',
-        'address', 
-        'postal_code', 
-        'parking_spots', 
+        'address',
+        'postal_code',
+        'parking_spots',
         'elevators',
-        'build_year', 
-        'floors_count', 
-        'notes'
+        'build_year',
+        'floors_count',
+        'notes',
     ];
-    
+
     protected $casts = [
         'build_year' => 'integer',
         'parking_spots' => 'integer',
         'elevators' => 'integer',
         'floors_count' => 'integer',
     ];
-    
+
     protected static function boot()
     {
         parent::boot();
     }
-    
+
     public function owner(): BelongsTo
     {
         return $this->belongsTo(Owner::class, 'owner_id');
     }
-    
+
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);
     }
-    
+
     public function propertyType(): BelongsTo
     {
         return $this->belongsTo(PropertyType::class, 'type_id');
     }
-    
+
     public function propertyStatus(): BelongsTo
     {
         return $this->belongsTo(PropertyStatus::class, 'status_id');
     }
-    
+
     public function units(): HasMany
     {
         return $this->hasMany(Unit::class);
     }
-    
+
     public function contracts(): HasMany
     {
         return $this->hasMany(PropertyContract::class);
     }
-    
+
     public function features(): BelongsToMany
     {
         return $this->belongsToMany(PropertyFeature::class, 'property_feature_property')
-                    ->withPivot('value')
-                    ->withTimestamps();
+            ->withPivot('value')
+            ->withTimestamps();
     }
 
     /**
@@ -84,7 +84,7 @@ class Property extends Model
     {
         return $this->morphMany(Expense::class, 'subject');
     }
-    
+
     /**
      * حساب إجمالي النفقات للعقار
      */
@@ -92,7 +92,7 @@ class Property extends Model
     {
         return $this->expenses()->sum('cost');
     }
-    
+
     /**
      * حساب نفقات الشهر الحالي للعقار
      */
@@ -100,10 +100,39 @@ class Property extends Model
     {
         return $this->expenses()->thisMonth()->sum('cost');
     }
-    
+
     public function getTotalUnitsAttribute(): int
     {
         return $this->units()->count();
     }
-    
+
+    /**
+     * حساب عدد الوحدات المشغولة (التي لها عقد نشط اليوم)
+     */
+    public function getOccupiedUnitsCountAttribute(): int
+    {
+        return $this->units()
+            ->whereHas('activeContract')
+            ->count();
+    }
+
+    /**
+     * حساب عدد الوحدات الشاغرة
+     */
+    public function getVacantUnitsCountAttribute(): int
+    {
+        return $this->total_units - $this->occupied_units_count;
+    }
+
+    /**
+     * حساب نسبة الإشغال
+     */
+    public function getOccupancyRateAttribute(): float
+    {
+        if ($this->total_units === 0) {
+            return 0;
+        }
+
+        return round(($this->occupied_units_count / $this->total_units) * 100);
+    }
 }
