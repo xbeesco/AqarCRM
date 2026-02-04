@@ -2,15 +2,42 @@
 
 namespace App\Filament\Resources\PropertyContractResource\Pages;
 
+use App\Exports\PropertyContractsExport;
 use App\Filament\Resources\PropertyContractResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
-use App\Exports\PropertyContractsExport;
+use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ListPropertyContracts extends ListRecords
 {
     protected static string $resource = PropertyContractResource::class;
+
+    protected ?int $propertyId = null;
+
+    protected ?int $ownerId = null;
+
+    public function mount(): void
+    {
+        parent::mount();
+
+        // Get filter parameters from URL
+        $this->propertyId = request()->integer('property_id') ?: null;
+        $this->ownerId = request()->integer('owner_id') ?: null;
+
+        if ($this->propertyId) {
+            $this->tableFilters['property']['values'] = [$this->propertyId];
+        }
+
+        if ($this->ownerId) {
+            $this->tableFilters['owner']['owner_id'] = $this->ownerId;
+        }
+    }
+
+    protected function getTableQuery(): Builder
+    {
+        return parent::getTableQuery();
+    }
 
     protected function getHeaderActions(): array
     {
@@ -22,8 +49,8 @@ class ListPropertyContracts extends ListRecords
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')
                 ->action(function () {
-                    $filename = 'عقود-الملاك-' . date('Y-m-d') . '.xlsx';
-                    
+                    $filename = 'عقود-الملاك-'.date('Y-m-d').'.xlsx';
+
                     return Excel::download(new PropertyContractsExport, $filename);
                 }),
         ];
