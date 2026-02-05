@@ -37,7 +37,6 @@ class CollectionPayment extends Model
         'unit_id',
         'property_id',
         'tenant_id',
-        'payment_method_id',
         'amount',
         'late_fee',
         'total_amount',
@@ -120,11 +119,6 @@ class CollectionPayment extends Model
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(User::class, 'tenant_id');
-    }
-
-    public function paymentMethod(): BelongsTo
-    {
-        return $this->belongsTo(PaymentMethod::class);
     }
 
     public function collectedBy(): BelongsTo

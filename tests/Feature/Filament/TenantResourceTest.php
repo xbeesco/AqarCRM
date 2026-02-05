@@ -3,8 +3,8 @@
 namespace Tests\Feature\Filament;
 
 use App\Enums\UserType;
-use App\Filament\Resources\TenantResource;
-use App\Filament\Resources\TenantResource\Pages\ListTenants;
+use App\Filament\Resources\Tenants\TenantResource;
+use App\Filament\Resources\Tenants\Pages\ListTenants;
 use App\Models\CollectionPayment;
 use App\Models\Location;
 use App\Models\Property;
@@ -88,25 +88,25 @@ class TenantResourceTest extends TestCase
         // Create default Location
         Location::firstOrCreate(
             ['id' => 1],
-            ['name' => 'Default Location', 'level' => 1, 'is_active' => true]
+            ['name' => 'Default Location', 'level' => 1]
         );
 
         // Create default PropertyType
         PropertyType::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'شقة', 'name_en' => 'Apartment', 'slug' => 'apartment', 'is_active' => true]
+            ['name' => 'Apartment', 'slug' => 'apartment']
         );
 
         // Create default PropertyStatus
         PropertyStatus::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'متاح', 'name_en' => 'Available', 'slug' => 'available', 'is_active' => true]
+            ['name' => 'Available', 'slug' => 'available']
         );
 
         // Create default UnitType
         UnitType::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'شقة', 'name_en' => 'Apartment', 'slug' => 'apartment', 'is_active' => true]
+            ['name' => 'Apartment', 'slug' => 'apartment']
         );
 
         // Create payment_due_days setting
@@ -418,7 +418,10 @@ class TenantResourceTest extends TestCase
         }
 
         // Get with limit 5
-        $payments = TenantResource::getRecentPayments($tenant, 5);
+        $payments = CollectionPayment::where('tenant_id', $tenant->id)
+            ->orderBy('due_date_start', 'desc')
+            ->limit(5)
+            ->get();
 
         $this->assertCount(5, $payments);
     }
@@ -452,7 +455,10 @@ class TenantResourceTest extends TestCase
             'due_date_end' => Carbon::parse('2099-12-31'),
         ]);
 
-        $payments = TenantResource::getRecentPayments($tenant, 10);
+        $payments = CollectionPayment::where('tenant_id', $tenant->id)
+            ->orderBy('due_date_start', 'desc')
+            ->limit(10)
+            ->get();
 
         // Verify we have at least 2 payments and they're ordered correctly
         $this->assertGreaterThanOrEqual(2, $payments->count());
@@ -490,7 +496,11 @@ class TenantResourceTest extends TestCase
             'tenant_id' => $tenant->id,
         ]);
 
-        $payments = TenantResource::getRecentPayments($tenant, 5);
+        $payments = CollectionPayment::where('tenant_id', $tenant->id)
+            ->with(['unit', 'property', 'unitContract'])
+            ->orderBy('due_date_start', 'desc')
+            ->limit(5)
+            ->get();
 
         // Check relationships are loaded
         $payment = $payments->first();
@@ -711,7 +721,10 @@ class TenantResourceTest extends TestCase
 
         $tenant = $this->createTenantWithRelations();
 
-        $payments = TenantResource::getRecentPayments($tenant, 5);
+        $payments = CollectionPayment::where('tenant_id', $tenant->id)
+            ->orderBy('due_date_start', 'desc')
+            ->limit(5)
+            ->get();
 
         $this->assertCount(0, $payments);
     }

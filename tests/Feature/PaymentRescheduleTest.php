@@ -64,11 +64,8 @@ class PaymentRescheduleTest extends TestCase
         if (! PropertyStatus::where('id', 1)->exists()) {
             PropertyStatus::create([
                 'id' => 1,
-                'name_ar' => 'متاح',
-                'name_en' => 'Available',
+                'name' => 'Available',
                 'slug' => 'available',
-                'is_active' => true,
-                'is_available' => true,
             ]);
         }
 
@@ -76,10 +73,8 @@ class PaymentRescheduleTest extends TestCase
         if (! PropertyType::where('id', 1)->exists()) {
             PropertyType::create([
                 'id' => 1,
-                'name_ar' => 'فيلا',
-                'name_en' => 'Villa',
+                'name' => 'Villa',
                 'slug' => 'villa',
-                'is_active' => true,
             ]);
         }
 
@@ -88,9 +83,7 @@ class PaymentRescheduleTest extends TestCase
             Location::create([
                 'id' => 1,
                 'name' => 'الرياض',
-                'code' => 'RYD',
                 'level' => 1,
-                'is_active' => true,
             ]);
         }
 
@@ -98,10 +91,8 @@ class PaymentRescheduleTest extends TestCase
         if (! UnitType::where('id', 1)->exists()) {
             UnitType::create([
                 'id' => 1,
-                'name_ar' => 'شقة',
-                'name_en' => 'Apartment',
+                'name' => 'Apartment',
                 'slug' => 'apartment',
-                'is_active' => true,
             ]);
         }
     }
@@ -504,7 +495,7 @@ class PaymentRescheduleTest extends TestCase
         $contract = $this->createContractWithPayments(12, 'monthly', 3);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Additional duration is incompatible with the selected payment frequency');
+        $this->expectExceptionMessage('المدة الإضافية غير متوافقة مع تكرار التحصيل المحدد');
 
         // Attempt to add 7 months quarterly (7 is not divisible by 3)
         $this->service->rescheduleContractPayments(
@@ -521,7 +512,7 @@ class PaymentRescheduleTest extends TestCase
 
         // Negative amount
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Rent amount must be greater than zero');
+        $this->expectExceptionMessage('يجب أن يكون مبلغ الإيجار أكبر من صفر');
 
         $this->service->rescheduleContractPayments(
             $contract,
@@ -536,7 +527,7 @@ class PaymentRescheduleTest extends TestCase
         $contract = $this->createContractWithPayments(12, 'monthly', 3);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Rent amount must be greater than zero');
+        $this->expectExceptionMessage('يجب أن يكون مبلغ الإيجار أكبر من صفر');
 
         $this->service->rescheduleContractPayments(
             $contract,
@@ -551,7 +542,7 @@ class PaymentRescheduleTest extends TestCase
         $contract = $this->createContractWithPayments(12, 'monthly', 3);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Additional months must be greater than zero');
+        $this->expectExceptionMessage('يجب أن تكون الأشهر الإضافية أكبر من صفر');
 
         $this->service->rescheduleContractPayments(
             $contract,

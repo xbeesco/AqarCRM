@@ -60,9 +60,7 @@ class Unit extends Model
 
     public function features(): BelongsToMany
     {
-        return $this->belongsToMany(UnitFeature::class, 'unit_unit_feature')
-            ->withPivot('value')
-            ->withTimestamps();
+        return $this->belongsToMany(UnitFeature::class, 'unit_unit_feature');
     }
 
     public function contracts(): HasMany

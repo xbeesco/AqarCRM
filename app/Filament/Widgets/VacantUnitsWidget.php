@@ -14,15 +14,15 @@ use Filament\Forms;
 class VacantUnitsWidget extends BaseWidget
 {
     protected static ?string $heading = 'العقارات التي بها وحدات فارغة';
-    
+
     protected static ?int $sort = 3;
-    
+
     protected int | string | array $columnSpan = 'full';
-    
+
     protected static ?string $pollingInterval = '30s';
-    
+
     protected static bool $isLazy = false;
-    
+
     public function table(Table $table): Table
     {
         return $table
@@ -36,22 +36,22 @@ class VacantUnitsWidget extends BaseWidget
                 TextColumn::make('index')
                     ->label('#')
                     ->rowIndex(),
-                    
+
                 TextColumn::make('property.name')
                     ->label('العقار'),
-                    
+
                 TextColumn::make('name')
                     ->label('الوحدة'),
-                    
+
                 TextColumn::make('unitType.name')
                     ->label('النوع'),
-                    
+
                 TextColumn::make('unitCategory.name')
                     ->label('التصنيف'),
-                    
+
                 TextColumn::make('annual_rent')
                     ->label('الإيجار السنوي')
-                    ->getStateUsing(fn ($record) => $record->rent_price * 12)
+                    ->getStateUsing(fn($record) => $record->rent_price * 12)
                     ->money('SAR'),
             ])
             ->defaultSort('property_id', 'asc')
@@ -61,10 +61,10 @@ class VacantUnitsWidget extends BaseWidget
                     ->relationship('property', 'name')
                     ->searchable()
                     ->preload(),
-                    
+
                 SelectFilter::make('unit_type_id')
                     ->label('نوع الوحدة')
-                    ->relationship('unitType', 'name_ar')
+                    ->relationship('unitType', 'name')
                     ->searchable()
                     ->preload(),
             ])
@@ -74,14 +74,14 @@ class VacantUnitsWidget extends BaseWidget
             ->emptyStateDescription('جميع الوحدات مؤجرة حالياً')
             ->emptyStateIcon('heroicon-o-check-circle');
     }
-    
+
     protected function getTableHeading(): ?string
     {
         $totalVacant = Unit::whereDoesntHave('activeContract')->count();
         $totalAnnualRent = Unit::whereDoesntHave('activeContract')->sum('rent_price') * 12;
-        
+
         $formattedRent = number_format($totalAnnualRent, 2) . ' ريال';
-        
+
         return static::$heading . " ({$totalVacant} وحدة - القيمة السنوية: {$formattedRent})";
     }
 }

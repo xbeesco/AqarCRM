@@ -67,47 +67,29 @@ class OwnerServiceTest extends TestCase
     {
         $this->location = Location::create([
             'name' => 'Test Location',
-            'code' => 'TEST',
             'level' => 1,
-            'is_active' => true,
         ]);
 
         $this->propertyType = PropertyType::create([
-            'name_ar' => 'شقة',
-            'name_en' => 'Apartment',
+            'name' => 'Apartment',
             'slug' => 'apartment',
-            'is_active' => true,
-            'sort_order' => 1,
         ]);
 
         $this->propertyStatus = PropertyStatus::create([
-            'name_ar' => 'متاح',
-            'name_en' => 'Available',
+            'name' => 'Available',
             'slug' => 'available',
-            'color' => 'green',
-            'is_available' => true,
-            'is_active' => true,
-            'sort_order' => 1,
         ]);
 
         // Note: The OwnerService checks for 'status' = 'active' but Property uses status_id
         // We'll add a 'status' field test if the schema supports it, otherwise we test what exists
         $this->activePropertyStatus = PropertyStatus::create([
-            'name_ar' => 'نشط',
-            'name_en' => 'Active',
+            'name' => 'Active',
             'slug' => 'active',
-            'color' => 'blue',
-            'is_available' => true,
-            'is_active' => true,
-            'sort_order' => 2,
         ]);
 
         $this->unitType = UnitType::create([
-            'name_ar' => 'شقة سكنية',
-            'name_en' => 'Residential Apartment',
+            'name' => 'Residential Apartment',
             'slug' => 'residential-apartment',
-            'is_active' => true,
-            'sort_order' => 1,
         ]);
 
         // Set default settings

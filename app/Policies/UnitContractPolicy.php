@@ -103,7 +103,7 @@ class UnitContractPolicy extends BasePolicy
     {
         // Log the attempt
         $this->logUnauthorizedAccess($user, 'force_delete_unit_contract', $contract);
-        
+
         return false;
     }
 
@@ -118,12 +118,12 @@ class UnitContractPolicy extends BasePolicy
 
     /**
      * Determine whether the user can renew the contract.
-     * Admins and employees can renew
+     * Admins and employees can renew active contracts only
      */
     public function renew(User $user, UnitContract $contract): bool
     {
         return ($this->isAdmin($user) || $this->isEmployee($user))
-            && in_array($contract->contract_status, ['active', 'expired']);
+            && $contract->contract_status === 'active';
     }
 
     /**

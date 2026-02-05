@@ -51,10 +51,8 @@ class UnitTest extends TestCase
         $this->propertyType = PropertyType::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'عمارة سكنية',
-                'name_en' => 'Residential Building',
+                'name' => 'Residential Building',
                 'slug' => 'residential-building',
-                'is_active' => true,
             ]
         );
 
@@ -62,10 +60,8 @@ class UnitTest extends TestCase
         $this->propertyStatus = PropertyStatus::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'متاح',
-                'name_en' => 'Available',
+                'name' => 'Available',
                 'slug' => 'available',
-                'is_active' => true,
             ]
         );
 
@@ -74,10 +70,7 @@ class UnitTest extends TestCase
             ['id' => 1],
             [
                 'name' => 'Test Location',
-                'name_ar' => 'موقع اختبار',
-                'name_en' => 'Test Location',
                 'level' => 1,
-                'is_active' => true,
             ]
         );
 
@@ -85,10 +78,8 @@ class UnitTest extends TestCase
         $this->unitType = UnitType::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'شقة',
-                'name_en' => 'Apartment',
+                'name' => 'Apartment',
                 'slug' => 'apartment',
-                'is_active' => true,
             ]
         );
 
@@ -96,10 +87,8 @@ class UnitTest extends TestCase
         $this->unitCategory = UnitCategory::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'سكني',
-                'name_en' => 'Residential',
+                'name' => 'Residential',
                 'slug' => 'residential',
-                'is_active' => true,
             ]
         );
 
@@ -319,8 +308,7 @@ class UnitTest extends TestCase
         $feature1 = UnitFeature::firstOrCreate(
             ['slug' => 'air-conditioning'],
             [
-                'name_ar' => 'تكييف',
-                'name_en' => 'Air Conditioning',
+                'name' => 'Air Conditioning',
                 'slug' => 'air-conditioning',
             ]
         );
@@ -328,23 +316,18 @@ class UnitTest extends TestCase
         $feature2 = UnitFeature::firstOrCreate(
             ['slug' => 'furnished'],
             [
-                'name_ar' => 'مفروشة',
-                'name_en' => 'Furnished',
+                'name' => 'Furnished',
                 'slug' => 'furnished',
             ]
         );
 
         // Attach features to unit
-        $unit->features()->attach([
-            $feature1->id => ['value' => 'available'],
-            $feature2->id => ['value' => 'fully'],
-        ]);
+        $unit->features()->attach([$feature1->id, $feature2->id]);
 
         $unit->refresh();
 
         $this->assertCount(2, $unit->features);
         $this->assertInstanceOf(UnitFeature::class, $unit->features->first());
-        $this->assertNotNull($unit->features->first()->pivot->value);
     }
 
     #[Test]

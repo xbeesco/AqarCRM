@@ -13,36 +13,19 @@ class PropertyContract extends Model
 {
     use HasFactory;
 
-    /**
-     * Default attribute values - contracts are active upon creation.
-     */
-    protected $attributes = [
-        'contract_status' => 'active',
-    ];
-
     protected $fillable = [
         'contract_number',
         'owner_id',
         'property_id',
+        'contract_status',
         'commission_rate',
         'duration_months',
         'start_date',
         'end_date',
-        'contract_status',
-        'notary_number',
-        'payment_day',
-        'auto_renew',
-        'notice_period_days',
         'payment_frequency',
         'payments_count',
-        'terms_and_conditions',
         'notes',
         'file',
-        'created_by',
-        'approved_by',
-        'approved_at',
-        'terminated_reason',
-        'terminated_at',
     ];
 
     protected $casts = [
@@ -50,11 +33,6 @@ class PropertyContract extends Model
         'end_date' => 'date',
         'commission_rate' => 'decimal:2',
         'duration_months' => 'integer',
-        'payment_day' => 'integer',
-        'auto_renew' => 'boolean',
-        'notice_period_days' => 'integer',
-        'approved_at' => 'datetime',
-        'terminated_at' => 'datetime',
     ];
 
     protected static function boot()
@@ -257,8 +235,80 @@ class PropertyContract extends Model
      */
     public function canRenew(): bool
     {
-        return in_array($this->contract_status, ['active', 'expired'])
-            && $this->end_date !== null;
+        return $this->contract_status === 'active' && $this->end_date !== null;
+    }
+
+    /**
+     * Check if contract is currently active.
+     */
+    public function isActive(): bool
+    {
+        return $this->contract_status === 'active'
+            && $this->start_date <= now()
+            && $this->end_date >= now();
+    }
+
+    /**
+     * Check if contract has expired.
+     */
+    public function hasExpired(): bool
+    {
+        return $this->contract_status === 'expired'
+            || ($this->contract_status === 'active' && $this->end_date < now());
+    }
+
+    /**
+     * Check if contract is draft.
+     */
+    public function isDraft(): bool
+    {
+        return $this->contract_status === 'draft';
+    }
+
+    /**
+     * Check if contract was terminated.
+     */
+    public function isTerminated(): bool
+    {
+        return $this->contract_status === 'terminated';
+    }
+
+    /**
+     * Check if contract was renewed.
+     */
+    public function isRenewed(): bool
+    {
+        return $this->contract_status === 'renewed';
+    }
+
+    /**
+     * Get status badge color for UI.
+     */
+    public function getStatusColorAttribute(): string
+    {
+        return match ($this->contract_status) {
+            'draft' => 'gray',
+            'active' => $this->end_date < now()->addDays(30) ? 'warning' : 'success',
+            'expired' => 'danger',
+            'terminated' => 'danger',
+            'renewed' => 'info',
+            default => 'secondary'
+        };
+    }
+
+    /**
+     * Get status label in Arabic.
+     */
+    public function getStatusLabelAttribute(): string
+    {
+        return match ($this->contract_status) {
+            'draft' => 'مسودة',
+            'active' => 'نشط',
+            'expired' => 'منتهي',
+            'terminated' => 'ملغي',
+            'renewed' => 'مُجدد',
+            default => $this->contract_status
+        };
     }
 
     /**
@@ -266,11 +316,6 @@ class PropertyContract extends Model
      */
     public function canReschedule(): bool
     {
-        // Contract must be active or draft
-        if (!in_array($this->contract_status, ['active', 'draft'])) {
-            return false;
-        }
-
         // Must have existing payments
         if (!$this->supplyPayments()->exists()) {
             return false;

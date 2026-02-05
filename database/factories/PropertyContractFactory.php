@@ -31,15 +31,9 @@ class PropertyContractFactory extends Factory
             'start_date' => $startDate,
             'end_date' => $endDate,
             'contract_status' => $this->faker->randomElement(['draft', 'active', 'suspended', 'expired', 'terminated']),
-            'notary_number' => $this->faker->optional()->numerify('NOT-######'),
-            'payment_day' => $this->faker->numberBetween(1, 28),
-            'auto_renew' => $this->faker->boolean(),
-            'notice_period_days' => $this->faker->randomElement([30, 60, 90]),
             'payment_frequency' => $paymentFrequency,
             'payments_count' => $this->calculatePaymentsCount($durationMonths, $paymentFrequency),
-            'terms_and_conditions' => $this->faker->optional()->paragraph(),
             'notes' => $this->faker->optional()->sentence(),
-            'created_by' => 1,
         ];
     }
 
@@ -96,8 +90,6 @@ class PropertyContractFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'contract_status' => 'terminated',
-            'terminated_at' => now(),
-            'terminated_reason' => 'Test termination reason',
         ]);
     }
 

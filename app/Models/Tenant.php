@@ -6,11 +6,10 @@ use App\Enums\UserType;
 use App\Services\TenantService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Tenant extends User
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected $table = 'users';
 

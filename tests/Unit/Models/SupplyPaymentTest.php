@@ -44,27 +44,17 @@ class SupplyPaymentTest extends TestCase
         // Create required reference data
         $this->location = Location::create([
             'name' => 'Test Location',
-            'code' => 'TEST',
             'level' => 1,
-            'is_active' => true,
         ]);
 
         $this->propertyType = PropertyType::create([
-            'name_ar' => 'فيلا',
-            'name_en' => 'Villa',
+            'name' => 'Villa',
             'slug' => 'villa',
-            'is_active' => true,
-            'sort_order' => 1,
         ]);
 
         $this->propertyStatus = PropertyStatus::create([
-            'name_ar' => 'متاح',
-            'name_en' => 'Available',
+            'name' => 'Available',
             'slug' => 'available',
-            'color' => 'green',
-            'is_available' => true,
-            'is_active' => true,
-            'sort_order' => 1,
         ]);
 
         // Create owner, property, and contract

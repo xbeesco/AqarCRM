@@ -21,7 +21,6 @@ class LocationTest extends TestCase
         $location = Location::create([
             'name' => 'Test Region',
             'level' => 1,
-            'is_active' => true,
         ]);
 
         $this->assertDatabaseHas('locations', [
@@ -36,19 +35,11 @@ class LocationTest extends TestCase
     {
         $location = Location::create([
             'name' => 'Test Location',
-            'code' => 'TL001',
             'level' => 1,
-            'coordinates' => '25.276987,55.296249',
-            'postal_code' => '12345',
-            'is_active' => true,
         ]);
 
         $this->assertEquals('Test Location', $location->name);
-        $this->assertEquals('TL001', $location->code);
         $this->assertEquals(1, $location->level);
-        $this->assertEquals('25.276987,55.296249', $location->coordinates);
-        $this->assertEquals('12345', $location->postal_code);
-        $this->assertTrue($location->is_active);
     }
 
     #[Test]
@@ -57,11 +48,9 @@ class LocationTest extends TestCase
         $location = Location::create([
             'name' => 'Test Location',
             'level' => 2,
-            'is_active' => 1, // Integer input
         ]);
 
         $this->assertIsInt($location->level);
-        $this->assertIsBool($location->is_active);
     }
 
     // ==============================================
@@ -74,13 +63,11 @@ class LocationTest extends TestCase
         $region = Location::create([
             'name' => 'Region',
             'level' => 1,
-            'is_active' => true,
         ]);
 
         $city = Location::create([
             'name' => 'City',
             'parent_id' => $region->id,
-            'is_active' => true,
         ]);
 
         $this->assertEquals(2, $city->level);
@@ -91,7 +78,6 @@ class LocationTest extends TestCase
     {
         $location = Location::create([
             'name' => 'Root Location',
-            'is_active' => true,
         ]);
 
         $this->assertEquals(1, $location->level);
@@ -103,7 +89,6 @@ class LocationTest extends TestCase
         $location = Location::create([
             'name' => 'Test Location',
             'level' => 1,
-            'is_active' => true,
         ]);
 
         $location->level = 3;
@@ -122,19 +107,16 @@ class LocationTest extends TestCase
         $region = Location::create([
             'name' => 'Region',
             'level' => 1,
-            'is_active' => true,
         ]);
 
         $city = Location::create([
             'name' => 'City',
             'parent_id' => $region->id,
-            'is_active' => true,
         ]);
 
         $center = Location::create([
             'name' => 'Center',
             'parent_id' => $city->id,
-            'is_active' => true,
         ]);
 
         $this->assertEquals(3, $center->level);
@@ -155,13 +137,11 @@ class LocationTest extends TestCase
         $parent = Location::create([
             'name' => 'Parent Location',
             'level' => 1,
-            'is_active' => true,
         ]);
 
         $child = Location::create([
             'name' => 'Child Location',
             'parent_id' => $parent->id,
-            'is_active' => true,
         ]);
 
         $this->assertInstanceOf(Location::class, $child->parent);
@@ -174,7 +154,6 @@ class LocationTest extends TestCase
         $root = Location::create([
             'name' => 'Root Location',
             'level' => 1,
-            'is_active' => true,
         ]);
 
         $this->assertNull($root->parent);
@@ -190,19 +169,16 @@ class LocationTest extends TestCase
         $parent = Location::create([
             'name' => 'Parent',
             'level' => 1,
-            'is_active' => true,
         ]);
 
         $child1 = Location::create([
             'name' => 'Child 1',
             'parent_id' => $parent->id,
-            'is_active' => true,
         ]);
 
         $child2 = Location::create([
             'name' => 'Child 2',
             'parent_id' => $parent->id,
-            'is_active' => true,
         ]);
 
         // Refresh parent to load children relationship
@@ -219,7 +195,6 @@ class LocationTest extends TestCase
         $location = Location::create([
             'name' => 'Leaf Location',
             'level' => 1,
-            'is_active' => true,
         ]);
 
         $this->assertCount(0, $location->children);
@@ -235,7 +210,6 @@ class LocationTest extends TestCase
         $location = Location::create([
             'name' => 'Test Location',
             'level' => 1,
-            'is_active' => true,
         ]);
 
         $this->assertInstanceOf(\Illuminate\Database\Eloquent\Relations\HasMany::class, $location->properties());
@@ -325,7 +299,6 @@ class LocationTest extends TestCase
         $location = Location::create([
             'name' => 'Test Location',
             'level' => 1,
-            'is_active' => true,
         ]);
 
         $this->assertNotNull($location->fresh()->path);
@@ -337,13 +310,11 @@ class LocationTest extends TestCase
         $parent = Location::create([
             'name' => 'Parent',
             'level' => 1,
-            'is_active' => true,
         ]);
 
         $child = Location::create([
             'name' => 'Child',
             'parent_id' => $parent->id,
-            'is_active' => true,
         ]);
 
         $parentPath = $parent->fresh()->path;
@@ -358,7 +329,6 @@ class LocationTest extends TestCase
         $location = Location::create([
             'name' => 'Test',
             'level' => 1,
-            'is_active' => true,
         ]);
 
         $originalPath = $location->path;

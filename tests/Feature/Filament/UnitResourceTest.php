@@ -3,14 +3,13 @@
 namespace Tests\Feature\Filament;
 
 use App\Enums\UserType;
-use App\Filament\Resources\UnitResource;
-use App\Filament\Resources\UnitResource\Pages\ListUnits;
+use App\Filament\Resources\Units\UnitResource;
+use App\Filament\Resources\Units\Pages\ListUnits;
 use App\Models\CollectionPayment;
 use App\Models\Location;
 use App\Models\Property;
 use App\Models\PropertyStatus;
 use App\Models\PropertyType;
-use App\Models\RepairCategory;
 use App\Models\Setting;
 use App\Models\Unit;
 use App\Models\UnitCategory;
@@ -89,44 +88,31 @@ class UnitResourceTest extends TestCase
         // Create default Location
         Location::firstOrCreate(
             ['id' => 1],
-            ['name' => 'Default Location', 'level' => 1, 'is_active' => true]
+            ['name' => 'Default Location', 'level' => 1]
         );
 
         // Create default PropertyType
         PropertyType::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'شقة', 'name_en' => 'Apartment', 'slug' => 'apartment', 'is_active' => true]
+            ['name' => 'Apartment', 'slug' => 'apartment']
         );
 
         // Create default PropertyStatus
         PropertyStatus::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'متاح', 'name_en' => 'Available', 'slug' => 'available', 'is_active' => true]
+            ['name' => 'Available', 'slug' => 'available']
         );
 
         // Create default UnitType
         UnitType::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'شقة', 'name_en' => 'Apartment', 'slug' => 'apartment', 'is_active' => true]
+            ['name' => 'Apartment', 'slug' => 'apartment']
         );
 
         // Create default UnitCategory
         UnitCategory::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'سكني', 'name_en' => 'Residential', 'slug' => 'residential', 'is_active' => true]
-        );
-
-        // Create default RepairCategory for maintenance tests
-        RepairCategory::firstOrCreate(
-            ['id' => 1],
-            [
-                'name_ar' => 'صيانة عامة',
-                'name_en' => 'General Maintenance',
-                'slug' => 'general-maintenance',
-                'affects_property' => true,
-                'affects_unit' => true,
-                'is_active' => true,
-            ]
+            ['name' => 'Residential', 'slug' => 'residential']
         );
 
         // Create payment_due_days setting
