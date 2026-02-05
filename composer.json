@@ -62,7 +62,8 @@
         "test": [
             "@php artisan config:clear --ansi",
             "@php artisan test"
-        ]
+        ],
+        "test:mysql": "@php vendor/bin/phpunit --configuration=phpunit-mysql.xml --colors=always"
     },
     "extra": {
         "laravel": {
