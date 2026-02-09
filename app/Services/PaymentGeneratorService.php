@@ -444,7 +444,8 @@ class PaymentGeneratorService
                 'end_date' => $newEndDate,
                 'duration_months' => $totalMonths,
                 'monthly_rent' => $newMonthlyRent,
-                'notes' => $contract->notes."\n[".now()->format('Y-m-d H:i')."] تمت إعادة جدولة الدفعات - حذف {$deletedCount} دفعة وإضافة ".count($newPayments).' دفعة جديدة',
+                'payments_count' => $contract->getPaidPaymentsCount() + \count($newPayments),
+                'notes' => $contract->notes."\n[".now()->format('Y-m-d H:i')."] تمت إعادة جدولة الدفعات - حذف {$deletedCount} دفعة وإضافة ".\count($newPayments).' دفعة جديدة',
             ]);
 
             DB::commit();
