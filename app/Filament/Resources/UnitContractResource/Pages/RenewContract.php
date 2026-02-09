@@ -6,20 +6,19 @@ use App\Filament\Resources\UnitContractResource;
 use App\Models\UnitContract;
 use App\Services\PaymentGeneratorService;
 use App\Services\PropertyContractService;
-use Filament\Resources\Pages\Page;
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Grid;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Select;
+use Closure;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Actions\Action;
 use Filament\Notifications\Notification;
+use Filament\Resources\Pages\Page;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
-use Closure;
-use App\Filament\Forms\ContractFormSchema;
 
 class RenewContract extends Page implements HasForms
 {
@@ -27,9 +26,10 @@ class RenewContract extends Page implements HasForms
 
     protected static string $resource = UnitContractResource::class;
 
-    protected string $view = 'filament.resources.unit-contract-resource.pages.reschedule-payments'; // Reuse the same view
+    protected string $view = 'filament.resources.unit-contract-resource.pages.reschedule-payments';
 
     public UnitContract $record;
+
     public ?array $data = [];
 
     protected ?PaymentGeneratorService $paymentService = null;
@@ -43,13 +43,13 @@ class RenewContract extends Page implements HasForms
     {
         $this->record = $record;
 
-        if (!auth()->user()->can('reschedule', $record)) {
+        if (! auth()->user()->can('renew', $record)) {
             abort(403, 'غير مصرح لك بتجديد العقد');
         }
 
-        // Default: Add 12 months to what's already there
         $this->form->fill([
             'new_monthly_rent' => $record->monthly_rent,
+            'extension_months' => 12,
             'new_frequency' => $record->payment_frequency ?? 'monthly',
         ]);
     }
@@ -64,11 +64,12 @@ class RenewContract extends Page implements HasForms
         return $schema
             ->schema([
                 Section::make('تفاصيل التجديد')
+                    ->description('سيتم إضافة الأشهر الجديدة بعد نهاية العقد الحالي')
                     ->columnspan(2)
                     ->schema([
                         Grid::make(12)->schema([
                             TextInput::make('new_monthly_rent')
-                                ->label('قيمة الإيجار في الفترة الجديدة')
+                                ->label('قيمة الإيجار للفترة الجديدة')
                                 ->numeric()
                                 ->required()
                                 ->minValue(0.01)
@@ -76,46 +77,120 @@ class RenewContract extends Page implements HasForms
                                 ->postfix('ريال')
                                 ->columnSpan(3),
 
-                            ...ContractFormSchema::getDurationFields('unit', $this->record)
+                            TextInput::make('extension_months')
+                                ->label('مدة التجديد')
+                                ->numeric()
+                                ->required()
+                                ->minValue(1)
+                                ->suffix('شهر')
+                                ->live(onBlur: true)
+                                ->afterStateUpdated(function ($state, $get, $set) {
+                                    $frequency = $get('new_frequency') ?? 'monthly';
+                                    $count = PropertyContractService::calculatePaymentsCount($state ?? 0, $frequency);
+                                    $set('new_payments_count', $count);
+                                })
+                                ->rules([
+                                    fn ($get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
+                                        $frequency = $get('new_frequency') ?? 'monthly';
+
+                                        if (! PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
+                                            $periodName = match ($frequency) {
+                                                'quarterly' => 'ربع سنة',
+                                                'semi_annually' => 'نصف سنة',
+                                                'annually' => 'سنة',
+                                                default => $frequency,
+                                            };
+                                            $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
+                                        }
+                                    },
+                                ])
+                                ->columnSpan(3),
+
+                            Select::make('new_frequency')
+                                ->label('تكرار التحصيل للفترة الجديدة')
+                                ->required()
+                                ->options([
+                                    'monthly' => 'شهر',
+                                    'quarterly' => 'ربع سنة',
+                                    'semi_annually' => 'نصف سنة',
+                                    'annually' => 'سنة',
+                                ])
+                                ->default('monthly')
+                                ->live()
+                                ->afterStateUpdated(function ($state, $get, $set) {
+                                    $duration = $get('extension_months') ?? 0;
+                                    $count = PropertyContractService::calculatePaymentsCount($duration, $state ?? 'monthly');
+                                    $set('new_payments_count', $count);
+                                })
+                                ->columnSpan(3),
+
+                            TextInput::make('new_payments_count')
+                                ->label('عدد الدفعات الجديدة')
+                                ->disabled()
+                                ->dehydrated(false)
+                                ->default(function ($get) {
+                                    $duration = $get('extension_months') ?? 12;
+                                    $frequency = $get('new_frequency') ?? 'monthly';
+
+                                    return PropertyContractService::calculatePaymentsCount($duration, $frequency);
+                                })
+                                ->columnSpan(3),
                         ]),
                     ]),
 
                 Section::make('معلومات العقد الحالي')
                     ->columnspan(1)
                     ->schema([
-                        Grid::make(3)->schema([
+                        Grid::make(2)->schema([
                             Placeholder::make('original_duration')
                                 ->label('المدة الحالية')
-                                ->content($this->record->duration_months . ' شهر'),
+                                ->content($this->record->duration_months.' شهر'),
 
-                            Placeholder::make('paid_months')
-                                ->label('الأشهر المدفوعة')
-                                ->content(fn() => $this->record->getPaidMonthsCount() . ' شهر'),
-
-                            Placeholder::make('end_date')
+                            Placeholder::make('current_end_date')
                                 ->label('تاريخ الانتهاء الحالي')
-                                ->content(fn() => $this->record->end_date?->format('Y-m-d') ?? '-'),
+                                ->content(fn () => $this->record->end_date?->format('Y-m-d') ?? '-'),
+
+                            Placeholder::make('total_payments')
+                                ->label('إجمالي الدفعات الحالية')
+                                ->content(fn () => $this->record->payments()->count().' دفعة'),
+
+                            Placeholder::make('unpaid_payments')
+                                ->label('الدفعات غير المدفوعة')
+                                ->content(fn () => $this->record->getUnpaidPaymentsCount().' دفعة (ستبقى كما هي)'),
                         ]),
                     ]),
 
                 Section::make('ملخص التجديد')
+                    ->icon('heroicon-o-arrow-path')
                     ->schema([
-                        Placeholder::make('ملخص')
+                        Placeholder::make('renewal_summary')
                             ->label('')
                             ->content(function ($get) {
-                                $paidMonths = $this->record->getPaidMonthsCount();
-                                $totalNewMonths = $get('additional_months') ?? 0;
-                                $addedMonths = $totalNewMonths - $this->record->getRemainingMonths();
+                                $extensionMonths = (int) ($get('extension_months') ?? 0);
+                                $frequency = $get('new_frequency') ?? 'monthly';
+                                $newRent = $get('new_monthly_rent') ?? 0;
 
-                                $summary = "🔄 **ملخص التجديد:**\n";
-                                $summary .= "• الأشهر المدفوعة مسبقاً: {$paidMonths} شهر\n";
-                                $summary .= "• إجمالي المدة المتبقية + الإضافية: {$totalNewMonths} شهر\n";
-                                $summary .= "• سيتم تمديد العقد لمدة: " . max(0, $addedMonths) . " شهر إضافي\n";
+                                $currentEndDate = $this->record->end_date;
+                                $newStartDate = $currentEndDate ? $currentEndDate->copy()->addDay() : now();
+                                $newEndDate = $newStartDate->copy()->addMonths($extensionMonths)->subDay();
+
+                                $newPaymentsCount = PropertyContractService::calculatePaymentsCount($extensionMonths, $frequency);
+                                $newTotalMonths = $this->record->duration_months + $extensionMonths;
+
+                                $summary = "**ملخص التجديد:**\n\n";
+                                $summary .= "**المدة الحالية:** {$this->record->duration_months} شهر\n";
+                                $summary .= "**مدة التجديد:** {$extensionMonths} شهر\n";
+                                $summary .= "**إجمالي المدة الجديدة:** {$newTotalMonths} شهر\n\n";
+                                $summary .= "**تاريخ بداية التجديد:** {$newStartDate->format('Y-m-d')}\n";
+                                $summary .= "**تاريخ النهاية الجديد:** {$newEndDate->format('Y-m-d')}\n\n";
+                                $summary .= "**الدفعات الجديدة:** {$newPaymentsCount} دفعة\n";
+                                $summary .= '**قيمة الإيجار:** '.number_format($newRent, 2)." ريال\n\n";
+                                $summary .= '**ملاحظة:** الدفعات الحالية لن تتأثر';
 
                                 return $summary;
                             }),
                     ])
-                    ->visible(fn($get) => $get('additional_months') > 0),
+                    ->visible(fn ($get) => ((int) ($get('extension_months') ?? 0)) > 0),
             ])
             ->columns(2)
             ->statePath('data');
@@ -129,18 +204,39 @@ class RenewContract extends Page implements HasForms
                 ->color('success')
                 ->icon('heroicon-o-check')
                 ->requiresConfirmation()
+                ->modalHeading('تأكيد تجديد العقد')
+                ->modalDescription(function () {
+                    $extensionMonths = $this->data['extension_months'] ?? 0;
+                    $newRent = number_format($this->data['new_monthly_rent'] ?? 0, 2);
+                    $frequency = $this->data['new_frequency'] ?? 'monthly';
+                    $newPaymentsCount = PropertyContractService::calculatePaymentsCount($extensionMonths, $frequency);
+
+                    return new \Illuminate\Support\HtmlString(
+                        "<div style='text-align: right; direction: rtl;'>
+                            <p>رقم العقد: <strong>{$this->record->contract_number}</strong></p>
+                            <p>المستأجر: <strong>{$this->record->tenant?->name}</strong></p>
+                            <hr style='margin: 10px 0;'>
+                            <p style='color: green;'>سيتم إضافة: <strong>{$extensionMonths} شهر</strong></p>
+                            <p style='color: green;'>سيتم توليد: <strong>{$newPaymentsCount} دفعة جديدة</strong></p>
+                            <p>قيمة الإيجار: <strong>{$newRent} ريال</strong></p>
+                            <hr style='margin: 10px 0;'>
+                            <p style='color: #666; font-size: 0.9em;'>الدفعات الحالية لن تتأثر</p>
+                        </div>"
+                    );
+                })
+                ->modalSubmitActionLabel('نعم، جدد العقد')
                 ->action(function () {
                     try {
-                        $result = $this->paymentService->rescheduleContractPayments(
+                        $result = $this->paymentService->renewUnitContract(
                             $this->record,
                             $this->data['new_monthly_rent'],
-                            $this->data['additional_months'],
+                            $this->data['extension_months'],
                             $this->data['new_frequency']
                         );
 
                         Notification::make()
                             ->title('تم تجديد العقد بنجاح')
-                            ->body("تم تحديث مدة العقد وتوليد الدفعات الجديدة")
+                            ->body("تم إضافة {$result['extension_months']} شهر وتوليد ".count($result['new_payments']).' دفعة جديدة')
                             ->success()
                             ->send();
 
