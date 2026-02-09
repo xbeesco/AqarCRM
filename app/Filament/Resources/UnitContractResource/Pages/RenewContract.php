@@ -75,6 +75,20 @@ class RenewContract extends Page implements HasForms
                                 ->minValue(0.01)
                                 ->step(0.01)
                                 ->postfix('ريال')
+                                ->live()
+                                ->afterStateUpdated(function ($state) {
+                                    if (($state ?? 0) <= 0) {
+                                        Notification::make()
+                                            ->title('خطأ في قيمة الإيجار')
+                                            ->body('يجب أن تكون قيمة الإيجار أكبر من صفر')
+                                            ->danger()
+                                            ->send();
+                                    }
+                                })
+                                ->validationMessages([
+                                    'required' => 'يجب إدخال قيمة الإيجار',
+                                    'min' => 'يجب أن تكون قيمة الإيجار أكبر من صفر',
+                                ])
                                 ->columnSpan(3),
 
                             TextInput::make('extension_months')
@@ -83,11 +97,19 @@ class RenewContract extends Page implements HasForms
                                 ->required()
                                 ->minValue(1)
                                 ->suffix('شهر')
-                                ->live(onBlur: true)
+                                ->live()
                                 ->afterStateUpdated(function ($state, $get, $set) {
                                     $frequency = $get('new_frequency') ?? 'monthly';
                                     $count = PropertyContractService::calculatePaymentsCount($state ?? 0, $frequency);
                                     $set('new_payments_count', $count);
+
+                                    if (($state ?? 0) < 1) {
+                                        Notification::make()
+                                            ->title('خطأ في المدة')
+                                            ->body('يجب أن تكون مدة التجديد شهر واحد على الأقل')
+                                            ->danger()
+                                            ->send();
+                                    }
                                 })
                                 ->rules([
                                     fn ($get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
@@ -103,6 +125,10 @@ class RenewContract extends Page implements HasForms
                                             $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
                                         }
                                     },
+                                ])
+                                ->validationMessages([
+                                    'required' => 'يجب إدخال مدة التجديد',
+                                    'min' => 'يجب أن تكون مدة التجديد شهر واحد على الأقل',
                                 ])
                                 ->columnSpan(3),
 
@@ -122,6 +148,9 @@ class RenewContract extends Page implements HasForms
                                     $count = PropertyContractService::calculatePaymentsCount($duration, $state ?? 'monthly');
                                     $set('new_payments_count', $count);
                                 })
+                                ->validationMessages([
+                                    'required' => 'يجب اختيار دورية التحصيل',
+                                ])
                                 ->columnSpan(3),
 
                             TextInput::make('new_payments_count')
@@ -225,7 +254,31 @@ class RenewContract extends Page implements HasForms
                     );
                 })
                 ->modalSubmitActionLabel('نعم، جدد العقد')
+                ->disabled(fn () => (($this->data['extension_months'] ?? 0) < 1)
+                    || (($this->data['new_monthly_rent'] ?? 0) <= 0))
                 ->action(function () {
+                    // التحقق من أن المدة أكبر من صفر
+                    if (($this->data['extension_months'] ?? 0) < 1) {
+                        Notification::make()
+                            ->title('خطأ')
+                            ->body('يجب أن تكون مدة التجديد شهر واحد على الأقل')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    // التحقق من أن قيمة الإيجار أكبر من صفر
+                    if (($this->data['new_monthly_rent'] ?? 0) <= 0) {
+                        Notification::make()
+                            ->title('خطأ')
+                            ->body('يجب أن تكون قيمة الإيجار أكبر من صفر')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
                     try {
                         $result = $this->paymentService->renewUnitContract(
                             $this->record,

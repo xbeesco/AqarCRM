@@ -84,11 +84,19 @@ class RenewContract extends Page implements HasForms
                                 ->required()
                                 ->minValue(1)
                                 ->suffix('شهر')
-                                ->live(onBlur: true)
+                                ->live()
                                 ->afterStateUpdated(function ($state, $get, $set) {
                                     $frequency = $get('new_frequency') ?? 'monthly';
                                     $count = PropertyContractService::calculatePaymentsCount($state ?? 0, $frequency);
                                     $set('new_payments_count', $count);
+
+                                    if (($state ?? 0) < 1) {
+                                        Notification::make()
+                                            ->title('خطأ في المدة')
+                                            ->body('يجب أن تكون مدة التجديد شهر واحد على الأقل')
+                                            ->danger()
+                                            ->send();
+                                    }
                                 })
                                 ->rules([
                                     fn ($get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
@@ -104,6 +112,10 @@ class RenewContract extends Page implements HasForms
                                             $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
                                         }
                                     },
+                                ])
+                                ->validationMessages([
+                                    'required' => 'يجب إدخال مدة التجديد',
+                                    'min' => 'يجب أن تكون مدة التجديد شهر واحد على الأقل',
                                 ])
                                 ->columnSpan(3),
 
@@ -227,7 +239,19 @@ class RenewContract extends Page implements HasForms
                     );
                 })
                 ->modalSubmitActionLabel('نعم، جدد العقد')
+                ->disabled(fn () => (($this->data['extension_months'] ?? 0) < 1)
+                    || (($this->data['new_commission_rate'] ?? 0) < 1))
                 ->action(function () {
+                    // التحقق من أن المدة أكبر من صفر
+                    if (($this->data['extension_months'] ?? 0) < 1) {
+                        Notification::make()
+                            ->title('خطأ')
+                            ->body('يجب أن تكون مدة التجديد شهر واحد على الأقل')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
                     try {
                         $result = $this->paymentService->renewPropertyContract(
                             $this->record,
