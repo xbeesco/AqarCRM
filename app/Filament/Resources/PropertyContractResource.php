@@ -184,6 +184,15 @@ class PropertyContractResource extends Resource
                                 $q->where('owner_id', $value);
                             })
                         );
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (! ($data['owner_id'] ?? null)) {
+                            return null;
+                        }
+
+                        $owner = \App\Models\User::find($data['owner_id']);
+
+                        return $owner ? 'المالك: '.$owner->name : null;
                     }),
             ])
             ->recordActions([

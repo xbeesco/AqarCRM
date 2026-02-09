@@ -237,6 +237,15 @@ class UnitContractResource extends Resource
                             $data['owner_id'] ?? null,
                             fn (Builder $query, $value) => $query->whereHas('property', fn ($q) => $q->where('owner_id', $value))
                         );
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (! ($data['owner_id'] ?? null)) {
+                            return null;
+                        }
+
+                        $owner = Owner::find($data['owner_id']);
+
+                        return $owner ? 'المالك: '.$owner->name : null;
                     }),
 
                 SelectFilter::make('unit_id')

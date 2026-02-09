@@ -8,8 +8,8 @@ use App\Models\Owner;
 use App\Models\PropertyRepair;
 use App\Models\Tenant;
 use App\Models\Unit;
-use Filament\Actions\BulkAction;
-use Filament\Actions\BulkActionGroup;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\CheckboxList;
@@ -26,7 +26,6 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 
 class UnitResource extends Resource
 {
@@ -285,6 +284,15 @@ class UnitResource extends Resource
                             $data['owner_id'] ?? null,
                             fn (Builder $query, $value) => $query->whereHas('property', fn ($q) => $q->where('owner_id', $value))
                         );
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (! ($data['owner_id'] ?? null)) {
+                            return null;
+                        }
+
+                        $owner = Owner::find($data['owner_id']);
+
+                        return $owner ? 'المالك: '.$owner->name : null;
                     }),
 
                 Filter::make('tenant')
@@ -301,6 +309,15 @@ class UnitResource extends Resource
                             $data['tenant_id'] ?? null,
                             fn (Builder $query, $value) => $query->whereHas('activeContract', fn ($q) => $q->where('tenant_id', $value))
                         );
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (! ($data['tenant_id'] ?? null)) {
+                            return null;
+                        }
+
+                        $tenant = Tenant::find($data['tenant_id']);
+
+                        return $tenant ? 'المستأجر: '.$tenant->name : null;
                     }),
             ])
             ->recordActions([
@@ -310,41 +327,16 @@ class UnitResource extends Resource
                 EditAction::make()
                     ->label('تعديل')
                     ->icon('heroicon-o-pencil-square'),
-            ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    BulkAction::make('view_unit_contracts')
+                ActionGroup::make([
+                    Action::make('view_unit_contracts')
                         ->label('عقود الوحدة')
-                        ->icon('heroicon-o-document-text')
-                        ->color('warning')
-                        ->action(function (Collection $records) {
-                            $unitId = $records->first()->id;
-
-                            return redirect(UnitContractResource::getUrl('index').'?unit_id='.$unitId);
-                        })
-                        ->deselectRecordsAfterCompletion(),
-
-                    BulkAction::make('view_collection_payments')
+                        ->url(fn ($record) => UnitContractResource::getUrl('index').'?unit_id='.$record->id),
+                    Action::make('view_collection_payments')
                         ->label('دفعات المستأجرين')
-                        ->icon('heroicon-o-credit-card')
-                        ->color('success')
-                        ->action(function (Collection $records) {
-                            $unit = $records->first();
-
-                            return redirect(CollectionPaymentResource::getUrl('index').'?property_id='.$unit->property_id.'&unit_id='.$unit->id);
-                        })
-                        ->deselectRecordsAfterCompletion(),
-
-                    BulkAction::make('view_expenses')
+                        ->url(fn ($record) => CollectionPaymentResource::getUrl('index').'?property_id='.$record->property_id.'&unit_id='.$record->id),
+                    Action::make('view_expenses')
                         ->label('النفقات')
-                        ->icon('heroicon-o-banknotes')
-                        ->color('danger')
-                        ->action(function (Collection $records) {
-                            $unit = $records->first();
-
-                            return redirect(ExpenseResource::getUrl('index').'?property_id='.$unit->property_id.'&unit_id='.$unit->id);
-                        })
-                        ->deselectRecordsAfterCompletion(),
+                        ->url(fn ($record) => ExpenseResource::getUrl('index').'?property_id='.$record->property_id.'&unit_id='.$record->id),
                 ])->label('عرض البيانات'),
             ])
             ->paginated([25, 50, 100, 'all'])

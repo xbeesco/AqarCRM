@@ -228,6 +228,25 @@ class CollectionPaymentResource extends Resource
                         }
 
                         return $query;
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+
+                        if (! empty($data['property_id'])) {
+                            $property = \App\Models\Property::find($data['property_id']);
+                            if ($property) {
+                                $indicators[] = 'العقار: '.$property->name;
+                            }
+                        }
+
+                        if (! empty($data['unit_id'])) {
+                            $unit = \App\Models\Unit::find($data['unit_id']);
+                            if ($unit) {
+                                $indicators[] = 'الوحدة: '.$unit->name;
+                            }
+                        }
+
+                        return $indicators;
                     }),
 
                 SelectFilter::make('tenant_id')
@@ -250,6 +269,15 @@ class CollectionPaymentResource extends Resource
                             $data['owner_id'] ?? null,
                             fn (Builder $query, $value) => $query->whereHas('property', fn ($q) => $q->where('owner_id', $value))
                         );
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (! ($data['owner_id'] ?? null)) {
+                            return null;
+                        }
+
+                        $owner = Owner::find($data['owner_id']);
+
+                        return $owner ? 'المالك: '.$owner->name : null;
                     }),
 
                 SelectFilter::make('payment_status')
