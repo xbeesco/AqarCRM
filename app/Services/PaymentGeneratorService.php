@@ -691,7 +691,10 @@ class PaymentGeneratorService
             // 2. تاريخ النهاية الجديد
             $newEndDate = $renewalStartDate->copy()->addMonths($extensionMonths)->subDay();
 
-            // 3. توليد الدفعات الجديدة للفترة الإضافية فقط
+            // 3. حساب عدد الدفعات الحالية قبل إنشاء الجديدة
+            $currentPaymentsCount = $contract->payments()->count();
+
+            // 4. توليد الدفعات الجديدة للفترة الإضافية فقط
             $newPayments = $this->generatePaymentsFromDate(
                 $contract,
                 $renewalStartDate,
@@ -700,7 +703,7 @@ class PaymentGeneratorService
                 $newMonthlyRent
             );
 
-            // 4. تحديث العقد
+            // 5. تحديث العقد
             $newTotalMonths = $contract->duration_months + $extensionMonths;
 
             $contract->update([
@@ -708,7 +711,8 @@ class PaymentGeneratorService
                 'duration_months' => $newTotalMonths,
                 'monthly_rent' => $newMonthlyRent,
                 'payment_frequency' => $newFrequency,
-                'notes' => $contract->notes."\n[".now()->format('Y-m-d H:i')."] تم تجديد العقد - إضافة {$extensionMonths} شهر (".count($newPayments).' دفعة جديدة)',
+                'payments_count' => $currentPaymentsCount + \count($newPayments),
+                'notes' => $contract->notes."\n[".now()->format('Y-m-d H:i')."] تم تجديد العقد - إضافة {$extensionMonths} شهر (".\count($newPayments).' دفعة جديدة)',
             ]);
 
             DB::commit();
