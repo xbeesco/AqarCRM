@@ -6,21 +6,17 @@ use App\Filament\Resources\PropertyContractResource;
 use App\Models\PropertyContract;
 use App\Services\PaymentGeneratorService;
 use App\Services\PropertyContractService;
-use Filament\Resources\Pages\Page;
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Grid;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Select;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Actions\Action;
 use Filament\Notifications\Notification;
+use Filament\Resources\Pages\Page;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
-use Closure;
-use Filament\Forms\Get;
-use Filament\Forms\Set;
 
 class ReschedulePayments extends Page implements HasForms
 {
@@ -33,17 +29,19 @@ class ReschedulePayments extends Page implements HasForms
     protected static ?string $title = 'إعادة جدولة دفعات العقد';
 
     public PropertyContract $record;
+
     public ?array $data = [];
 
     public function mount(PropertyContract $record): void
     {
         $this->record = $record;
 
-        if (!auth()->user()->isSuperAdmin()) {
-            abort(403, 'غير مصرح لك بالقيام بهذه العملية');
+        // التحقق من الصلاحيات - super_admin, admin, employee
+        if (! in_array(auth()->user()?->type, ['super_admin', 'admin', 'employee'])) {
+            abort(403, 'غير مصرح لك بإعادة جدولة الدفعات');
         }
 
-        if (!$this->record->canBeRescheduled()) {
+        if (! $this->record->canBeRescheduled()) {
             Notification::make()
                 ->title('لا يمكن إعادة جدولة هذا العقد')
                 ->body('العقد غير نشط أو لا توجد دفعات')
@@ -51,6 +49,7 @@ class ReschedulePayments extends Page implements HasForms
                 ->send();
 
             $this->redirect(PropertyContractResource::getUrl('index'));
+
             return;
         }
 
@@ -92,25 +91,25 @@ class ReschedulePayments extends Page implements HasForms
                         Grid::make(3)->schema([
                             Placeholder::make('original_duration')
                                 ->label('المدة الأصلية')
-                                ->content($this->record->duration_months . ' شهر'),
+                                ->content($this->record->duration_months.' شهر'),
 
                             Placeholder::make('paid_months')
                                 ->label('الأشهر المدفوعة')
-                                ->content($this->record->getPaidMonthsCount() . ' شهر'),
+                                ->content($this->record->getPaidMonthsCount().' شهر'),
 
                             Placeholder::make('remaining_months')
                                 ->label('الأشهر المتبقية حالياً')
-                                ->content($this->record->getRemainingMonths() . ' شهر'),
+                                ->content($this->record->getRemainingMonths().' شهر'),
                         ]),
 
                         Grid::make(2)->schema([
                             Placeholder::make('paid_payments')
                                 ->label('الدفعات المدفوعة')
-                                ->content($this->record->getPaidPayments()->count() . ' دفعة'),
+                                ->content($this->record->getPaidPayments()->count().' دفعة'),
 
                             Placeholder::make('unpaid_payments')
                                 ->label('الدفعات الغير مدفوعة')
-                                ->content($this->record->getUnpaidPayments()->count() . ' دفعة (سيتم حذفها)'),
+                                ->content($this->record->getUnpaidPayments()->count().' دفعة (سيتم حذفها)'),
                         ]),
                     ]),
 
@@ -139,7 +138,7 @@ class ReschedulePayments extends Page implements HasForms
                                 return $summary;
                             }),
                     ])
-                    ->visible(fn($get) => (int) $get('additional_months') > 0),
+                    ->visible(fn ($get) => (int) $get('additional_months') > 0),
             ])
             ->columns(2)
             ->statePath('data');
@@ -150,7 +149,7 @@ class ReschedulePayments extends Page implements HasForms
         $months = (int) $get('additional_months');
         $frequency = $get('new_frequency');
 
-        if (!PropertyContractService::isValidDuration($months, $frequency)) {
+        if (! PropertyContractService::isValidDuration($months, $frequency)) {
             Notification::make()
                 ->warning()
                 ->title('تنبيه')
@@ -201,8 +200,19 @@ class ReschedulePayments extends Page implements HasForms
                     );
                 })
                 ->modalSubmitActionLabel('نعم، أعد الجدولة')
-                ->disabled(fn() => $this->data['frequency_error'] ?? false)
+                ->disabled(fn () => ($this->data['frequency_error'] ?? false) || (($this->data['additional_months'] ?? 0) < 1))
                 ->action(function () {
+                    // التحقق من أن المدة أكبر من صفر
+                    if (($this->data['additional_months'] ?? 0) < 1) {
+                        Notification::make()
+                            ->title('خطأ')
+                            ->body('يجب أن تكون المدة شهر واحد على الأقل')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
                     $this->reschedule();
                 }),
 
@@ -228,7 +238,7 @@ class ReschedulePayments extends Page implements HasForms
 
             Notification::make()
                 ->title('تمت إعادة الجدولة بنجاح')
-                ->body("تم حذف {$result['deleted_count']} دفعة وإنشاء " . count($result['new_payments']) . " دفعة جديدة")
+                ->body("تم حذف {$result['deleted_count']} دفعة وإنشاء ".count($result['new_payments']).' دفعة جديدة')
                 ->success()
                 ->send();
 

@@ -2,8 +2,8 @@
 
 namespace App\Policies;
 
-use App\Models\User;
 use App\Models\PropertyContract;
+use App\Models\User;
 
 class PropertyContractPolicy extends BasePolicy
 {
@@ -104,5 +104,25 @@ class PropertyContractPolicy extends BasePolicy
     public function approve(User $user, PropertyContract $contract): bool
     {
         return in_array($user->type, ['super_admin', 'admin', 'employee']) && $contract->contract_status === 'draft';
+    }
+
+    /**
+     * Determine whether the user can reschedule payments.
+     * Admins and employees can reschedule payments
+     */
+    public function reschedule(User $user, PropertyContract $contract): bool
+    {
+        return in_array($user->type, ['super_admin', 'admin', 'employee'])
+            && $contract->canBeRescheduled();
+    }
+
+    /**
+     * Determine whether the user can renew the contract.
+     * Admins and employees can renew
+     */
+    public function renew(User $user, PropertyContract $contract): bool
+    {
+        return in_array($user->type, ['super_admin', 'admin', 'employee'])
+            && $contract->canBeRescheduled();
     }
 }

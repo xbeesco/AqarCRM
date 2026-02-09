@@ -6,19 +6,17 @@ use App\Filament\Resources\UnitContractResource;
 use App\Models\UnitContract;
 use App\Services\PaymentGeneratorService;
 use App\Services\PropertyContractService;
-use Filament\Resources\Pages\Page;
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Grid;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Select;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Actions\Action;
 use Filament\Notifications\Notification;
+use Filament\Resources\Pages\Page;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
-use Closure;
 
 class ReschedulePayments extends Page implements HasForms
 {
@@ -29,6 +27,7 @@ class ReschedulePayments extends Page implements HasForms
     protected string $view = 'filament.resources.unit-contract-resource.pages.reschedule-payments';
 
     public UnitContract $record;
+
     public ?array $data = [];
 
     protected ?PaymentGeneratorService $paymentService = null;
@@ -42,8 +41,8 @@ class ReschedulePayments extends Page implements HasForms
     {
         $this->record = $record;
 
-        // التحقق من الصلاحيات باستخدام Policy
-        if (!auth()->user()->can('reschedule', $record)) {
+        // التحقق من الصلاحيات - super_admin, admin, employee
+        if (! in_array(auth()->user()?->type, ['super_admin', 'admin', 'employee'])) {
             abort(403, 'غير مصرح لك بإعادة جدولة الدفعات');
         }
 
@@ -85,6 +84,16 @@ class ReschedulePayments extends Page implements HasForms
                                 ->minValue(0.01)
                                 ->step(0.01)
                                 ->postfix('ريال')
+                                ->live()
+                                ->afterStateUpdated(function ($state) {
+                                    if (($state ?? 0) <= 0) {
+                                        \Filament\Notifications\Notification::make()
+                                            ->title('خطأ في قيمة الإيجار')
+                                            ->body('يجب أن تكون قيمة الإيجار أكبر من صفر')
+                                            ->danger()
+                                            ->send();
+                                    }
+                                })
                                 ->columnSpan(3),
 
                             ...(\App\Filament\Forms\ContractFormSchema::getDurationFields('unit', $this->record)),
@@ -98,25 +107,25 @@ class ReschedulePayments extends Page implements HasForms
                         Grid::make(3)->schema([
                             Placeholder::make('original_duration')
                                 ->label('المدة الأصلية')
-                                ->content($this->record->duration_months . ' شهر'),
+                                ->content($this->record->duration_months.' شهر'),
 
                             Placeholder::make('paid_months')
                                 ->label('الأشهر المدفوعة')
-                                ->content(fn() => $this->record->getPaidMonthsCount() . ' شهر'),
+                                ->content(fn () => $this->record->getPaidMonthsCount().' شهر'),
 
                             Placeholder::make('remaining_months')
                                 ->label('الأشهر المتبقية حالياً')
-                                ->content(fn() => $this->record->getRemainingMonths() . ' شهر'),
+                                ->content(fn () => $this->record->getRemainingMonths().' شهر'),
                         ]),
 
                         Grid::make(2)->schema([
                             Placeholder::make('paid_payments')
                                 ->label('الدفعات المدفوعة')
-                                ->content(fn() => $this->record->getPaidPaymentsCount() . ' دفعة'),
+                                ->content(fn () => $this->record->getPaidPaymentsCount().' دفعة'),
 
                             Placeholder::make('unpaid_payments')
                                 ->label('الدفعات غير المدفوعة')
-                                ->content(fn() => $this->record->getUnpaidPaymentsCount() . ' دفعة (سيتم حذفها)'),
+                                ->content(fn () => $this->record->getUnpaidPaymentsCount().' دفعة (سيتم حذفها)'),
                         ]),
                     ]),
 
@@ -133,7 +142,7 @@ class ReschedulePayments extends Page implements HasForms
                                 $summary .= "• الأشهر المدفوعة: {$paidMonths} شهر (ستبقى كما هي)\n";
                                 $summary .= "• الأشهر الجديدة: {$additionalMonths} شهر\n";
                                 $summary .= "• إجمالي مدة العقد الجديدة: {$newTotal} شهر\n";
-                                $summary .= "• الدفعات غير المدفوعة: " . $this->record->getUnpaidPaymentsCount() . " دفعة (سيتم حذفها)\n";
+                                $summary .= '• الدفعات غير المدفوعة: '.$this->record->getUnpaidPaymentsCount()." دفعة (سيتم حذفها)\n";
 
                                 $frequency = $get('new_frequency') ?? 'monthly';
                                 if (PropertyContractService::isValidDuration($additionalMonths, $frequency)) {
@@ -144,7 +153,7 @@ class ReschedulePayments extends Page implements HasForms
                                 return $summary;
                             }),
                     ])
-                    ->visible(fn($get) => $get('additional_months') > 0),
+                    ->visible(fn ($get) => $get('additional_months') > 0),
             ])
             ->columns(2)
             ->statePath('data');
@@ -189,8 +198,32 @@ class ReschedulePayments extends Page implements HasForms
                     );
                 })
                 ->modalSubmitActionLabel('نعم، أعد الجدولة')
-                ->disabled(fn() => $this->data['frequency_error'] ?? false)
+                ->disabled(fn () => ($this->data['frequency_error'] ?? false)
+                    || (($this->data['additional_months'] ?? 0) < 1)
+                    || (($this->data['new_monthly_rent'] ?? 0) <= 0))
                 ->action(function () {
+                    // التحقق من أن المدة أكبر من صفر
+                    if (($this->data['additional_months'] ?? 0) < 1) {
+                        \Filament\Notifications\Notification::make()
+                            ->title('خطأ')
+                            ->body('يجب أن تكون المدة شهر واحد على الأقل')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    // التحقق من أن قيمة الإيجار أكبر من صفر
+                    if (($this->data['new_monthly_rent'] ?? 0) <= 0) {
+                        \Filament\Notifications\Notification::make()
+                            ->title('خطأ')
+                            ->body('يجب أن تكون قيمة الإيجار أكبر من صفر')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
                     try {
                         $result = $this->paymentService->rescheduleContractPayments(
                             $this->record,
