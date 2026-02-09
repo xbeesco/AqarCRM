@@ -5,8 +5,8 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\TenantResource\Pages;
 use App\Models\CollectionPayment;
 use App\Models\Tenant;
-use Filament\Actions\BulkAction;
-use Filament\Actions\BulkActionGroup;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\FileUpload;
@@ -143,41 +143,16 @@ class TenantResource extends Resource
                 EditAction::make()
                     ->label('تعديل')
                     ->icon('heroicon-o-pencil-square'),
-            ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    BulkAction::make('view_units')
+                ActionGroup::make([
+                    Action::make('view_units')
                         ->label('الوحدات')
-                        ->icon('heroicon-o-building-office')
-                        ->color('info')
-                        ->action(function (Collection $records) {
-                            $tenantId = $records->first()->id;
-
-                            return redirect(UnitResource::getUrl('index').'?tenant_id='.$tenantId);
-                        })
-                        ->deselectRecordsAfterCompletion(),
-
-                    BulkAction::make('view_unit_contracts')
+                        ->url(fn ($record) => UnitResource::getUrl('index').'?tenant_id='.$record->id),
+                    Action::make('view_unit_contracts')
                         ->label('عقود الوحدات')
-                        ->icon('heroicon-o-document-text')
-                        ->color('warning')
-                        ->action(function (Collection $records) {
-                            $tenantId = $records->first()->id;
-
-                            return redirect(UnitContractResource::getUrl('index').'?tenant_id='.$tenantId);
-                        })
-                        ->deselectRecordsAfterCompletion(),
-
-                    BulkAction::make('view_collection_payments')
+                        ->url(fn ($record) => UnitContractResource::getUrl('index').'?tenant_id='.$record->id),
+                    Action::make('view_collection_payments')
                         ->label('دفعات المستأجر')
-                        ->icon('heroicon-o-credit-card')
-                        ->color('success')
-                        ->action(function (Collection $records) {
-                            $tenantId = $records->first()->id;
-
-                            return redirect(CollectionPaymentResource::getUrl('index').'?tenant_id='.$tenantId);
-                        })
-                        ->deselectRecordsAfterCompletion(),
+                        ->url(fn ($record) => CollectionPaymentResource::getUrl('index').'?tenant_id='.$record->id),
                 ])->label('عرض البيانات'),
             ])
             ->defaultSort('created_at', 'desc');
