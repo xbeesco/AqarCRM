@@ -15,7 +15,7 @@ class ContractFormSchema
     {
         return [
             TextInput::make($record ? 'additional_months' : 'duration_months')
-                ->label($record ? 'المدة الجديدة (إجمالي المتبقي + الجديد)' : 'مدة التعاقد بالشهر')
+                ->label($record ? 'المدة المعاد جدولتها' : 'مدة التعاقد بالشهر')
                 ->numeric()
                 ->required()
                 ->minValue(1)
@@ -80,7 +80,11 @@ class ContractFormSchema
                 ->columnSpan(3),
 
             Select::make($record ? 'new_frequency' : 'payment_frequency')
-                ->label($record ? 'تكرار التحصيل للمدة الجديدة' : 'تكرار التحصيل')
+                ->label(function () use ($type, $record) {
+                    $action = $type === 'property' ? 'توريد' : 'تحصيل';
+
+                    return $record ? "{$action} تلك المدة سيكون كل" : "{$action} كل";
+                })
                 ->required()
                 ->options([
                     'monthly' => 'شهر',

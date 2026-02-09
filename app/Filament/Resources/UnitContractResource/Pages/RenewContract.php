@@ -49,7 +49,7 @@ class RenewContract extends Page implements HasForms
 
         $this->form->fill([
             'new_monthly_rent' => $record->monthly_rent,
-            'extension_months' => 12,
+            'extension_months' => null,
             'new_frequency' => $record->payment_frequency ?? 'monthly',
         ]);
     }
@@ -107,7 +107,7 @@ class RenewContract extends Page implements HasForms
                                 ->columnSpan(3),
 
                             Select::make('new_frequency')
-                                ->label('تكرار التحصيل للفترة الجديدة')
+                                ->label('تحصيل تلك المدة سيكون كل')
                                 ->required()
                                 ->options([
                                     'monthly' => 'شهر',
