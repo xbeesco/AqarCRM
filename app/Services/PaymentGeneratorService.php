@@ -2,12 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\UnitContract;
-use App\Models\PropertyContract;
 use App\Models\CollectionPayment;
-use App\Models\SupplyPayment;
+use App\Models\PropertyContract;
 use App\Models\Setting;
-use App\Services\PropertyContractService;
+use App\Models\SupplyPayment;
+use App\Models\UnitContract;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -18,7 +17,7 @@ class PaymentGeneratorService
      */
     public function generateTenantPayments(UnitContract $contract): array
     {
-        if (!$contract->monthly_rent || $contract->monthly_rent <= 0) {
+        if (! $contract->monthly_rent || $contract->monthly_rent <= 0) {
             throw new \InvalidArgumentException('مبلغ الإيجار الشهري غير صحيح');
         }
 
@@ -63,7 +62,7 @@ class PaymentGeneratorService
                     'unit_id' => $contract->unit_id,
                     'property_id' => $contract->property_id,
                     'tenant_id' => $contract->tenant_id,
-                    'payment_status_id' => 2,  // Due - تستحق التحصيل 
+                    'payment_status_id' => 2,  // Due - تستحق التحصيل
                     'amount' => $baseAmount,
                     'late_fee' => 0,
                     'total_amount' => $baseAmount,
@@ -80,6 +79,7 @@ class PaymentGeneratorService
             }
 
             DB::commit();
+
             return $payments;
 
         } catch (\Exception $e) {
@@ -108,6 +108,7 @@ class PaymentGeneratorService
 
             if ($collectedPayments->isEmpty()) {
                 DB::rollBack();
+
                 return null;
             }
 
@@ -139,6 +140,7 @@ class PaymentGeneratorService
             ]);
 
             DB::commit();
+
             return $payment;
 
         } catch (\Exception $e) {
@@ -168,6 +170,7 @@ class PaymentGeneratorService
     private function calculatePaymentAmount($monthlyRent, $frequency): float
     {
         $monthsPerPayment = PropertyContractService::getMonthsPerPayment($frequency);
+
         return $monthlyRent * $monthsPerPayment;
     }
 
@@ -199,6 +202,7 @@ class PaymentGeneratorService
     private function getFullPeriodDays($frequency): int
     {
         $monthsPerPayment = PropertyContractService::getMonthsPerPayment($frequency);
+
         return $monthsPerPayment * 30; // تقريبياً 30 يوم للشهر
     }
 
@@ -265,13 +269,13 @@ class PaymentGeneratorService
         }
 
         // التحقق الشامل من صلاحية توليد الدفعات
-        if (!$contract->canGeneratePayments()) {
+        if (! $contract->canGeneratePayments()) {
             // تحديد سبب المشكلة بدقة
-            if (!is_numeric($contract->payments_count) || $contract->payments_count <= 0) {
+            if (! is_numeric($contract->payments_count) || $contract->payments_count <= 0) {
                 throw new \Exception('عدد الدفعات غير صحيح - تحقق من بيانات العقد');
             }
 
-            if (!$contract->isValidDurationForFrequency()) {
+            if (! $contract->isValidDurationForFrequency()) {
                 throw new \Exception('مدة العقد لا تتوافق مع تكرار الدفع المحدد');
             }
 
@@ -279,7 +283,7 @@ class PaymentGeneratorService
         }
 
         // تحقق إضافي من صحة المدة والتكرار
-        if (!$contract->isValidDurationForFrequency()) {
+        if (! $contract->isValidDurationForFrequency()) {
             throw new \Exception('مدة العقد لا تتوافق مع تكرار الدفع المحدد');
         }
 
@@ -313,6 +317,7 @@ class PaymentGeneratorService
             }
 
             DB::commit();
+
             return count($payments);
 
         } catch (\Exception $e) {
@@ -355,11 +360,10 @@ class PaymentGeneratorService
                 'period_start' => $periodStart->toDateString(),
                 'period_end' => $periodEnd->toDateString(),
                 'payment_frequency' => $contract->payment_frequency,
-                'generated_at' => now()->toDateTimeString()
-            ]
+                'generated_at' => now()->toDateTimeString(),
+            ],
         ]);
     }
-
 
     /**
      * الحصول على تسمية التكرار بالعربية
@@ -403,7 +407,7 @@ class PaymentGeneratorService
         }
 
         // التحقق من توافق المدة مع التكرار
-        if (!PropertyContractService::isValidDuration($additionalMonths, $newFrequency)) {
+        if (! PropertyContractService::isValidDuration($additionalMonths, $newFrequency)) {
             throw new \InvalidArgumentException('المدة الإضافية لا تتوافق مع تكرار الدفع المختار');
         }
 
@@ -440,7 +444,7 @@ class PaymentGeneratorService
                 'end_date' => $newEndDate,
                 'duration_months' => $totalMonths,
                 'monthly_rent' => $newMonthlyRent,
-                'notes' => $contract->notes . "\n[" . now()->format('Y-m-d H:i') . "] تمت إعادة جدولة الدفعات - حذف {$deletedCount} دفعة وإضافة " . count($newPayments) . " دفعة جديدة"
+                'notes' => $contract->notes."\n[".now()->format('Y-m-d H:i')."] تمت إعادة جدولة الدفعات - حذف {$deletedCount} دفعة وإضافة ".count($newPayments).' دفعة جديدة',
             ]);
 
             DB::commit();
@@ -450,7 +454,7 @@ class PaymentGeneratorService
                 'new_payments' => $newPayments,
                 'paid_months' => $paidMonths,
                 'total_months' => $totalMonths,
-                'new_end_date' => $newEndDate
+                'new_end_date' => $newEndDate,
             ];
 
         } catch (\Exception $e) {
@@ -587,7 +591,7 @@ class PaymentGeneratorService
             throw new \InvalidArgumentException('نسبة العمولة يجب أن تكون بين 0 و 100');
         }
 
-        if (!PropertyContractService::isValidDuration($additionalMonths, $newFrequency)) {
+        if (! PropertyContractService::isValidDuration($additionalMonths, $newFrequency)) {
             throw new \InvalidArgumentException('المدة الإضافية لا تتوافق مع تكرار الدفع المختار');
         }
 
@@ -636,7 +640,7 @@ class PaymentGeneratorService
                 'commission_rate' => $newCommissionRate,
                 'payment_frequency' => $newFrequency,
                 'payments_count' => ($contract->getPaidPayments()->count() + count($newPayments)),
-                'notes' => $contract->notes . "\n[" . now()->format('Y-m-d H:i') . "] تمت إعادة جدولة الدفعات - حذف {$deletedCount} دفعة وإضافة " . count($newPayments) . " دفعة جديدة"
+                'notes' => $contract->notes."\n[".now()->format('Y-m-d H:i')."] تمت إعادة جدولة الدفعات - حذف {$deletedCount} دفعة وإضافة ".count($newPayments).' دفعة جديدة',
             ]);
 
             DB::commit();
@@ -646,7 +650,145 @@ class PaymentGeneratorService
                 'new_payments' => $newPayments,
                 'paid_months' => $contract->getPaidMonthsCount(),
                 'total_months' => $totalMonths,
-                'new_end_date' => $newEndDate
+                'new_end_date' => $newEndDate,
+            ];
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * تجديد عقد الوحدة - إضافة شهور جديدة في نهاية العقد
+     * لا يمسح الدفعات الحالية، فقط يضيف دفعات جديدة للفترة الإضافية
+     */
+    public function renewUnitContract(
+        UnitContract $contract,
+        float $newMonthlyRent,
+        int $extensionMonths,
+        string $newFrequency
+    ): array {
+        if ($extensionMonths <= 0) {
+            throw new \InvalidArgumentException('عدد أشهر التجديد يجب أن يكون أكبر من صفر');
+        }
+
+        if ($newMonthlyRent <= 0) {
+            throw new \InvalidArgumentException('قيمة الإيجار يجب أن تكون أكبر من صفر');
+        }
+
+        if (! PropertyContractService::isValidDuration($extensionMonths, $newFrequency)) {
+            throw new \InvalidArgumentException('مدة التجديد لا تتوافق مع تكرار الدفع المختار');
+        }
+
+        DB::beginTransaction();
+
+        try {
+            // 1. تاريخ البداية للتجديد = يوم بعد نهاية العقد الحالي
+            $currentEndDate = Carbon::parse($contract->end_date);
+            $renewalStartDate = $currentEndDate->copy()->addDay();
+
+            // 2. تاريخ النهاية الجديد
+            $newEndDate = $renewalStartDate->copy()->addMonths($extensionMonths)->subDay();
+
+            // 3. توليد الدفعات الجديدة للفترة الإضافية فقط
+            $newPayments = $this->generatePaymentsFromDate(
+                $contract,
+                $renewalStartDate,
+                $extensionMonths,
+                $newFrequency,
+                $newMonthlyRent
+            );
+
+            // 4. تحديث العقد
+            $newTotalMonths = $contract->duration_months + $extensionMonths;
+
+            $contract->update([
+                'end_date' => $newEndDate,
+                'duration_months' => $newTotalMonths,
+                'monthly_rent' => $newMonthlyRent,
+                'payment_frequency' => $newFrequency,
+                'notes' => $contract->notes."\n[".now()->format('Y-m-d H:i')."] تم تجديد العقد - إضافة {$extensionMonths} شهر (".count($newPayments).' دفعة جديدة)',
+            ]);
+
+            DB::commit();
+
+            return [
+                'new_payments' => $newPayments,
+                'extension_months' => $extensionMonths,
+                'new_total_months' => $newTotalMonths,
+                'new_end_date' => $newEndDate,
+                'renewal_start_date' => $renewalStartDate,
+            ];
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * تجديد عقد العقار - إضافة شهور جديدة في نهاية العقد
+     * لا يمسح الدفعات الحالية، فقط يضيف دفعات جديدة للفترة الإضافية
+     */
+    public function renewPropertyContract(
+        PropertyContract $contract,
+        float $newCommissionRate,
+        int $extensionMonths,
+        string $newFrequency
+    ): array {
+        if ($extensionMonths <= 0) {
+            throw new \InvalidArgumentException('عدد أشهر التجديد يجب أن يكون أكبر من صفر');
+        }
+
+        if ($newCommissionRate < 0 || $newCommissionRate > 100) {
+            throw new \InvalidArgumentException('نسبة العمولة يجب أن تكون بين 0 و 100');
+        }
+
+        if (! PropertyContractService::isValidDuration($extensionMonths, $newFrequency)) {
+            throw new \InvalidArgumentException('مدة التجديد لا تتوافق مع تكرار الدفع المختار');
+        }
+
+        DB::beginTransaction();
+
+        try {
+            // 1. تاريخ البداية للتجديد = يوم بعد نهاية العقد الحالي
+            $currentEndDate = Carbon::parse($contract->end_date);
+            $renewalStartDate = $currentEndDate->copy()->addDay();
+
+            // 2. تاريخ النهاية الجديد
+            $newEndDate = $renewalStartDate->copy()->addMonths($extensionMonths)->subDay();
+
+            // 3. توليد الدفعات الجديدة للفترة الإضافية فقط
+            $newPayments = $this->generatePropertyPaymentsFromDate(
+                $contract,
+                $renewalStartDate,
+                $extensionMonths,
+                $newFrequency,
+                $newCommissionRate
+            );
+
+            // 4. تحديث العقد
+            $newTotalMonths = $contract->duration_months + $extensionMonths;
+            $currentPaymentsCount = $contract->supplyPayments()->count();
+
+            $contract->update([
+                'end_date' => $newEndDate,
+                'duration_months' => $newTotalMonths,
+                'commission_rate' => $newCommissionRate,
+                'payment_frequency' => $newFrequency,
+                'payments_count' => $currentPaymentsCount,
+                'notes' => $contract->notes."\n[".now()->format('Y-m-d H:i')."] تم تجديد العقد - إضافة {$extensionMonths} شهر (".count($newPayments).' دفعة جديدة)',
+            ]);
+
+            DB::commit();
+
+            return [
+                'new_payments' => $newPayments,
+                'extension_months' => $extensionMonths,
+                'new_total_months' => $newTotalMonths,
+                'new_end_date' => $newEndDate,
+                'renewal_start_date' => $renewalStartDate,
             ];
 
         } catch (\Exception $e) {
@@ -700,8 +842,8 @@ class PaymentGeneratorService
                     'period_start' => $currentDate->toDateString(),
                     'period_end' => $periodEnd->toDateString(),
                     'generated_at' => now()->toDateTimeString(),
-                    'rescheduled' => true
-                ]
+                    'rescheduled' => true,
+                ],
             ]);
 
             $payments[] = $payment;
