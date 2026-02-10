@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Filament\Resources\UnitContractResource\Pages;
+namespace App\Filament\Resources\UnitContracts\Pages;
 
 use App\Exports\UnitContractsExport;
-use App\Filament\Resources\UnitContractResource;
+use App\Filament\Resources\UnitContracts\UnitContractResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;

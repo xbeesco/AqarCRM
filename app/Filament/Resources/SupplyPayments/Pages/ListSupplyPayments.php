@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Filament\Resources\SupplyPaymentResource\Pages;
+namespace App\Filament\Resources\SupplyPayments\Pages;
 
 use App\Exports\SupplyPaymentsExport;
-use App\Filament\Resources\SupplyPaymentResource;
+use App\Filament\Resources\SupplyPayments\SupplyPaymentResource;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;

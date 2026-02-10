@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Filament\Resources\PropertyResource\Pages;
+namespace App\Filament\Resources\Properties\Pages;
 
 use App\Exports\PropertiesExport;
-use App\Filament\Resources\PropertyResource;
+use App\Filament\Resources\Properties\PropertyResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;

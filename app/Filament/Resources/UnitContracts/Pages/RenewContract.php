@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Resources\UnitContractResource\Pages;
+namespace App\Filament\Resources\UnitContracts\Pages;
 
-use App\Filament\Resources\UnitContractResource;
+use App\Filament\Resources\UnitContracts\UnitContractResource;
 use App\Models\UnitContract;
 use App\Services\ContractValidationService;
 use App\Services\PaymentGeneratorService;
@@ -25,7 +25,7 @@ class RenewContract extends Page implements HasForms
 {
     use InteractsWithForms;
 
-    protected static string $resource = UnitContractResource::class;
+    protected static string $resource = \App\Filament\Resources\UnitContracts\UnitContractResource::class;
 
     protected string $view = 'filament.resources.unit-contract-resource.pages.reschedule-payments';
 

@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Filament\Resources\CollectionPaymentResource\Pages;
+namespace App\Filament\Resources\CollectionPayments\Pages;
 
 use App\Enums\PaymentStatus;
 use App\Exports\CollectionPaymentsExport;
-use App\Filament\Resources\CollectionPaymentResource;
+use App\Filament\Resources\CollectionPayments\CollectionPaymentResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;

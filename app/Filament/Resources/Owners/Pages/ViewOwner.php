@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Resources\OwnerResource\Pages;
+namespace App\Filament\Resources\Owners\Pages;
 
-use App\Filament\Resources\OwnerResource;
+use App\Filament\Resources\Owners\OwnerResource;
 use App\Models\CollectionPayment;
 use App\Models\Property;
 use App\Models\PropertyRepair;
