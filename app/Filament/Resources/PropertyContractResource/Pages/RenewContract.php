@@ -216,6 +216,10 @@ class RenewContract extends Page implements HasForms
                 ->label('تأكيد التجديد')
                 ->color('success')
                 ->icon('heroicon-o-check')
+                ->mountUsing(function () {
+                    // التحقق من صحة النموذج قبل عرض نافذة التأكيد
+                    $this->form->validate();
+                })
                 ->requiresConfirmation()
                 ->modalHeading('تأكيد تجديد العقد')
                 ->modalDescription(function () {
@@ -239,19 +243,7 @@ class RenewContract extends Page implements HasForms
                     );
                 })
                 ->modalSubmitActionLabel('نعم، جدد العقد')
-                ->disabled(fn () => (($this->data['extension_months'] ?? 0) < 1)
-                    || (($this->data['new_commission_rate'] ?? 0) < 1))
                 ->action(function () {
-                    // التحقق من أن المدة أكبر من صفر
-                    if (($this->data['extension_months'] ?? 0) < 1) {
-                        Notification::make()
-                            ->title('خطأ')
-                            ->body('يجب أن تكون مدة التجديد شهر واحد على الأقل')
-                            ->danger()
-                            ->send();
-
-                        return;
-                    }
                     try {
                         $result = $this->paymentService->renewPropertyContract(
                             $this->record,
@@ -269,11 +261,8 @@ class RenewContract extends Page implements HasForms
                         return redirect()->route('filament.admin.resources.property-contracts.view', $this->record);
 
                     } catch (\Exception $e) {
-                        Notification::make()
-                            ->title('فشل التجديد')
-                            ->body($e->getMessage())
-                            ->danger()
-                            ->send();
+                        // إظهار الخطأ تحت حقل المدة
+                        $this->addError('data.extension_months', $e->getMessage());
                     }
                 }),
 

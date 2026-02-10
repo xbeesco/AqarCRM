@@ -172,48 +172,55 @@ class ReschedulePayments extends Page implements HasForms
                 ->label('تنفيذ إعادة الجدولة')
                 ->color('success')
                 ->icon('heroicon-o-check')
+                ->mountUsing(function () {
+                    // التحقق من صحة النموذج قبل عرض نافذة التأكيد
+                    $this->form->validate();
+                })
                 ->requiresConfirmation()
                 ->modalHeading('تأكيد إعادة الجدولة')
-                ->modalContent(function () {
-                    $contractNumber = $this->record->contract_number;
-                    $ownerName = $this->record->owner?->name ?? 'غير محدد';
-                    $propertyName = $this->record->property?->name ?? 'غير محدد';
-
-                    $newCommission = $this->data['new_commission_rate'] ?? 0;
+                ->modalDescription(function () {
                     $additionalMonths = $this->data['additional_months'] ?? 0;
-                    $newPaymentsCount = $this->data['new_payments_count'] ?? 0;
+                    $newCommission = $this->data['new_commission_rate'] ?? 0;
+                    $frequency = $this->data['new_frequency'] ?? 'monthly';
+                    $newPaymentsCount = PropertyContractService::calculatePaymentsCount($additionalMonths, $frequency);
                     $unpaidCount = $this->record->getUnpaidPayments()->count();
 
                     return new \Illuminate\Support\HtmlString(
                         "<div style='text-align: right; direction: rtl;'>
-                             <p>رقم العقد: <strong>{$contractNumber}</strong></p>
-                            <p>المالك: <strong>{$ownerName}</strong></p>
-                            <p>العقار: <strong>{$propertyName}</strong></p>
+                            <p>رقم العقد: <strong>{$this->record->contract_number}</strong></p>
+                            <p>المالك: <strong>{$this->record->owner?->name}</strong></p>
+                            <p>العقار: <strong>{$this->record->property?->name}</strong></p>
                             <hr style='margin: 10px 0;'>
                             <p style='color: red;'>سيتم حذف: <strong>{$unpaidCount} دفعة غير مدفوعة</strong></p>
                             <p style='color: green;'>سيتم إنشاء: <strong>{$newPaymentsCount} دفعة جديدة</strong></p>
                             <p>العمولة الجديدة: <strong>{$newCommission}%</strong></p>
                             <p>المدة الإضافية: <strong>{$additionalMonths} شهر</strong></p>
-                            <hr style='margin: 10px 0;'>
-                            <p style='color: #666; font-size: 0.9em;'>هل أنت متأكد من إعادة الجدولة؟</p>
                         </div>"
                     );
                 })
                 ->modalSubmitActionLabel('نعم، أعد الجدولة')
-                ->disabled(fn () => ($this->data['frequency_error'] ?? false) || (($this->data['additional_months'] ?? 0) < 1))
                 ->action(function () {
-                    // التحقق من أن المدة أكبر من صفر
-                    if (($this->data['additional_months'] ?? 0) < 1) {
+                    try {
+                        $service = app(PaymentGeneratorService::class);
+                        $result = $service->reschedulePropertyContractPayments(
+                            $this->record,
+                            $this->data['new_commission_rate'],
+                            $this->data['additional_months'],
+                            $this->data['new_frequency']
+                        );
+
                         Notification::make()
-                            ->title('خطأ')
-                            ->body('يجب أن تكون المدة شهر واحد على الأقل')
-                            ->danger()
+                            ->title('تمت إعادة الجدولة بنجاح')
+                            ->body("تم حذف {$result['deleted_count']} دفعة وإنشاء ".count($result['new_payments']).' دفعة جديدة')
+                            ->success()
                             ->send();
 
-                        return;
-                    }
+                        return redirect()->to(PropertyContractResource::getUrl('view', ['record' => $this->record]));
 
-                    $this->reschedule();
+                    } catch (\Exception $e) {
+                        // إظهار الخطأ تحت حقل المدة
+                        $this->addError('data.additional_months', $e->getMessage());
+                    }
                 }),
 
             Action::make('cancel')
@@ -221,35 +228,5 @@ class ReschedulePayments extends Page implements HasForms
                 ->color('gray')
                 ->url(PropertyContractResource::getUrl('view', ['record' => $this->record])),
         ];
-    }
-
-    public function reschedule()
-    {
-        $data = $this->data;
-
-        try {
-            $service = app(PaymentGeneratorService::class);
-            $result = $service->reschedulePropertyContractPayments(
-                $this->record,
-                $data['new_commission_rate'],
-                $data['additional_months'],
-                $data['new_frequency']
-            );
-
-            Notification::make()
-                ->title('تمت إعادة الجدولة بنجاح')
-                ->body("تم حذف {$result['deleted_count']} دفعة وإنشاء ".count($result['new_payments']).' دفعة جديدة')
-                ->success()
-                ->send();
-
-            return redirect()->to(PropertyContractResource::getUrl('view', ['record' => $this->record]));
-
-        } catch (\Exception $e) {
-            Notification::make()
-                ->title('حدث خطأ أثناء إعادة الجدولة')
-                ->body($e->getMessage())
-                ->danger()
-                ->send();
-        }
     }
 }

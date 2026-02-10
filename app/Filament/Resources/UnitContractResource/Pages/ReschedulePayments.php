@@ -166,64 +166,34 @@ class ReschedulePayments extends Page implements HasForms
                 ->label('تنفيذ إعادة الجدولة')
                 ->color('success')
                 ->icon('heroicon-o-check')
+                ->mountUsing(function () {
+                    // التحقق من صحة النموذج قبل عرض نافذة التأكيد
+                    $this->form->validate();
+                })
                 ->requiresConfirmation()
                 ->modalHeading('تأكيد إعادة الجدولة')
                 ->modalDescription(function () {
-                    $contractNumber = $this->record->contract_number ?? 'غير محدد';
-                    $tenantName = $this->record->tenant?->name ?? 'غير محدد';
-                    $propertyName = $this->record->property?->name ?? 'غير محدد';
-                    $unitName = $this->record->unit?->name ?? 'غير محدد';
-
-                    $newMonthlyRent = number_format($this->data['new_monthly_rent'] ?? 0, 2);
                     $additionalMonths = $this->data['additional_months'] ?? 0;
-                    $newPaymentsCount = $this->data['new_payments_count'] ?? 0;
-
-                    $unpaidCount = $this->record->payments()
-                        ->whereNull('paid_date')
-                        ->count();
+                    $newRent = number_format($this->data['new_monthly_rent'] ?? 0, 2);
+                    $frequency = $this->data['new_frequency'] ?? 'monthly';
+                    $newPaymentsCount = PropertyContractService::calculatePaymentsCount($additionalMonths, $frequency);
+                    $unpaidCount = $this->record->getUnpaidPaymentsCount();
 
                     return new \Illuminate\Support\HtmlString(
                         "<div style='text-align: right; direction: rtl;'>
-                            <p>رقم العقد: <strong>{$contractNumber}</strong></p>
-                            <p>المستأجر: <strong>{$tenantName}</strong></p>
-                            <p>العقار: <strong>{$propertyName}</strong> - <strong>{$unitName}</strong></p>
+                            <p>رقم العقد: <strong>{$this->record->contract_number}</strong></p>
+                            <p>المستأجر: <strong>{$this->record->tenant?->name}</strong></p>
+                            <p>العقار: <strong>{$this->record->property?->name}</strong> - <strong>{$this->record->unit?->name}</strong></p>
                             <hr style='margin: 10px 0;'>
                             <p style='color: red;'>سيتم حذف: <strong>{$unpaidCount} دفعة غير مدفوعة</strong></p>
                             <p style='color: green;'>سيتم إنشاء: <strong>{$newPaymentsCount} دفعة جديدة</strong></p>
-                            <p>القيمة الجديدة: <strong>{$newMonthlyRent} ريال</strong></p>
-                            <p>المدة: <strong>{$additionalMonths} شهر</strong></p>
-                            <hr style='margin: 10px 0;'>
-                            <p style='color: #666; font-size: 0.9em;'>هل أنت متأكد من إعادة الجدولة؟</p>
+                            <p>قيمة الإيجار: <strong>{$newRent} ريال</strong></p>
+                            <p>المدة الإضافية: <strong>{$additionalMonths} شهر</strong></p>
                         </div>"
                     );
                 })
                 ->modalSubmitActionLabel('نعم، أعد الجدولة')
-                ->disabled(fn () => ($this->data['frequency_error'] ?? false)
-                    || (($this->data['additional_months'] ?? 0) < 1)
-                    || (($this->data['new_monthly_rent'] ?? 0) <= 0))
                 ->action(function () {
-                    // التحقق من أن المدة أكبر من صفر
-                    if (($this->data['additional_months'] ?? 0) < 1) {
-                        \Filament\Notifications\Notification::make()
-                            ->title('خطأ')
-                            ->body('يجب أن تكون المدة شهر واحد على الأقل')
-                            ->danger()
-                            ->send();
-
-                        return;
-                    }
-
-                    // التحقق من أن قيمة الإيجار أكبر من صفر
-                    if (($this->data['new_monthly_rent'] ?? 0) <= 0) {
-                        \Filament\Notifications\Notification::make()
-                            ->title('خطأ')
-                            ->body('يجب أن تكون قيمة الإيجار أكبر من صفر')
-                            ->danger()
-                            ->send();
-
-                        return;
-                    }
-
                     try {
                         $result = $this->paymentService->rescheduleContractPayments(
                             $this->record,
@@ -239,13 +209,9 @@ class ReschedulePayments extends Page implements HasForms
                             ->send();
 
                         return redirect()->route('filament.admin.resources.unit-contracts.view', $this->record);
-
                     } catch (\Exception $e) {
-                        Notification::make()
-                            ->title('فشلت إعادة الجدولة')
-                            ->body($e->getMessage())
-                            ->danger()
-                            ->send();
+                        // إظهار الخطأ تحت حقل المدة
+                        $this->addError('data.additional_months', $e->getMessage());
                     }
                 }),
 

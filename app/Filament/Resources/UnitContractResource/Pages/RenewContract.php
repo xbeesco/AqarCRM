@@ -4,6 +4,7 @@ namespace App\Filament\Resources\UnitContractResource\Pages;
 
 use App\Filament\Resources\UnitContractResource;
 use App\Models\UnitContract;
+use App\Services\ContractValidationService;
 use App\Services\PaymentGeneratorService;
 use App\Services\PropertyContractService;
 use Closure;
@@ -125,6 +126,27 @@ class RenewContract extends Page implements HasForms
                                             $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
                                         }
                                     },
+                                    // التحقق من التداخل مع عقود مستقبلية
+                                    fn (): Closure => function (string $attribute, $value, Closure $fail) {
+                                        if (! $value || $value < 1) {
+                                            return;
+                                        }
+
+                                        $unitId = $this->record->unit_id;
+                                        $renewalStartDate = $this->record->end_date->copy()->addDay();
+
+                                        $validationService = app(ContractValidationService::class);
+                                        $error = $validationService->validateDuration(
+                                            $unitId,
+                                            $renewalStartDate,
+                                            $value,
+                                            $this->record->id
+                                        );
+
+                                        if ($error) {
+                                            $fail($error);
+                                        }
+                                    },
                                 ])
                                 ->validationMessages([
                                     'required' => 'يجب إدخال مدة التجديد',
@@ -232,6 +254,10 @@ class RenewContract extends Page implements HasForms
                 ->label('تأكيد التجديد')
                 ->color('success')
                 ->icon('heroicon-o-check')
+                ->mountUsing(function () {
+                    // التحقق من صحة النموذج قبل عرض نافذة التأكيد
+                    $this->form->validate();
+                })
                 ->requiresConfirmation()
                 ->modalHeading('تأكيد تجديد العقد')
                 ->modalDescription(function () {
@@ -254,31 +280,7 @@ class RenewContract extends Page implements HasForms
                     );
                 })
                 ->modalSubmitActionLabel('نعم، جدد العقد')
-                ->disabled(fn () => (($this->data['extension_months'] ?? 0) < 1)
-                    || (($this->data['new_monthly_rent'] ?? 0) <= 0))
                 ->action(function () {
-                    // التحقق من أن المدة أكبر من صفر
-                    if (($this->data['extension_months'] ?? 0) < 1) {
-                        Notification::make()
-                            ->title('خطأ')
-                            ->body('يجب أن تكون مدة التجديد شهر واحد على الأقل')
-                            ->danger()
-                            ->send();
-
-                        return;
-                    }
-
-                    // التحقق من أن قيمة الإيجار أكبر من صفر
-                    if (($this->data['new_monthly_rent'] ?? 0) <= 0) {
-                        Notification::make()
-                            ->title('خطأ')
-                            ->body('يجب أن تكون قيمة الإيجار أكبر من صفر')
-                            ->danger()
-                            ->send();
-
-                        return;
-                    }
-
                     try {
                         $result = $this->paymentService->renewUnitContract(
                             $this->record,
@@ -296,11 +298,8 @@ class RenewContract extends Page implements HasForms
                         return redirect()->route('filament.admin.resources.unit-contracts.view', $this->record);
 
                     } catch (\Exception $e) {
-                        Notification::make()
-                            ->title('فشل التجديد')
-                            ->body($e->getMessage())
-                            ->danger()
-                            ->send();
+                        // إظهار الخطأ تحت حقل المدة
+                        $this->addError('data.extension_months', $e->getMessage());
                     }
                 }),
 
