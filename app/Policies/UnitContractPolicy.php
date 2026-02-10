@@ -2,8 +2,8 @@
 
 namespace App\Policies;
 
-use App\Models\User;
 use App\Models\UnitContract;
+use App\Models\User;
 
 class UnitContractPolicy extends BasePolicy
 {
@@ -127,12 +127,12 @@ class UnitContractPolicy extends BasePolicy
 
     /**
      * Determine whether the user can renew the contract.
-     * Admins and employees can renew
+     * Admins and employees can renew active contracts only
      */
     public function renew(User $user, UnitContract $contract): bool
     {
         return ($this->isAdmin($user) || $this->isEmployee($user))
-            && in_array($contract->contract_status, ['active', 'expired']);
+            && $contract->contract_status === 'active';
     }
 
     /**
@@ -142,6 +142,6 @@ class UnitContractPolicy extends BasePolicy
     public function reschedule(User $user, UnitContract $contract): bool
     {
         return ($this->isAdmin($user) || $this->isEmployee($user))
-            && $contract->canReschedule();
+            && $contract->canBeRescheduled();
     }
 }

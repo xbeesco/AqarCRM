@@ -2,6 +2,27 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\SystemManagement;
+use App\Filament\Resources\CollectionPayments\CollectionPaymentResource;
+use App\Filament\Resources\Employees\EmployeeResource;
+use App\Filament\Resources\Expenses\ExpenseResource;
+use App\Filament\Resources\Locations\LocationResource;
+use App\Filament\Resources\Owners\OwnerResource;
+use App\Filament\Resources\Properties\PropertyResource;
+use App\Filament\Resources\PropertyContracts\PropertyContractResource;
+use App\Filament\Resources\PropertyFeatures\PropertyFeatureResource;
+use App\Filament\Resources\PropertyStatuses\PropertyStatusResource;
+use App\Filament\Resources\PropertyTypes\PropertyTypeResource;
+use App\Filament\Resources\SupplyPayments\SupplyPaymentResource;
+use App\Filament\Resources\Tenants\TenantResource;
+use App\Filament\Resources\UnitCategories\UnitCategoryResource;
+use App\Filament\Resources\UnitContracts\UnitContractResource;
+use App\Filament\Resources\UnitFeatures\UnitFeatureResource;
+use App\Filament\Resources\Units\UnitResource;
+use App\Filament\Resources\UnitTypes\UnitTypeResource;
+use App\Filament\Widgets\PostponedPaymentsWidget;
+use App\Filament\Widgets\StatsOverviewWidget;
+use App\Filament\Widgets\TenantsPaymentDueWidget;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -30,18 +51,18 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             ->profile()
+            ->sidebarWidth('15rem')
             ->colors([
                 'primary' => Color::Amber,
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
-            ->pages([
-            ])
+            ->pages([])
             ->widgets([
-                \App\Filament\Widgets\StatsOverviewWidget::class,
-                \App\Filament\Widgets\TenantsPaymentDueWidget::class,
-                \App\Filament\Widgets\PostponedPaymentsWidget::class,
+                StatsOverviewWidget::class,
+                TenantsPaymentDueWidget::class,
+                PostponedPaymentsWidget::class,
             ])
             ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
                 return $builder
@@ -50,54 +71,54 @@ class AdminPanelProvider extends PanelProvider
                             ->items([
                                 ...array_map(
                                     fn ($item) => $item->icon('heroicon-o-arrow-down-tray'),
-                                    \App\Filament\Resources\CollectionPaymentResource::getNavigationItems()
+                                    CollectionPaymentResource::getNavigationItems()
                                 ),
                                 ...array_map(
                                     fn ($item) => $item->icon('heroicon-o-arrow-up-tray'),
-                                    \App\Filament\Resources\SupplyPaymentResource::getNavigationItems()
+                                    SupplyPaymentResource::getNavigationItems()
                                 ),
                                 ...array_map(
                                     fn ($item) => $item->icon('heroicon-o-banknotes'),
-                                    \App\Filament\Resources\ExpenseResource::getNavigationItems()
+                                    ExpenseResource::getNavigationItems()
                                 ),
                             ]),
                         NavigationGroup::make('التعاقدات')
                             ->items([
                                 ...array_map(
                                     fn ($item) => $item->icon('heroicon-o-clipboard-document-check'),
-                                    \App\Filament\Resources\UnitContractResource::getNavigationItems()
+                                    UnitContractResource::getNavigationItems()
                                 ),
                                 ...array_map(
                                     fn ($item) => $item->icon('heroicon-o-document-check'),
-                                    \App\Filament\Resources\PropertyContractResource::getNavigationItems()
+                                    PropertyContractResource::getNavigationItems()
                                 ),
                             ]),
                         NavigationGroup::make('العقارات')
                             ->items([
                                 ...array_map(
                                     fn ($item) => $item->icon('heroicon-o-home'),
-                                    \App\Filament\Resources\UnitResource::getNavigationItems()
+                                    UnitResource::getNavigationItems()
                                 ),
                                 ...array_map(
                                     fn ($item) => $item->icon('heroicon-o-building-office-2'),
-                                    \App\Filament\Resources\PropertyResource::getNavigationItems()
+                                    PropertyResource::getNavigationItems()
                                 ),
                             ]),
                         NavigationGroup::make('المستخدمين')
                             ->items(array_filter([
                                 ...array_map(
                                     fn ($item) => $item->icon('heroicon-o-users'),
-                                    \App\Filament\Resources\TenantResource::getNavigationItems()
+                                    TenantResource::getNavigationItems()
                                 ),
                                 ...array_map(
                                     fn ($item) => $item->icon('heroicon-o-key'),
-                                    \App\Filament\Resources\OwnerResource::getNavigationItems()
+                                    OwnerResource::getNavigationItems()
                                 ),
                                 // عرض الموظفين للمدير والمدير العام والموظفين (لرؤية ملفهم الشخصي)
                                 ...(in_array(auth()->user()?->type, ['super_admin', 'admin', 'employee'])
                                     ? array_map(
                                         fn ($item) => $item->icon('heroicon-o-briefcase'),
-                                        \App\Filament\Resources\EmployeeResource::getNavigationItems()
+                                        EmployeeResource::getNavigationItems()
                                     )
                                     : []),
                             ])),
@@ -105,44 +126,40 @@ class AdminPanelProvider extends PanelProvider
                             ->items([
                                 ...array_map(
                                     fn ($item) => $item->icon('heroicon-o-map-pin'),
-                                    \App\Filament\Resources\LocationResource::getNavigationItems()
+                                    LocationResource::getNavigationItems()
                                 ),
                                 ...array_map(
                                     fn ($item) => $item->icon('heroicon-o-sparkles'),
-                                    \App\Filament\Resources\UnitFeatureResource::getNavigationItems()
+                                    UnitFeatureResource::getNavigationItems()
                                 ),
                                 ...array_map(
                                     fn ($item) => $item->icon('heroicon-o-bookmark'),
-                                    \App\Filament\Resources\UnitCategories\UnitCategoryResource::getNavigationItems()
+                                    UnitCategoryResource::getNavigationItems()
                                 ),
                                 ...array_map(
                                     fn ($item) => $item->icon('heroicon-o-tag'),
-                                    \App\Filament\Resources\UnitTypes\UnitTypeResource::getNavigationItems()
+                                    UnitTypeResource::getNavigationItems()
                                 ),
                                 ...array_map(
                                     fn ($item) => $item->icon('heroicon-o-star'),
-                                    \App\Filament\Resources\PropertyFeatureResource::getNavigationItems()
+                                    PropertyFeatureResource::getNavigationItems()
                                 ),
                                 ...array_map(
                                     fn ($item) => $item->icon('heroicon-o-signal'),
-                                    \App\Filament\Resources\PropertyStatusResource::getNavigationItems()
+                                    PropertyStatusResource::getNavigationItems()
                                 ),
                                 ...array_map(
                                     fn ($item) => $item->icon('heroicon-o-squares-2x2'),
-                                    \App\Filament\Resources\PropertyTypeResource::getNavigationItems()
+                                    PropertyTypeResource::getNavigationItems()
                                 ),
 
                             ])
                             ->collapsed(),
                         NavigationGroup::make('النظام')
                             ->items([
-                                // NavigationItem::make('Modules Manager')
-                                //     ->icon('heroicon-o-squares-plus')
-                                //     ->url(fn (): string => \App\Filament\Pages\ModulesManager::getUrl())
-                                //     ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.modules-manager')),
                                 NavigationItem::make('إدارة النظام')
                                     ->icon('heroicon-o-cog-6-tooth')
-                                    ->url(fn (): string => \App\Filament\Pages\SystemManagement::getUrl())
+                                    ->url(fn (): string => SystemManagement::getUrl())
                                     ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.system-management'))
                                     ->visible(fn (): bool => in_array(auth()->user()?->type, ['super_admin', 'admin'])),
                             ])

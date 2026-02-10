@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\UnitCategories;
 
+use Str;
+use Filament\GlobalSearch\GlobalSearchResult;
 use App\Filament\Resources\UnitCategories\Pages\ManageUnitCategories;
 use App\Models\UnitCategory;
 use BackedEnum;
@@ -19,12 +21,12 @@ class UnitCategoryResource extends Resource
 {
     protected static ?string $model = UnitCategory::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
-    
+    protected static string | \BackedEnum | null $navigationIcon = Heroicon::OutlinedRectangleStack;
+
     protected static ?string $navigationLabel = 'تصنيفات الوحدات';
-    
+
     protected static ?string $modelLabel = 'تصنيف وحدة';
-    
+
     protected static ?string $pluralModelLabel = 'تصنيفات الوحدات';
 
     protected static ?string $recordTitleAttribute = 'name_ar';
@@ -33,28 +35,20 @@ class UnitCategoryResource extends Resource
     {
         return $schema
             ->components([
-                TextInput::make('name_ar')
-                    ->label('الاسم بالعربية')
+                TextInput::make('name')
+                    ->label('الاسم')
                     ->required()
-                    ->maxLength(100),
-                
-                TextInput::make('name_en')
-                    ->label('الاسم بالإنجليزية')
-                    ->required()
-                    ->maxLength(100),
+                    ->maxLength(255),
             ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
-            ->recordTitleAttribute('name_ar')
             ->columns([
-                TextColumn::make('name_ar')
-                    ->label('الاسم بالعربية'),
-                
-                TextColumn::make('name_en')
-                    ->label('الاسم بالإنجليزية'),
+                TextColumn::make('name')
+                    ->label('الاسم')
+                    ->searchable(),
             ])
             ->paginated(false)
             ->filters([
@@ -66,7 +60,7 @@ class UnitCategoryResource extends Resource
                     ->icon('heroicon-o-pencil-square'),
             ])
             ->toolbarActions([
-                // إزالة bulk actions
+                //
             ]);
     }
 
@@ -76,12 +70,12 @@ class UnitCategoryResource extends Resource
             'index' => ManageUnitCategories::route('/'),
         ];
     }
-    
+
     public static function getGloballySearchableAttributes(): array
     {
-        return ['name_ar', 'name_en', 'slug', 'description', 'icon', 'sort_order', 'is_active', 'created_at', 'updated_at'];
+        return ['name', 'slug', 'created_at', 'updated_at'];
     }
-    
+
     public static function getGlobalSearchResults(string $search): Collection
     {
         $normalizedSearch = str_replace(
@@ -89,81 +83,22 @@ class UnitCategoryResource extends Resource
             ['ا', 'ا', 'ا', '', 'و', 'ي'],
             $search
         );
-        
-        $searchWithoutSpaces = str_replace(' ', '', $normalizedSearch);
-        
+
         return static::getModel()::query()
-            ->where(function ($query) use ($search, $normalizedSearch, $searchWithoutSpaces) {
-                // البحث في الأسماء
-                $query->where('name_ar', 'LIKE', "%{$search}%")
-                      ->orWhere('name_en', 'LIKE', "%{$search}%")
-                      
-                      // البحث في slug
-                      ->orWhere('slug', 'LIKE', "%{$search}%")
-                      
-                      // البحث في الوصف
-                      ->orWhere('description', 'LIKE', "%{$search}%")
-                      
-                      // البحث في الأيقونة
-                      ->orWhere('icon', 'LIKE', "%{$search}%")
-                      
-                      // البحث في رقم الترتيب
-                      ->orWhere('sort_order', 'LIKE', "%{$search}%")
-                      
-                      // البحث بدون همزات في الاسم العربي
-                      ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(name_ar, 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا'), 'ء', ''), 'ؤ', 'و'), 'ئ', 'ي') LIKE ?", ["%{$normalizedSearch}%"])
-                      
-                      // البحث بدون همزات في الوصف
-                      ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(description, 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا'), 'ء', ''), 'ؤ', 'و'), 'ئ', 'ي') LIKE ?", ["%{$normalizedSearch}%"])
-                      
-                      // البحث بدون مسافات
-                      ->orWhereRaw("REPLACE(name_ar, ' ', '') LIKE ?", ["%{$searchWithoutSpaces}%"])
-                      ->orWhereRaw("REPLACE(name_en, ' ', '') LIKE ?", ["%{$searchWithoutSpaces}%"])
-                      ->orWhereRaw("REPLACE(description, ' ', '') LIKE ?", ["%{$searchWithoutSpaces}%"])
-                      
-                      // البحث في التواريخ - تاريخ الإنشاء
-                      ->orWhereRaw("DATE_FORMAT(created_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
-                      ->orWhereRaw("DATE_FORMAT(created_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
-                      ->orWhereRaw("DATE_FORMAT(created_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
-                      ->orWhereRaw("DATE_FORMAT(created_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"])
-                      
-                      // البحث في التواريخ - تاريخ التحديث
-                      ->orWhereRaw("DATE_FORMAT(updated_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
-                      ->orWhereRaw("DATE_FORMAT(updated_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
-                      ->orWhereRaw("DATE_FORMAT(updated_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
-                      ->orWhereRaw("DATE_FORMAT(updated_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"])
-                      
-                      // البحث في الحالة (نشط/غير نشط)
-                      ->orWhere(function($q) use ($search) {
-                          $searchLower = strtolower($search);
-                          if (strpos('نشط', $search) !== false || strpos('active', $searchLower) !== false) {
-                              $q->where('is_active', 1);
-                          } elseif (strpos('غير نشط', $search) !== false || strpos('inactive', $searchLower) !== false || strpos('معطل', $search) !== false) {
-                              $q->where('is_active', 0);
-                          }
-                      });
+            ->where(function ($query) use ($search, $normalizedSearch) {
+                $query->where('name', 'LIKE', "%{$search}%")
+                    ->orWhere('slug', 'LIKE', "%{$search}%")
+                    ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(name, 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا'), 'ء', ''), 'ؤ', 'و'), 'ئ', 'ي') LIKE ?", ["%{$normalizedSearch}%"]);
             })
             ->limit(50)
             ->get()
             ->map(function ($record) {
-                $details = [
-                    'الاسم بالإنجليزية' => $record->name_en ?? 'غير محدد',
-                    'الحالة' => $record->is_active ? 'نشط' : 'غير نشط',
-                    'تاريخ الإنشاء' => $record->created_at?->format('Y-m-d') ?? 'غير محدد',
-                ];
-                
-                if ($record->description) {
-                    $details['الوصف'] = \Str::limit($record->description, 50);
-                }
-                
-                if ($record->sort_order > 0) {
-                    $details['الترتيب'] = $record->sort_order;
-                }
-                
-                return new \Filament\GlobalSearch\GlobalSearchResult(
-                    title: $record->name_ar,
+                return new GlobalSearchResult(
+                    title: $record->name,
                     url: static::getUrl('index'),
-                    details: $details,
+                    details: [
+                        //
+                    ],
                     actions: []
                 );
             });

@@ -3,18 +3,18 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Support\Str;
 use App\Enums\UserType;
 use App\Helpers\AppHelper;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable implements FilamentUser
 {
-    use HasFactory, Notifiable, SoftDeletes;
+    use HasFactory, Notifiable;
 
     protected $fillable = [
         'name',
@@ -37,7 +37,6 @@ class User extends Authenticatable implements FilamentUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'deleted_at' => 'datetime',
         ];
     }
 
@@ -69,8 +68,9 @@ class User extends Authenticatable implements FilamentUser
                 if (! $user->email && $user->phone) {
                     $user->email = self::generateEmail($user->phone);
                 }
-                if (! $user->password && $user->phone) {
-                    $user->password = bcrypt($user->phone);
+                if (! $user->password) {
+                    // Generate secure random password instead of using phone number
+                    $user->password = bcrypt(Str::random(16));
                 }
             }
         });
@@ -192,7 +192,7 @@ class User extends Authenticatable implements FilamentUser
     {
         $userType = $this->getUserType();
 
-        return $userType ? $userType->label() : 'غير محدد';
+        return $userType ? $userType->label() : 'Unknown';
     }
 
     /**

@@ -10,10 +10,10 @@ class LocationHierarchyTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
-        
+
         // Create test hierarchy data
         $this->createTestHierarchy();
     }
@@ -21,33 +21,33 @@ class LocationHierarchyTest extends TestCase
     public function test_locations_are_ordered_hierarchically()
     {
         $locations = Location::orderBy('path')->get();
-        
+
         // Verify the order is maintained
-        $names = $locations->pluck('name_ar')->toArray();
+        $names = $locations->pluck('name')->toArray();
         $expectedOrder = [
             'المنطقة الشرقية',
             'مدينة 1',
             'مركز 1-1',
             'حي 1-1-1',
             'مركز 1-2',
-            'مدينة 2'
+            'مدينة 2',
         ];
-        
+
         $this->assertEquals($expectedOrder, $names, 'Locations should be ordered hierarchically with parents before children');
     }
 
     public function test_path_generation_maintains_hierarchy()
     {
         $locations = Location::orderBy('path')->get();
-        
+
         foreach ($locations as $location) {
             if ($location->parent_id) {
                 $parent = Location::find($location->parent_id);
-                $this->assertNotNull($parent, "Parent should exist for location: {$location->name_ar}");
+                $this->assertNotNull($parent, "Parent should exist for location: {$location->name}");
                 $this->assertStringStartsWith(
-                    $parent->path, 
-                    $location->path, 
-                    "Child path should start with parent path for: {$location->name_ar}"
+                    $parent->path,
+                    $location->path,
+                    "Child path should start with parent path for: {$location->name}"
                 );
             }
         }
@@ -55,10 +55,10 @@ class LocationHierarchyTest extends TestCase
 
     public function test_location_levels_are_correct()
     {
-        $region = Location::where('name_ar', 'المنطقة الشرقية')->first();
-        $city = Location::where('name_ar', 'مدينة 1')->first();
-        $center = Location::where('name_ar', 'مركز 1-1')->first();
-        $neighborhood = Location::where('name_ar', 'حي 1-1-1')->first();
+        $region = Location::where('name', 'المنطقة الشرقية')->first();
+        $city = Location::where('name', 'مدينة 1')->first();
+        $center = Location::where('name', 'مركز 1-1')->first();
+        $neighborhood = Location::where('name', 'حي 1-1-1')->first();
 
         $this->assertEquals(1, $region->level, 'Region should be level 1');
         $this->assertEquals(2, $city->level, 'City should be level 2');
@@ -70,13 +70,13 @@ class LocationHierarchyTest extends TestCase
     {
         // Clear all paths
         Location::query()->update(['path' => null]);
-        
+
         // Run the regeneration command
         $this->artisan('location:regenerate-paths --force')
             ->expectsOutput('Starting location path regeneration...')
-            ->expectsOutput('✅ All locations have correct hierarchical paths!')
+            ->expectsOutput('All locations have correct hierarchical paths!')
             ->assertExitCode(0);
-        
+
         // Verify paths were regenerated correctly
         $locations = Location::whereNotNull('path')->count();
         $this->assertEquals(6, $locations, 'All locations should have regenerated paths');
@@ -86,53 +86,47 @@ class LocationHierarchyTest extends TestCase
     {
         // Create region (level 1)
         $region = Location::create([
-            'name_ar' => 'المنطقة الشرقية',
-            'name_en' => 'Eastern Region',
+            'name' => 'المنطقة الشرقية',
             'level' => 1,
-            'is_active' => true
+            'is_active' => true,
         ]);
 
         // Create cities (level 2)
         $city1 = Location::create([
-            'name_ar' => 'مدينة 1',
-            'name_en' => 'City 1',
+            'name' => 'مدينة 1',
             'parent_id' => $region->id,
             'level' => 2,
-            'is_active' => true
+            'is_active' => true,
         ]);
 
         $city2 = Location::create([
-            'name_ar' => 'مدينة 2',
-            'name_en' => 'City 2',
+            'name' => 'مدينة 2',
             'parent_id' => $region->id,
             'level' => 2,
-            'is_active' => true
+            'is_active' => true,
         ]);
 
         // Create centers (level 3)
         $center1 = Location::create([
-            'name_ar' => 'مركز 1-1',
-            'name_en' => 'Center 1-1',
+            'name' => 'مركز 1-1',
             'parent_id' => $city1->id,
             'level' => 3,
-            'is_active' => true
+            'is_active' => true,
         ]);
 
         $center2 = Location::create([
-            'name_ar' => 'مركز 1-2',
-            'name_en' => 'Center 1-2',
+            'name' => 'مركز 1-2',
             'parent_id' => $city1->id,
             'level' => 3,
-            'is_active' => true
+            'is_active' => true,
         ]);
 
         // Create neighborhood (level 4)
         Location::create([
-            'name_ar' => 'حي 1-1-1',
-            'name_en' => 'Neighborhood 1-1-1',
+            'name' => 'حي 1-1-1',
             'parent_id' => $center1->id,
             'level' => 4,
-            'is_active' => true
+            'is_active' => true,
         ]);
     }
 }

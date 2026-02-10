@@ -44,11 +44,10 @@ class PropertyContractPolicy extends BasePolicy
 
     /**
      * Determine whether the user can update the model.
-     * ⚠️ Only super_admin can update contracts
+     * Super admins, admins and employees can update contracts
      */
     public function update(User $user, PropertyContract $contract): bool
     {
-        // Super admins, admins and employees can update contracts
         return in_array($user->type, ['super_admin', 'admin', 'employee']);
     }
 
@@ -95,15 +94,6 @@ class PropertyContractPolicy extends BasePolicy
     public function terminate(User $user, PropertyContract $contract): bool
     {
         return in_array($user->type, ['super_admin', 'admin', 'employee']) && $contract->contract_status === 'active';
-    }
-
-    /**
-     * Determine whether the user can approve the contract.
-     * Only admins can approve contracts
-     */
-    public function approve(User $user, PropertyContract $contract): bool
-    {
-        return in_array($user->type, ['super_admin', 'admin', 'employee']) && $contract->contract_status === 'draft';
     }
 
     /**

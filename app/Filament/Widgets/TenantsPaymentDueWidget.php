@@ -5,13 +5,15 @@ namespace App\Filament\Widgets;
 use App\Enums\PaymentStatus;
 use App\Exports\CollectionPaymentsExport;
 use App\Models\CollectionPayment;
+use App\Services\CollectionPaymentService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
-use Filament\Forms;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
-use Filament\Tables;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Maatwebsite\Excel\Facades\Excel;
@@ -60,43 +62,44 @@ class TenantsPaymentDueWidget extends BaseWidget
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('success')
                     ->action(function (Table $table) {
-                        $filename = 'المستحقات-' . date('Y-m-d') . '.xlsx';
+                        $filename = 'المستحقات-'.date('Y-m-d').'.xlsx';
                         $query = $table->getQuery()->clone();
+
                         return Excel::download(new CollectionPaymentsExport($query), $filename);
                     }),
             ])
             ->columns([
-                Tables\Columns\TextColumn::make('index')
+                TextColumn::make('index')
                     ->label('#')
                     ->rowIndex(),
 
-                Tables\Columns\TextColumn::make('property.name')
+                TextColumn::make('property.name')
                     ->label('العقار'),
 
-                Tables\Columns\TextColumn::make('tenant.name')
+                TextColumn::make('tenant.name')
                     ->label('المستأجر'),
 
-                Tables\Columns\TextColumn::make('unit.name')
+                TextColumn::make('unit.name')
                     ->label('الوحدة'),
 
-                Tables\Columns\TextColumn::make('amount')
+                TextColumn::make('amount')
                     ->label('القيمة')
                     ->money('SAR'),
 
-                Tables\Columns\TextColumn::make('due_date_start')
+                TextColumn::make('due_date_start')
                     ->label('التاريخ')
 
                     ->date('Y-m-d')
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('tenant.phone')
+                TextColumn::make('tenant.phone')
                     ->label('الهاتف'),
 
-                Tables\Columns\TextColumn::make('payment_status_label')
+                TextColumn::make('payment_status_label')
                     ->label('الحالة')
                     ->badge()
                     ->color(
-                        fn ($record): string => $record->payment_status_enum === PaymentStatus::OVERDUE ? 'danger' : 'gray'
+                        fn ($record): string => $record->payment_status === PaymentStatus::OVERDUE ? 'danger' : 'gray'
                     ),
             ])
             ->recordActions([
@@ -109,20 +112,24 @@ class TenantsPaymentDueWidget extends BaseWidget
                     ->modalDescription('قم بتحديد مدة التأجيل وسبب التأجيل')
                     ->modalSubmitActionLabel('تأجيل')
                     ->modalCancelActionLabel('إلغاء')
-                    ->form([
-                        Forms\Components\TextInput::make('delay_duration')
+                    ->schema([
+                        TextInput::make('delay_duration')
                             ->label('مدة التأجيل (بالأيام)')
                             ->numeric()
                             ->required()
                             ->minValue(1)
                             ->maxValue(365),
-                        Forms\Components\Textarea::make('delay_reason')
+                        Textarea::make('delay_reason')
                             ->label('سبب التأجيل')
                             ->required()
                             ->rows(3),
                     ])
                     ->action(function (CollectionPayment $record, array $data): void {
-                        $record->postpone($data['delay_duration'], $data['delay_reason']);
+                        app(CollectionPaymentService::class)->postponePayment(
+                            $record,
+                            $data['delay_duration'],
+                            $data['delay_reason']
+                        );
 
                         Notification::make()
                             ->title('تم تأجيل الدفعة')
@@ -143,7 +150,7 @@ class TenantsPaymentDueWidget extends BaseWidget
                     ->modalCancelActionLabel('إلغاء')
                     ->requiresConfirmation()
                     ->action(function (CollectionPayment $record): void {
-                        $record->markAsCollected();
+                        app(CollectionPaymentService::class)->markAsCollected($record, auth()->id());
 
                         Notification::make()
                             ->title('تم تأكيد الاستلام')
@@ -153,13 +160,13 @@ class TenantsPaymentDueWidget extends BaseWidget
             ])
             ->defaultSort('property_id', 'asc')
             ->filters([
-                Tables\Filters\SelectFilter::make('property_id')
+                SelectFilter::make('property_id')
                     ->label('العقار')
                     ->relationship('property', 'name')
                     ->searchable()
                     ->preload(),
 
-                Tables\Filters\SelectFilter::make('payment_status')
+                SelectFilter::make('payment_status')
                     ->label('حالة الدفعة')
                     ->multiple()
                     ->options(PaymentStatus::options())

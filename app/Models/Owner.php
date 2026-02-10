@@ -3,16 +3,15 @@
 namespace App\Models;
 
 use App\Enums\UserType;
+use App\Services\OwnerService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Owner extends User
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected $table = 'users';
-
 
     /**
      * Boot the model.
@@ -42,56 +41,20 @@ class Owner extends User
 
     /**
      * Get the supply payments for this owner.
-     * Note: SupplyPayment model needs to be created
      */
     public function supplyPayments()
     {
-        // return $this->hasMany(SupplyPayment::class, 'owner_id');
-        return $this->hasMany(\App\Models\SupplyPayment::class, 'owner_id');
+        return $this->hasMany(SupplyPayment::class, 'owner_id');
     }
 
     /**
-     * Get rental contracts for this owner's properties.
-     * Note: RentalContract model needs to be created
-     */
-    // public function rentalContracts()
-    // {
-    //     // return $this->hasManyThrough(RentalContract::class, Property::class, 'owner_id', 'property_id');
-    //     return $this->hasManyThrough(\App\Models\RentalContract::class, Property::class, 'owner_id', 'property_id');
-    // }
-
-    /**
      * Get payments received by this owner.
-     * Overrides the parent payments() method to return supplyPayments
+     * Alias for supplyPayments for compatibility
      */
     public function payments()
     {
         return $this->supplyPayments();
     }
-
-    /**
-     * Get maintenance requests for this owner's properties.
-     */
-    // public function maintenanceRequests()
-    // {
-    //     return $this->hasManyThrough(MaintenanceRequest::class, Property::class, 'owner_id', 'property_id');
-    // }
-
-    /**
-     * Get financial statements for this owner.
-     */
-    // public function financialStatements()
-    // {
-    //     return $this->hasMany(FinancialStatement::class, 'owner_id');
-    // }
-
-    /**
-     * Get property valuations for this owner's properties.
-     */
-    // public function propertyValuations()
-    // {
-    //     return $this->hasManyThrough(PropertyValuation::class, Property::class, 'owner_id', 'property_id');
-    // }
 
     /**
      * Get all units for this owner's properties.
@@ -104,17 +67,17 @@ class Owner extends User
     /**
      * Get total active properties count.
      */
-    public function getActivePropertiesCountAttribute()
+    public function getActivePropertiesCountAttribute(): int
     {
-        return $this->properties()->where('status', 'active')->count();
+        return app(OwnerService::class)->getActivePropertiesCount($this);
     }
 
     /**
-     * Get total rental income.
+     * Get total rental income (net supplied amounts).
      */
-    public function getTotalRentalIncomeAttribute()
+    public function getTotalRentalIncomeAttribute(): float
     {
-        return $this->payments()->where('status', 'completed')->sum('amount');
+        return app(OwnerService::class)->calculateTotalRentalIncome($this);
     }
 
     /**
@@ -122,6 +85,22 @@ class Owner extends User
      */
     public function getVacantPropertiesAttribute()
     {
-        return $this->properties()->where('status', 'vacant')->get();
+        return app(OwnerService::class)->getVacantProperties($this);
+    }
+
+    /**
+     * Get the occupancy rate.
+     */
+    public function getOccupancyRateAttribute(): float
+    {
+        return app(OwnerService::class)->calculateOccupancyRate($this);
+    }
+
+    /**
+     * Get total deducted commissions.
+     */
+    public function getTotalCommissionsAttribute(): float
+    {
+        return app(OwnerService::class)->calculateTotalCommissions($this);
     }
 }

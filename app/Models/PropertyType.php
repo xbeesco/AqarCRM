@@ -16,16 +16,8 @@ class PropertyType extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'name_ar',
-        'name_en',
+        'name',
         'slug',
-        'icon',
-        'description_ar',
-        'description_en',
-        'parent_id',
-        'is_active',
-        'sort_order',
-        'properties_count'
     ];
 
     /**
@@ -34,10 +26,7 @@ class PropertyType extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'parent_id' => 'integer',
-        'is_active' => 'boolean',
-        'sort_order' => 'integer',
-        'properties_count' => 'integer'
+        //
     ];
 
 
@@ -50,34 +39,12 @@ class PropertyType extends Model
 
         static::creating(function ($propertyType) {
             if (empty($propertyType->slug)) {
-                $propertyType->slug = Str::slug($propertyType->name_en);
+                $propertyType->slug = Str::slug($propertyType->name);
             }
         });
     }
 
-    /**
-     * Get the localized name attribute.
-     */
-    public function getNameAttribute(): string
-    {
-        return app()->getLocale() === 'ar' ? $this->name_ar : $this->name_en;
-    }
 
-    /**
-     * Get the parent property type.
-     */
-    public function parent(): BelongsTo
-    {
-        return $this->belongsTo(PropertyType::class, 'parent_id');
-    }
-
-    /**
-     * Get the child property types.
-     */
-    public function children(): HasMany
-    {
-        return $this->hasMany(PropertyType::class, 'parent_id');
-    }
 
 
 
@@ -91,22 +58,10 @@ class PropertyType extends Model
 
 
     /**
-     * Scope a query to only include active property types.
-     */
-    public function scopeActive(Builder $query): Builder
-    {
-        return $query->where('is_active', true);
-    }
-
-    /**
-     * Scope a query to order property types by sort order.
+     * Scope a query to order property types by name.
      */
     public function scopeOrdered(Builder $query): Builder
     {
-        return $query->orderBy('sort_order')->orderBy('name_en');
+        return $query->orderBy('name');
     }
-
-
-
-
 }

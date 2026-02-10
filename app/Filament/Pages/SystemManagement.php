@@ -2,22 +2,23 @@
 
 namespace App\Filament\Pages;
 
-use Filament\Pages\Page;
-use Filament\Schemas\Components\Section;
-use Filament\Forms\Components\TextInput;
+use App\Helpers\DateHelper;
+use App\Models\Setting;
+use App\Services\SystemPurgeService;
+use BackedEnum;
+use Exception;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Pages\Page;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
-use Filament\Actions\Action;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use App\Models\Setting;
-use App\Services\SystemPurgeService;
-use App\Helpers\DateHelper;
-use BackedEnum;
+use UnitEnum;
 
 class SystemManagement extends Page implements HasSchemas
 {
@@ -28,11 +29,12 @@ class SystemManagement extends Page implements HasSchemas
     protected static ?string $title = 'إدارة النظام';
     protected static ?string $slug = 'system-management';
     protected static ?int $navigationSort = 100;
-    protected static string|\UnitEnum|null $navigationGroup = 'Settings';
+    protected static string|UnitEnum|null $navigationGroup = 'Settings';
 
     protected string $view = 'filament.pages.system-management';
 
     public ?array $data = [];
+
     public ?array $cleanupData = [];
 
     public static function canAccess(): bool
@@ -50,7 +52,7 @@ class SystemManagement extends Page implements HasSchemas
 
     public function mount(): void
     {
-        if (!static::canAccess()) {
+        if (! static::canAccess()) {
             abort(403, 'Unauthorized');
         }
 
@@ -90,14 +92,13 @@ class SystemManagement extends Page implements HasSchemas
                             ->minValue(0)
                             ->maxValue(30)
                             ->suffix('أيام'),
-                        // ->disabled(),
 
                         DatePicker::make('test_date')
                             ->label('التاريخ الاختباري للنظام')
                             ->native(false)
                             ->displayFormat('Y-m-d')
-                            ->minDate(fn() => now()->subDays(floor(config('session.lifetime', 120) / 60 / 24)))
-                            ->maxDate(fn() => now()->addDays(floor(config('session.lifetime', 120) / 60 / 24)))
+                            ->minDate(fn () => now()->subDays(floor(config('session.lifetime', 120) / 60 / 24)))
+                            ->maxDate(fn () => now()->addDays(floor(config('session.lifetime', 120) / 60 / 24)))
                             ->columnSpanFull(),
                     ]),
             ])
@@ -153,13 +154,13 @@ class SystemManagement extends Page implements HasSchemas
                 ->action('executeCleanup')
                 ->requiresConfirmation()
                 ->modalHeading('⚠️ تأكيد نهائي للحذف')
-                ->modalDescription(fn() => match ($this->cleanupData['cleanup_type'] ?? 'financial') {
+                ->modalDescription(fn () => match ($this->cleanupData['cleanup_type'] ?? 'financial') {
                     'financial' => '⚠️ سيتم حذف جميع دفعات المستأجرين ودفعات الملاك والمصروفات نهائياً. هذا الإجراء لا يمكن التراجع عنه!',
                     'financial_contracts' => '⚠️ سيتم حذف الماليات بالإضافة إلى جميع عقود الوحدات وعقود العقارات نهائياً.',
                     'financial_contracts_properties' => '⚠️ سيتم حذف الماليات + العقود + العقارات والوحدات، وسيتم حذف الملاك والمستأجرين (كمستخدمين).',
                     default => '⚠️⚠️⚠️ سيتم حذف كافة البيانات (الماليات + العقود + العقارات + بيانات التأسيس). هذا الإجراء خطير جداً ولا يمكن التراجع عنه!'
                 })
-                ->modalSubmitActionLabel(fn() => match ($this->cleanupData['cleanup_type'] ?? 'financial') {
+                ->modalSubmitActionLabel(fn () => match ($this->cleanupData['cleanup_type'] ?? 'financial') {
                     'financial' => 'نعم، امسح البيانات المالية نهائياً',
                     'financial_contracts' => 'نعم، امسح الماليات والتعاقدات',
                     'financial_contracts_properties' => 'نعم، امسح الماليات + التعاقدات + العقارات',
@@ -174,15 +175,15 @@ class SystemManagement extends Page implements HasSchemas
     public function executeCleanup(): void
     {
         try {
-            if (!Auth::user()->isSuperAdmin()) {
-                throw new \Exception('غير مصرح لك بتنفيذ هذا الإجراء');
+            if (! Auth::user()->isSuperAdmin()) {
+                throw new Exception('غير مصرح لك بتنفيذ هذا الإجراء');
             }
 
             $data = $this->cleanupForm->getState();
             $cleanupType = $data['cleanup_type'] ?? 'financial';
 
             // Execute centralized purge service
-            $service = new SystemPurgeService();
+            $service = new SystemPurgeService;
             $summary = $service->purge($cleanupType);
 
             $message = match ($cleanupType) {
@@ -211,7 +212,7 @@ class SystemManagement extends Page implements HasSchemas
                 'cleanup_type' => 'financial',
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             logger()->error('Data Cleanup Failed', [
                 'error' => $e->getMessage(),
                 'user' => Auth::user()->email,
@@ -219,7 +220,7 @@ class SystemManagement extends Page implements HasSchemas
 
             Notification::make()
                 ->title('فشلت عملية التنظيف')
-                ->body('حدث خطأ: ' . $e->getMessage())
+                ->body('حدث خطأ: '.$e->getMessage())
                 ->danger()
                 ->duration(10000)
                 ->send();
@@ -239,7 +240,7 @@ class SystemManagement extends Page implements HasSchemas
             ]);
 
             // Set test date using DateHelper
-            if (!empty($data['test_date'])) {
+            if (! empty($data['test_date'])) {
                 DateHelper::setTestDate($data['test_date']);
             } else {
                 DateHelper::clearTestDate();
@@ -261,7 +262,7 @@ class SystemManagement extends Page implements HasSchemas
             // Reload the page after a short delay to apply the new test date
             $this->redirect(static::getUrl(), navigate: true);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             logger()->error('System Settings Save Failed', [
                 'error' => $e->getMessage(),
             ]);
@@ -274,5 +275,4 @@ class SystemManagement extends Page implements HasSchemas
                 ->send();
         }
     }
-
 }

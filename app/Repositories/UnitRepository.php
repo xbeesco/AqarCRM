@@ -3,8 +3,8 @@
 namespace App\Repositories;
 
 use App\Models\Unit;
-use Illuminate\Support\Collection;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 class UnitRepository
 {
@@ -37,7 +37,7 @@ class UnitRepository
             'property',
             'status',
             'currentTenant',
-            'features'
+            'features',
         ])->findOrFail($id);
     }
 
@@ -47,8 +47,8 @@ class UnitRepository
     public function getAvailableUnitsQuery(): Builder
     {
         return $this->model->available()
-                          ->active()
-                          ->with(['property', 'status', 'currentTenant']);
+            ->active()
+            ->with(['property', 'status', 'currentTenant']);
     }
 
     /**
@@ -57,11 +57,11 @@ class UnitRepository
     public function getUnitsByProperty(int $propertyId, bool $includeRelations = true): Collection
     {
         $query = $this->model->where('property_id', $propertyId);
-        
+
         if ($includeRelations) {
             $query->with(['status', 'currentTenant', 'features']);
         }
-        
+
         return $query->get();
     }
 
@@ -71,44 +71,44 @@ class UnitRepository
     public function searchUnits(array $criteria): Collection
     {
         $query = $this->model->query();
-        
+
         // Search by unit number
-        if (!empty($criteria['unit_number'])) {
-            $query->where('unit_number', 'like', '%' . $criteria['unit_number'] . '%');
+        if (! empty($criteria['unit_number'])) {
+            $query->where('unit_number', 'like', '%'.$criteria['unit_number'].'%');
         }
-        
+
         // Search by property name
-        if (!empty($criteria['property_name'])) {
+        if (! empty($criteria['property_name'])) {
             $query->whereHas('property', function ($q) use ($criteria) {
-                $q->where('name', 'like', '%' . $criteria['property_name'] . '%');
+                $q->where('name', 'like', '%'.$criteria['property_name'].'%');
             });
         }
-        
+
         // Search by tenant name
-        if (!empty($criteria['tenant_name'])) {
+        if (! empty($criteria['tenant_name'])) {
             $query->whereHas('currentTenant', function ($q) use ($criteria) {
-                $q->where('name', 'like', '%' . $criteria['tenant_name'] . '%');
+                $q->where('name', 'like', '%'.$criteria['tenant_name'].'%');
             });
         }
-        
+
         // Price range
-        if (!empty($criteria['min_price'])) {
+        if (! empty($criteria['min_price'])) {
             $query->where('rent_price', '>=', $criteria['min_price']);
         }
-        
-        if (!empty($criteria['max_price'])) {
+
+        if (! empty($criteria['max_price'])) {
             $query->where('rent_price', '<=', $criteria['max_price']);
         }
-        
+
         // Area range
-        if (!empty($criteria['min_area'])) {
+        if (! empty($criteria['min_area'])) {
             $query->where('area_sqm', '>=', $criteria['min_area']);
         }
-        
-        if (!empty($criteria['max_area'])) {
+
+        if (! empty($criteria['max_area'])) {
             $query->where('area_sqm', '<=', $criteria['max_area']);
         }
-        
+
         return $query->with(['property', 'status', 'currentTenant'])->get();
     }
 
@@ -130,11 +130,11 @@ class UnitRepository
         $query = $this->model->whereHas('status', function ($q) {
             $q->where('requires_maintenance', true);
         });
-        
+
         if ($dueDate) {
             $query->where('next_maintenance_date', '<=', $dueDate);
         }
-        
+
         return $query->with(['property', 'status'])->get();
     }
 
@@ -144,6 +144,7 @@ class UnitRepository
     public function update(int $id, array $data): bool
     {
         $unit = $this->findOrFail($id);
+
         return $unit->update($data);
     }
 
@@ -153,6 +154,7 @@ class UnitRepository
     public function delete(int $id): bool
     {
         $unit = $this->findOrFail($id);
+
         return $unit->delete();
     }
 
@@ -162,22 +164,22 @@ class UnitRepository
     public function getUnitsStatistics(array $filters = []): array
     {
         $query = $this->model->query();
-        
+
         // Apply property filter if provided
-        if (!empty($filters['property_id'])) {
+        if (! empty($filters['property_id'])) {
             $query->where('property_id', $filters['property_id']);
         }
-        
+
         $total = $query->count();
         $available = $query->clone()->available()->count();
         $occupied = $query->clone()->occupied()->count();
         $maintenance = $query->clone()->whereHas('status', function ($q) {
             $q->where('requires_maintenance', true);
         })->count();
-        
+
         $averageRent = $query->clone()->avg('rent_price');
         $totalArea = $query->clone()->sum('area_sqm');
-        
+
         return [
             'total_units' => $total,
             'available_units' => $available,

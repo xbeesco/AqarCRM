@@ -77,9 +77,6 @@ class Property extends Model
             ->withTimestamps();
     }
 
-    /**
-     * النفقات المرتبطة بالعقار
-     */
     public function expenses(): MorphMany
     {
         return $this->morphMany(Expense::class, 'subject');

@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use App\Models\CollectionPayment;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
@@ -47,7 +48,6 @@ class CollectionPaymentsExport implements FromCollection, ShouldAutoSize, WithHe
 
     public function map($payment): array
     {
-        // استخدام payment_status_label بدلاً من collection_status
         $status = $payment->payment_status_label;
 
         return [
@@ -70,7 +70,7 @@ class CollectionPaymentsExport implements FromCollection, ShouldAutoSize, WithHe
                 'size' => 12,
             ],
             'fill' => [
-                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'E0E0E0'],
             ],
         ]);

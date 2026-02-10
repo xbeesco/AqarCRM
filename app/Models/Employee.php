@@ -2,14 +2,13 @@
 
 namespace App\Models;
 
+use App\Enums\UserType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Enums\UserType;
 
 class Employee extends User
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected $table = 'users';
 
@@ -32,9 +31,9 @@ class Employee extends User
         // Auto-set type on creation
         static::creating(function ($employee) {
             // Only set type to EMPLOYEE if it's not already an admin type
-            if (!$employee->type || !in_array($employee->type, [
+            if (! $employee->type || ! in_array($employee->type, [
                 UserType::ADMIN->value,
-                UserType::SUPER_ADMIN->value
+                UserType::SUPER_ADMIN->value,
             ])) {
                 $employee->type = UserType::EMPLOYEE->value;
             }
@@ -48,13 +47,4 @@ class Employee extends User
     {
         return $this->hasMany(Property::class, 'manager_id');
     }
-
-    /**
-     * Get tasks assigned to this employee.
-     */
-    // public function tasks()
-    // {
-    //     return $this->hasMany(Task::class, 'assigned_to');
-    // }
-
 }

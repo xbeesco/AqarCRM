@@ -3,6 +3,9 @@
 .env
 .env.backup
 .env.production
+.env.testing
+.env.testing.mysql
+phpunit-mysql.xml
 .phpactor.json
 .phpunit.result.cache
 /.fleet
@@ -31,3 +34,4 @@ nul
 .playwright-mcp*
 .docs/progress-tasks*
 .htaccess
+/app/filament/resources copy

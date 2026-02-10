@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Enums\UnitOccupancyStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Unit extends Model
@@ -41,33 +44,21 @@ class Unit extends Model
         'has_laundry_room' => 'boolean',
     ];
 
-    /**
-     * Get the property that owns the unit
-     */
     public function property(): BelongsTo
     {
         return $this->belongsTo(Property::class);
     }
 
-    /**
-     * Get the unit type
-     */
     public function unitType(): BelongsTo
     {
         return $this->belongsTo(UnitType::class);
     }
 
-    /**
-     * Get the unit category
-     */
     public function unitCategory(): BelongsTo
     {
         return $this->belongsTo(UnitCategory::class);
     }
 
-    /**
-     * Get the features associated with the unit
-     */
     public function features(): BelongsToMany
     {
         return $this->belongsToMany(UnitFeature::class, 'unit_unit_feature')
@@ -75,10 +66,7 @@ class Unit extends Model
             ->withTimestamps();
     }
 
-    /**
-     * Get all contracts for this unit
-     */
-    public function contracts()
+    public function contracts(): HasMany
     {
         return $this->hasMany(UnitContract::class);
     }
@@ -86,7 +74,7 @@ class Unit extends Model
     /**
      * Get the active contract for this unit (currently running today)
      */
-    public function activeContract()
+    public function activeContract(): HasOne
     {
         return $this->hasOne(UnitContract::class)
             ->where('contract_status', 'active')
@@ -95,9 +83,6 @@ class Unit extends Model
             ->latest();
     }
 
-    /**
-     * النفقات المرتبطة بالوحدة
-     */
     public function expenses(): MorphMany
     {
         return $this->morphMany(Expense::class, 'subject');
@@ -108,7 +93,7 @@ class Unit extends Model
      */
     public function getTotalExpensesAttribute(): float
     {
-        return $this->expenses()->sum('cost');
+        return (float) $this->expenses()->sum('cost');
     }
 
     /**
@@ -116,14 +101,38 @@ class Unit extends Model
      */
     public function getCurrentMonthExpensesAttribute(): float
     {
-        return $this->expenses()->thisMonth()->sum('cost');
+        return (float) $this->expenses()->thisMonth()->sum('cost');
     }
 
     /**
      * الحصول على حالة إشغال الوحدة
      */
-    public function getOccupancyStatusAttribute(): \App\Enums\UnitOccupancyStatus
+    public function getOccupancyStatusAttribute(): UnitOccupancyStatus
     {
-        return \App\Enums\UnitOccupancyStatus::fromUnit($this);
+        return UnitOccupancyStatus::fromUnit($this);
+    }
+
+    /**
+     * Check if unit is available for rental.
+     */
+    public function isAvailable(): bool
+    {
+        return $this->activeContract === null;
+    }
+
+    /**
+     * Check if unit is occupied.
+     */
+    public function isOccupied(): bool
+    {
+        return $this->activeContract !== null;
+    }
+
+    /**
+     * Get current tenant from active contract.
+     */
+    public function getCurrentTenantAttribute(): ?User
+    {
+        return $this->activeContract?->tenant;
     }
 }

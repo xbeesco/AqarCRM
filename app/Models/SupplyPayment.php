@@ -2,12 +2,26 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use App\Services\PaymentNumberGenerator;
+use App\Services\SupplyPaymentService;
+use App\Traits\HasPaymentNumber;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Services\SupplyPaymentService;
 
 class SupplyPayment extends Model
 {
+    use HasPaymentNumber, HasFactory;
+
+    /**
+     * Get the payment number prefix.
+     */
+    public static function getPaymentNumberPrefix(): string
+    {
+        return PaymentNumberGenerator::PREFIX_SUPPLY;
+    }
+
     protected $fillable = [
         'payment_number',
         'property_contract_id',
@@ -52,24 +66,18 @@ class SupplyPayment extends Model
         parent::boot();
 
         static::creating(function ($payment) {
+            // Note: Payment number generation is handled by HasPaymentNumber trait
+
             $service = app(SupplyPaymentService::class);
-
-            if (empty($payment->payment_number)) {
-                $payment->payment_number = $service->generatePaymentNumber();
-            }
-
-            // Calculate net amount
             $payment->net_amount = $service->calculateNetAmount($payment);
         });
 
         static::updating(function ($payment) {
             $service = app(SupplyPaymentService::class);
-            // Recalculate net amount
             $payment->net_amount = $service->calculateNetAmount($payment);
         });
     }
 
-    // Relationships
     public function propertyContract(): BelongsTo
     {
         return $this->belongsTo(PropertyContract::class);
@@ -89,47 +97,29 @@ class SupplyPayment extends Model
     {
         return $this->belongsTo(User::class, 'collected_by');
     }
-    
-    // علاقات وهمية للاستخدام في صفحة العرض
-    public function collectionPayments()
-    {
-        // علاقة وهمية - البيانات الفعلية تأتي من Service
-        return $this->hasMany(\App\Models\CollectionPayment::class, 'property_id', 'property_id');
-    }
 
-    public function expenses()
-    {
-        // علاقة وهمية - البيانات الفعلية تأتي من Service
-        return $this->hasMany(\App\Models\Expense::class, 'subject_id', 'property_id');
-    }
-
-    // Accessors للحالة الديناميكية
     /**
-     * Override حقل supply_status ليكون ديناميكي
-     * الحالة تعتمد على التواريخ فقط
+     * Get dynamic supply status based on dates.
      */
     public function getSupplyStatusAttribute(): string
     {
-        // إذا تم التوريد
         if ($this->paid_date) {
             return 'collected';
         }
 
-        // إذا حل تاريخ الاستحقاق ولم يتم التوريد
-        if ($this->due_date <= \Carbon\Carbon::now()) {
+        if ($this->due_date <= Carbon::now()) {
             return 'worth_collecting';
         }
 
-        // إذا لم يحل تاريخ الاستحقاق بعد
         return 'pending';
     }
 
     /**
-     * الحصول على التسمية العربية للحالة
+     * Get Arabic label for status.
      */
     public function getSupplyStatusLabelAttribute(): string
     {
-        return match($this->supply_status) {
+        return match ($this->supply_status) {
             'pending' => 'قيد الانتظار',
             'worth_collecting' => 'تستحق التوريد',
             'collected' => 'تم التوريد',
@@ -138,11 +128,11 @@ class SupplyPayment extends Model
     }
 
     /**
-     * الحصول على اللون المناسب للحالة
+     * Get badge color for status.
      */
     public function getSupplyStatusColorAttribute(): string
     {
-        return match($this->supply_status) {
+        return match ($this->supply_status) {
             'pending' => 'warning',
             'worth_collecting' => 'info',
             'collected' => 'success',
@@ -150,7 +140,6 @@ class SupplyPayment extends Model
         };
     }
 
-    // Scopes
     public function scopeByOwner($query, $ownerId)
     {
         return $query->where('owner_id', $ownerId);
@@ -158,21 +147,18 @@ class SupplyPayment extends Model
 
     public function scopePending($query)
     {
-        // قيد الانتظار: لم يحل موعد الاستحقاق بعد ولم يتم التوريد
         return $query->whereNull('paid_date')
-                     ->where('due_date', '>', now());
+            ->where('due_date', '>', now());
     }
 
     public function scopeWorthCollecting($query)
     {
-        // تستحق التوريد: حل موعد الاستحقاق ولم يتم التوريد
         return $query->whereNull('paid_date')
-                     ->where('due_date', '<=', now());
+            ->where('due_date', '<=', now());
     }
 
     public function scopeCollected($query)
     {
-        // تم التوريد: يوجد تاريخ توريد
         return $query->whereNotNull('paid_date');
     }
 
@@ -191,108 +177,36 @@ class SupplyPayment extends Model
         return $query->where('month_year', $monthYear);
     }
 
-    // Helper Methods - استخدام Service للعمليات المعقدة
-    public function requiresApproval(): bool
+    /**
+     * Check if payment requires approval.
+     */
+    public function getRequiresApprovalAttribute(): bool
     {
         return $this->approval_status === 'pending';
     }
 
     /**
-     * الحصول على دفعات التحصيل مصنفة حسب الأنواع الستة
-     * Get categorized collection payments for this supply payment
+     * Check if payment can be confirmed.
      */
-    public function getCategorizedCollectionPayments(): array
+    public function getCanBeConfirmedAttribute(): bool
     {
-        $paymentAssignmentService = app(\App\Services\PaymentAssignmentService::class);
-        $invoiceDetails = $this->invoice_details ?? [];
-        $periodStart = $invoiceDetails['period_start'] ?? $this->month_year . '-01';
-        $periodEnd = $invoiceDetails['period_end'] ?? date('Y-m-t', strtotime($periodStart));
+        $result = app(SupplyPaymentService::class)->canConfirmPayment($this);
 
-        return $paymentAssignmentService->getCategorizedPaymentsForPeriod(
-            $this->propertyContract->property_id,
-            $periodStart,
-            $periodEnd
-        );
+        return $result['can_confirm'];
     }
 
-    /**
-     * الحصول على ملخص إحصائي لدفعات التحصيل
-     * Get collection payments summary
-     */
-    public function getCollectionPaymentsSummary(): array
+    public function requiresApproval(): bool
     {
-        $categorizedData = $this->getCategorizedCollectionPayments();
-
-        $summary = [
-            'total_payments' => 0,
-            'total_amount' => 0,
-            'counted_payments' => 0,
-            'counted_amount' => $categorizedData['counted_total'],
-            'uncounted_payments' => 0,
-            'uncounted_amount' => $categorizedData['uncounted_total'],
-            'by_type' => []
-        ];
-
-        foreach ($categorizedData['categories'] as $type => $category) {
-            $count = $category['payments']->count();
-            $total = $category['total'];
-
-            $summary['total_payments'] += $count;
-            $summary['total_amount'] += $total;
-
-            if ($category['counted']) {
-                $summary['counted_payments'] += $count;
-            } else {
-                $summary['uncounted_payments'] += $count;
-            }
-
-            $summary['by_type'][$type] = [
-                'name' => $category['name'],
-                'count' => $count,
-                'total' => $total,
-                'counted' => $category['counted']
-            ];
-        }
-
-        return $summary;
+        return $this->requires_approval;
     }
 
-    /**
-     * التحقق من صحة الحسابات
-     * Validate calculations match expected values
-     */
-    public function validateCalculations(): array
+    public function isCollected(): bool
     {
-        $service = app(\App\Services\SupplyPaymentService::class);
-        $calculated = $service->calculateAmountsFromPeriod($this);
+        return $this->paid_date !== null;
+    }
 
-        $errors = [];
-
-        // فقط تحقق إذا كانت الدفعة محصلة
-        if ($this->paid_date !== null) {
-            if (abs($this->gross_amount - $calculated['gross_amount']) > 0.01) {
-                $errors[] = [
-                    'field' => 'gross_amount',
-                    'stored' => $this->gross_amount,
-                    'calculated' => $calculated['gross_amount'],
-                    'difference' => $this->gross_amount - $calculated['gross_amount']
-                ];
-            }
-
-            if (abs($this->net_amount - $calculated['net_amount']) > 0.01) {
-                $errors[] = [
-                    'field' => 'net_amount',
-                    'stored' => $this->net_amount,
-                    'calculated' => $calculated['net_amount'],
-                    'difference' => $this->net_amount - $calculated['net_amount']
-                ];
-            }
-        }
-
-        return [
-            'valid' => empty($errors),
-            'errors' => $errors,
-            'calculated' => $calculated
-        ];
+    public function isWorthCollecting(): bool
+    {
+        return $this->supply_status === 'worth_collecting';
     }
 }

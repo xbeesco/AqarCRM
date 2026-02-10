@@ -1,0 +1,38 @@
+<?php
+
+namespace App\Filament\Resources\PropertyContracts\Pages;
+
+use App\Filament\Resources\PropertyContracts\PropertyContractResource;
+use App\Services\PropertyContractService;
+use Filament\Resources\Pages\EditRecord;
+
+class EditPropertyContract extends EditRecord
+{
+    protected static string $resource = PropertyContractResource::class;
+
+    protected function getHeaderActions(): array
+    {
+        return [];
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // Calculate payments count before save
+        $data['payments_count'] = PropertyContractService::calculatePaymentsCount(
+            $data['duration_months'] ?? 0,
+            $data['payment_frequency'] ?? 'monthly'
+        );
+
+        // Ensure value is numeric
+        if (! is_numeric($data['payments_count'])) {
+            $data['payments_count'] = 0;
+        }
+
+        return $data;
+    }
+}

@@ -9,13 +9,13 @@ enum UserType: string
     case EMPLOYEE = 'employee';
     case OWNER = 'owner';
     case TENANT = 'tenant';
-    
+
     /**
      * Get the label for the user type
      */
     public function label(): string
     {
-        return match($this) {
+        return match ($this) {
             self::SUPER_ADMIN => 'مدير النظام',
             self::ADMIN => 'مدير',
             self::EMPLOYEE => 'موظف',
@@ -23,13 +23,13 @@ enum UserType: string
             self::TENANT => 'مستأجر',
         };
     }
-    
+
     /**
      * Get the color for badges
      */
     public function color(): string
     {
-        return match($this) {
+        return match ($this) {
             self::SUPER_ADMIN => 'danger',
             self::ADMIN => 'warning',
             self::EMPLOYEE => 'info',
@@ -37,18 +37,18 @@ enum UserType: string
             self::TENANT => 'gray',
         };
     }
-    
+
     /**
      * Check if user can access admin panel
      */
     public function canAccessPanel(): bool
     {
-        return match($this) {
+        return match ($this) {
             self::SUPER_ADMIN, self::ADMIN, self::EMPLOYEE => true,
-            self::OWNER, self::TENANT => false, // سيتم تفعيلها لاحقاً
+            self::OWNER, self::TENANT => false,
         };
     }
-    
+
     /**
      * Get all values as array for select options
      */
@@ -58,9 +58,10 @@ enum UserType: string
         foreach (self::cases() as $type) {
             $options[$type->value] = $type->label();
         }
+
         return $options;
     }
-    
+
     /**
      * Get employee types only
      */
@@ -72,7 +73,7 @@ enum UserType: string
             self::EMPLOYEE,
         ];
     }
-    
+
     /**
      * Get client types only
      */

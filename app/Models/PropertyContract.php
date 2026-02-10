@@ -2,6 +2,10 @@
 
 namespace App\Models;
 
+use App\Services\PropertyContractService;
+use App\Services\PropertyContractValidationService;
+use Carbon\Carbon;
+use Exception;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -13,25 +17,15 @@ class PropertyContract extends Model
         'contract_number',
         'owner_id',
         'property_id',
+        'contract_status',
         'commission_rate',
         'duration_months',
         'start_date',
         'end_date',
-        'contract_status',
-        'notary_number',
-        'payment_day',
-        'auto_renew',
-        'notice_period_days',
         'payment_frequency',
         'payments_count',
-        'terms_and_conditions',
         'notes',
         'file',
-        'created_by',
-        'approved_by',
-        'approved_at',
-        'terminated_reason',
-        'terminated_at',
     ];
 
     protected $casts = [
@@ -39,11 +33,6 @@ class PropertyContract extends Model
         'end_date' => 'date',
         'commission_rate' => 'decimal:2',
         'duration_months' => 'integer',
-        'payment_day' => 'integer',
-        'auto_renew' => 'boolean',
-        'notice_period_days' => 'integer',
-        'approved_at' => 'datetime',
-        'terminated_at' => 'datetime',
     ];
 
     protected static function boot()
@@ -53,13 +42,13 @@ class PropertyContract extends Model
         static::creating(function ($contract) {
             if (empty($contract->contract_number)) {
                 $year = date('Y');
-                // الحصول على آخر رقم عقد في السنة الحالية
+                // Get last contract number for current year
                 $lastContract = static::where('contract_number', 'like', "PC-{$year}-%")
                     ->orderByRaw('CAST(SUBSTRING(contract_number, -4) AS UNSIGNED) DESC')
                     ->first();
 
                 if ($lastContract) {
-                    // استخراج الرقم من آخر عقد
+                    // Extract number from last contract
                     $lastNumber = intval(substr($lastContract->contract_number, -4));
                     $nextNumber = $lastNumber + 1;
                 } else {
@@ -79,7 +68,7 @@ class PropertyContract extends Model
 
             // Calculate end_date if not set
             if (empty($contract->end_date) && $contract->start_date && $contract->duration_months) {
-                $startDate = \Carbon\Carbon::parse($contract->start_date);
+                $startDate = Carbon::parse($contract->start_date);
                 $contract->end_date = $startDate->copy()->addMonths($contract->duration_months)->subDay();
             }
 
@@ -93,7 +82,7 @@ class PropertyContract extends Model
         static::updating(function ($contract) {
             // Recalculate end_date if start_date or duration_months changed
             if ($contract->isDirty(['start_date', 'duration_months']) && $contract->start_date && $contract->duration_months) {
-                $startDate = \Carbon\Carbon::parse($contract->start_date);
+                $startDate = Carbon::parse($contract->start_date);
                 $contract->end_date = $startDate->copy()->addMonths($contract->duration_months)->subDay();
             }
 
@@ -123,11 +112,11 @@ class PropertyContract extends Model
     public function getPaymentsCountAttribute()
     {
         // Return stored value if exists, otherwise calculate
-        if (isset($this->attributes['payments_count']) && !is_null($this->attributes['payments_count'])) {
+        if (isset($this->attributes['payments_count']) && ! is_null($this->attributes['payments_count'])) {
             return $this->attributes['payments_count'];
         }
 
-        return \App\Services\PropertyContractService::calculatePaymentsCount(
+        return PropertyContractService::calculatePaymentsCount(
             $this->duration_months ?? 0,
             $this->payment_frequency ?? 'monthly'
         );
@@ -162,13 +151,13 @@ class PropertyContract extends Model
      */
     public function canGeneratePayments(): bool
     {
-        // التحقق من وجود دفعات مولدة مسبقاً
+        // Check if payments already exist
         if ($this->supplyPayments()->exists()) {
             return false;
         }
 
         // التحقق من أن عدد الدفعات صحيح ورقمي
-        if (!is_numeric($this->payments_count) || $this->payments_count <= 0) {
+        if (! is_numeric($this->payments_count) || $this->payments_count <= 0) {
             return false;
         }
 
@@ -195,11 +184,12 @@ class PropertyContract extends Model
 
     /**
      * Validate duration and frequency compatibility.
-     * @throws \Exception if invalid
+     *
+     * @throws Exception if invalid
      */
     protected function validateDurationFrequency(): void
     {
-        if (!$this->isValidDurationForFrequency()) {
+        if (! $this->isValidDurationForFrequency()) {
             $frequencyLabel = match ($this->payment_frequency) {
                 'monthly' => 'شهري',
                 'quarterly' => 'ربع سنوي (3 أشهر)',
@@ -208,7 +198,7 @@ class PropertyContract extends Model
                 default => $this->payment_frequency,
             };
 
-            throw new \Exception(
+            throw new Exception(
                 "مدة العقد ({$this->duration_months} شهر) لا تتوافق مع التكرار المحدد ({$frequencyLabel})"
             );
         }
@@ -216,15 +206,16 @@ class PropertyContract extends Model
 
     /**
      * Validate no overlap with other contracts.
-     * @throws \Exception if overlapping
+     *
+     * @throws Exception if overlapping
      */
     protected function validateNoOverlap(): void
     {
-        if (!$this->property_id || !$this->start_date || !$this->end_date) {
+        if (! $this->property_id || ! $this->start_date || ! $this->end_date) {
             return;
         }
 
-        $validationService = app(\App\Services\PropertyContractValidationService::class);
+        $validationService = app(PropertyContractValidationService::class);
         $excludeId = $this->exists ? $this->id : null;
 
         $error = $validationService->validateFullAvailability(
@@ -235,8 +226,89 @@ class PropertyContract extends Model
         );
 
         if ($error) {
-            throw new \Exception($error);
+            throw new Exception($error);
         }
+    }
+
+    /**
+     * Check if contract can be renewed.
+     */
+    public function canRenew(): bool
+    {
+        return $this->contract_status === 'active' && $this->end_date !== null;
+    }
+
+    /**
+     * Check if contract is currently active.
+     */
+    public function isActive(): bool
+    {
+        return $this->contract_status === 'active'
+            && $this->start_date <= now()
+            && $this->end_date >= now();
+    }
+
+    /**
+     * Check if contract has expired.
+     */
+    public function hasExpired(): bool
+    {
+        return $this->contract_status === 'expired'
+            || ($this->contract_status === 'active' && $this->end_date < now());
+    }
+
+    /**
+     * Check if contract is draft.
+     */
+    public function isDraft(): bool
+    {
+        return $this->contract_status === 'draft';
+    }
+
+    /**
+     * Check if contract was terminated.
+     */
+    public function isTerminated(): bool
+    {
+        return $this->contract_status === 'terminated';
+    }
+
+    /**
+     * Check if contract was renewed.
+     */
+    public function isRenewed(): bool
+    {
+        return $this->contract_status === 'renewed';
+    }
+
+    /**
+     * Get status badge color for UI.
+     */
+    public function getStatusColorAttribute(): string
+    {
+        return match ($this->contract_status) {
+            'draft' => 'gray',
+            'active' => $this->end_date < now()->addDays(30) ? 'warning' : 'success',
+            'expired' => 'danger',
+            'terminated' => 'danger',
+            'renewed' => 'info',
+            default => 'secondary'
+        };
+    }
+
+    /**
+     * Get status label in Arabic.
+     */
+    public function getStatusLabelAttribute(): string
+    {
+        return match ($this->contract_status) {
+            'draft' => 'مسودة',
+            'active' => 'نشط',
+            'expired' => 'منتهي',
+            'terminated' => 'ملغي',
+            'renewed' => 'مُجدد',
+            default => $this->contract_status
+        };
     }
 
     /**
@@ -265,7 +337,7 @@ class PropertyContract extends Model
             ->orderBy('due_date', 'desc')
             ->first();
 
-        return $lastPaid ? \Carbon\Carbon::parse($lastPaid->due_date) : \Carbon\Carbon::parse($this->start_date);
+        return $lastPaid ? Carbon::parse($lastPaid->due_date) : Carbon::parse($this->start_date);
     }
 
     /**
@@ -275,15 +347,23 @@ class PropertyContract extends Model
     public function canBeRescheduled(): bool
     {
         $validStatuses = ['active', 'draft'];
-        if (!in_array($this->contract_status, $validStatuses)) {
+        if (! in_array($this->contract_status, $validStatuses)) {
             return false;
         }
 
-        if (!$this->supplyPayments()->exists()) {
+        if (! $this->supplyPayments()->exists()) {
             return false;
         }
 
         return true;
+    }
+
+    /**
+     * Check if contract can be rescheduled (alias).
+     */
+    public function canReschedule(): bool
+    {
+        return $this->canBeRescheduled();
     }
 
     /**
@@ -302,6 +382,7 @@ class PropertyContract extends Model
             };
             $count += $monthsPerPayment;
         }
+
         return $count;
     }
 
@@ -314,5 +395,31 @@ class PropertyContract extends Model
         $paidMonths = $this->getPaidMonthsCount();
 
         return max(0, $totalMonths - $paidMonths);
+    }
+
+    /**
+     * Calculate commission based on amount.
+     */
+    public function calculateCommission(float $amount): float
+    {
+        return $amount * ($this->commission_rate / 100);
+    }
+
+    /**
+     * Scope for contracts expiring within days.
+     */
+    public function scopeExpiring($query, int $days = 30)
+    {
+        return $query->where('contract_status', 'active')
+            ->where('end_date', '<=', now()->addDays($days))
+            ->where('end_date', '>', now());
+    }
+
+    /**
+     * Scope for contracts by owner.
+     */
+    public function scopeForOwner($query, int $ownerId)
+    {
+        return $query->where('owner_id', $ownerId);
     }
 }
