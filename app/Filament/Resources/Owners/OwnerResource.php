@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Resources;
+namespace App\Filament\Resources\Owners;
 
-use App\Filament\Resources\OwnerResource\Pages;
+use App\Filament\Resources\Owners\Pages;
 use App\Models\CollectionPayment;
 use App\Models\Owner;
 use App\Models\SupplyPayment;
