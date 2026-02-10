@@ -3,19 +3,18 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\PaymentStatus;
-use App\Models\CollectionPayment;
-use App\Models\Setting;
 use App\Exports\CollectionPaymentsExport;
-use Maatwebsite\Excel\Facades\Excel;
+use App\Models\CollectionPayment;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables;
-use Filament\Tables\Table;
 use Filament\Tables\Filters\Filter;
-use Filament\Forms\Components\TextInput;
+use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
-use Carbon\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
 
 class TenantsPaymentDueWidget extends BaseWidget
 {
@@ -29,12 +28,29 @@ class TenantsPaymentDueWidget extends BaseWidget
 
     protected static bool $isLazy = false;
 
+    public ?int $allowedDelayDays = null;
+
+    public function mount(): void
+    {
+        // تحميل القيمة الافتراضية من الإعدادات (فقط أيام التأخير المسموح بها)
+        $this->allowedDelayDays = (int) \App\Models\Setting::get('allowed_delay_days', 5);
+    }
+
     public function table(Table $table): Table
     {
+        // حساب التاريخ بناءً على أيام التأخير المسموح بها
+        $thresholdDate = Carbon::now()->startOfDay()->subDays($this->allowedDelayDays ?? 0);
+
         return $table
             ->query(
-                CollectionPayment::with(['tenant', 'property', 'unit'])
-                    ->dueForCollection()
+                CollectionPayment::query()
+                    ->with(['tenant', 'property', 'unit'])
+                    ->where('due_date_start', '<=', $thresholdDate)
+                    ->whereNull('collection_date')
+                    ->where(function ($q) {
+                        $q->whereNull('delay_duration')
+                            ->orWhere('delay_duration', 0);
+                    })
                     ->orderBy('property_id')
                     ->orderBy('due_date_start', 'asc')
             )
@@ -80,7 +96,7 @@ class TenantsPaymentDueWidget extends BaseWidget
                     ->label('الحالة')
                     ->badge()
                     ->color(
-                        fn($record): string => $record->payment_status_enum === PaymentStatus::OVERDUE ? 'danger' : 'gray'
+                        fn ($record): string => $record->payment_status_enum === PaymentStatus::OVERDUE ? 'danger' : 'gray'
                     ),
             ])
             ->recordActions([
@@ -88,7 +104,7 @@ class TenantsPaymentDueWidget extends BaseWidget
                     ->label('تأجيل')
                     ->icon('heroicon-o-clock')
                     ->color('warning')
-                    ->visible(fn(?CollectionPayment $record): bool => $record?->can_be_postponed ?? false)
+                    ->visible(fn (?CollectionPayment $record): bool => $record?->can_be_postponed ?? false)
                     ->modalHeading('تأجيل الدفعة')
                     ->modalDescription('قم بتحديد مدة التأجيل وسبب التأجيل')
                     ->modalSubmitActionLabel('تأجيل')
@@ -117,11 +133,11 @@ class TenantsPaymentDueWidget extends BaseWidget
                     ->label('تأكيد الاستلام')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn(?CollectionPayment $record): bool => $record?->can_be_collected ?? false)
+                    ->visible(fn (?CollectionPayment $record): bool => $record?->can_be_collected ?? false)
                     ->modalHeading('تأكيد استلام الدفعة')
                     ->modalDescription(
-                        fn(?CollectionPayment $record): string => $record ? 'أقر أنا ' . auth()->user()->name . ' باستلام مبلغ وقدره ' .
-                        number_format((float) $record->amount, 2) . ' ريال' : ''
+                        fn (?CollectionPayment $record): string => $record ? 'أقر أنا '.auth()->user()->name.' باستلام مبلغ وقدره '.
+                        number_format((float) $record->amount, 2).' ريال' : ''
                     )
                     ->modalSubmitActionLabel('تأكيد')
                     ->modalCancelActionLabel('إلغاء')
@@ -162,25 +178,21 @@ class TenantsPaymentDueWidget extends BaseWidget
                         TextInput::make('days')
                             ->label('أيام التأخير المسموح بها')
                             ->numeric()
-                            ->default(fn() => (new CollectionPayment())->getTotalGraceThreshold())
-                            ->helperText('القيمة الافتراضية من إعدادات النظام'),
+                            ->default(fn () => $this->allowedDelayDays)
+                            ->helperText('القيمة الافتراضية: '.\App\Models\Setting::get('allowed_delay_days', 5).' يوم'),
                     ])
                     ->query(function ($query, array $data) {
-                        if (blank($data['days'])) {
-                            return $query;
-                        }
-
-                        $days = (int) $data['days'];
+                        // الفلتر يعيد بناء الـ query بالكامل إذا تم تغيير القيمة
+                        $days = (int) ($data['days'] ?? $this->allowedDelayDays);
                         $thresholdDate = Carbon::now()->startOfDay()->subDays($days);
 
+                        // إعادة تطبيق الشروط الأساسية مع القيمة الجديدة
                         return $query->where('due_date_start', '<=', $thresholdDate);
                     })
                     ->indicateUsing(function (array $data): ?string {
-                        if (blank($data['days'])) {
-                            return null;
-                        }
+                        $days = $data['days'] ?? $this->allowedDelayDays;
 
-                        return 'تأخير أكثر من ' . $data['days'] . ' أيام';
+                        return 'تأخير أكثر من '.$days.' يوم';
                     }),
 
             ])
@@ -193,12 +205,20 @@ class TenantsPaymentDueWidget extends BaseWidget
 
     protected function getTableHeading(): ?string
     {
-        $totalDue = CollectionPayment::dueForCollection()->count();
+        $thresholdDate = Carbon::now()->startOfDay()->subDays($this->allowedDelayDays ?? 0);
 
-        $totalAmount = (float) CollectionPayment::dueForCollection()->sum('amount');
+        $query = CollectionPayment::query()
+            ->where('due_date_start', '<=', $thresholdDate)
+            ->whereNull('collection_date')
+            ->where(function ($q) {
+                $q->whereNull('delay_duration')
+                    ->orWhere('delay_duration', 0);
+            });
 
-        $formattedAmount = number_format($totalAmount, 2) . ' ريال';
+        $totalDue = $query->count();
+        $totalAmount = (float) $query->sum('amount');
+        $formattedAmount = number_format($totalAmount, 2).' ريال';
 
-        return static::$heading . " ({$totalDue} دفعة - إجمالي: {$formattedAmount})";
+        return static::$heading." ({$totalDue} دفعة - إجمالي: {$formattedAmount})";
     }
 }

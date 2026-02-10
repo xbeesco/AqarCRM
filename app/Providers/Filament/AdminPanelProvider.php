@@ -40,6 +40,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->widgets([
                 \App\Filament\Widgets\StatsOverviewWidget::class,
+                \App\Filament\Widgets\TenantsPaymentDueWidget::class,
                 \App\Filament\Widgets\PostponedPaymentsWidget::class,
             ])
             ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
