@@ -394,14 +394,11 @@ class CollectionPayment extends Model
     }
 
     /**
-     * الحصول على إجمالي أيام السماح (فترة السماح + الأيام الإضافية)
+     * الحصول على أيام التأخير المسموح بها قبل اعتبار الدفعة متأخرة
      */
     public function getTotalGraceThreshold(): int
     {
-        $paymentDueDays = Setting::get('payment_due_days', 7);
-        $allowedDelayDays = Setting::get('allowed_delay_days', 5);
-
-        return (int) ($paymentDueDays + $allowedDelayDays);
+        return (int) Setting::get('allowed_delay_days', 5);
     }
 
     public function calculateLateFee(): float

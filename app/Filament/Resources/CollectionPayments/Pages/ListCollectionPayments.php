@@ -43,16 +43,24 @@ class ListCollectionPayments extends ListRecords
     {
         parent::mount();
 
-        // Get filter parameters from URL
+        // Get filter parameters from URL (support both simple and Filament formats)
         $this->unitContractId = request()->integer('unit_contract_id') ?: null;
-        $this->propertyId = request()->integer('property_id') ?: null;
-        $this->unitId = request()->integer('unit_id') ?: null;
-        $this->ownerId = request()->integer('owner_id') ?: null;
-        $this->tenantId = request()->integer('tenant_id') ?: null;
+        $this->propertyId = request()->integer('property_id') ?: request()->input('tableFilters.property_and_unit.property_id') ?: null;
+        $this->unitId = request()->integer('unit_id') ?: request()->input('tableFilters.property_and_unit.unit_id') ?: null;
+        $this->ownerId = request()->integer('owner_id') ?: request()->input('tableFilters.owner_id.value') ?: null;
+        $this->tenantId = request()->integer('tenant_id') ?: request()->input('tableFilters.tenant_id.value') ?: null;
 
         // Apply filter if unit_contract_id exists
         if ($this->unitContractId) {
             $this->tableFilters['unit_contract_id'] = $this->unitContractId;
+        }
+
+        // If unit_id is provided without property_id, get property_id from unit
+        if ($this->unitId && ! $this->propertyId) {
+            $unit = \App\Models\Unit::find($this->unitId);
+            if ($unit) {
+                $this->propertyId = $unit->property_id;
+            }
         }
 
         if ($this->propertyId) {
@@ -63,7 +71,7 @@ class ListCollectionPayments extends ListRecords
         }
 
         if ($this->ownerId) {
-            $this->tableFilters['owner']['owner_id'] = $this->ownerId;
+            $this->tableFilters['owner_id']['value'] = $this->ownerId;
         }
 
         if ($this->tenantId) {

@@ -23,13 +23,13 @@ class ListSupplyPayments extends ListRecords
     {
         parent::mount();
 
-        // Get filter parameters from URL
+        // Get filter parameters from URL (support both simple and Filament formats)
         $this->contractId = request()->integer('property_contract_id') ?: null;
-        $this->propertyId = request()->integer('property_id') ?: null;
-        $this->ownerId = request()->integer('owner_id') ?: null;
+        $this->propertyId = request()->integer('property_id') ?: request()->input('tableFilters.property.value') ?: null;
+        $this->ownerId = request()->integer('owner_id') ?: request()->input('tableFilters.owner_id.value') ?: null;
 
         if ($this->propertyId) {
-            $this->tableFilters['property']['values'] = [$this->propertyId];
+            $this->tableFilters['property']['value'] = $this->propertyId;
         }
 
         if ($this->ownerId) {
