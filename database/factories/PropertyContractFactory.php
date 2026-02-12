@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\PropertyContract;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -9,6 +10,8 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class PropertyContractFactory extends Factory
 {
+    protected $model = PropertyContract::class;
+
     /**
      * Define the model's default state.
      *
@@ -27,13 +30,47 @@ class PropertyContractFactory extends Factory
             'start_date' => $startDate,
             'payment_frequency' => $this->faker->randomElement(['monthly', 'quarterly', 'semi_annually', 'annually']),
             'contract_status' => 'active',
-            'notary_number' => $this->faker->optional()->numerify('NOT-######'),
-            'payment_day' => $this->faker->numberBetween(1, 28),
-            'auto_renew' => $this->faker->boolean(),
-            'notice_period_days' => $this->faker->randomElement([30, 60, 90]),
-            'terms_and_conditions' => $this->faker->optional()->paragraph(),
             'notes' => $this->faker->optional()->sentence(),
-            'created_by' => 1,
         ];
+    }
+
+    /**
+     * Indicate that the contract is active.
+     */
+    public function active(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'contract_status' => 'active',
+        ]);
+    }
+
+    /**
+     * Indicate that the contract is draft.
+     */
+    public function draft(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'contract_status' => 'draft',
+        ]);
+    }
+
+    /**
+     * Indicate that the contract is expired.
+     */
+    public function expired(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'contract_status' => 'expired',
+        ]);
+    }
+
+    /**
+     * Indicate that the contract is terminated.
+     */
+    public function terminated(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'contract_status' => 'terminated',
+        ]);
     }
 }

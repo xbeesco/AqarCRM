@@ -65,32 +65,18 @@ class OwnerServiceTest extends TestCase
 
     protected function createDependencies(): void
     {
-        $this->location = Location::create([
-            'name' => 'Test Location',
-            'level' => 1,
-        ]);
-
-        $this->propertyType = PropertyType::create([
-            'name' => 'Apartment',
-            'slug' => 'apartment',
-        ]);
-
-        $this->propertyStatus = PropertyStatus::create([
-            'name' => 'Available',
-            'slug' => 'available',
-        ]);
+        // Use existing lookup data seeded by TestCase::seedLookupData()
+        $this->location = Location::first();
+        $this->propertyType = PropertyType::first();
+        $this->propertyStatus = PropertyStatus::first();
+        $this->unitType = UnitType::first();
 
         // Note: The OwnerService checks for 'status' = 'active' but Property uses status_id
-        // We'll add a 'status' field test if the schema supports it, otherwise we test what exists
-        $this->activePropertyStatus = PropertyStatus::create([
-            'name' => 'Active',
-            'slug' => 'active',
-        ]);
-
-        $this->unitType = UnitType::create([
-            'name' => 'Residential Apartment',
-            'slug' => 'residential-apartment',
-        ]);
+        // Create additional status only if needed
+        $this->activePropertyStatus = PropertyStatus::firstOrCreate(
+            ['slug' => 'active'],
+            ['name' => 'Active']
+        );
 
         // Set default settings
         Setting::set('payment_due_days', 7);

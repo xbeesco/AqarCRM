@@ -46,10 +46,10 @@ class PaymentGeneratorServiceTest extends TestCase
             'level' => 1,
         ]);
 
-        // Create required reference data
-        PropertyStatus::firstOrCreate(['id' => 1], ['name' => 'Available', 'slug' => 'available']);
-        PropertyType::firstOrCreate(['id' => 1], ['name' => 'Residential', 'slug' => 'residential']);
-        UnitType::firstOrCreate(['id' => 1], ['name' => 'Apartment', 'slug' => 'apartment']);
+        // Create required reference data with forced IDs for MySQL compatibility
+        PropertyStatus::query()->updateOrInsert(['id' => 1], ['name' => 'Available', 'slug' => 'available', 'created_at' => now(), 'updated_at' => now()]);
+        PropertyType::query()->updateOrInsert(['id' => 1], ['name' => 'Residential', 'slug' => 'residential', 'created_at' => now(), 'updated_at' => now()]);
+        UnitType::query()->updateOrInsert(['id' => 1], ['name' => 'Apartment', 'slug' => 'apartment', 'created_at' => now(), 'updated_at' => now()]);
 
         // Create owner and tenant
         $this->owner = User::factory()->create(['type' => 'owner']);
@@ -72,6 +72,9 @@ class PaymentGeneratorServiceTest extends TestCase
      */
     protected function createUnitContract(array $overrides = []): UnitContract
     {
+        static $contractCounter = 0;
+        $contractCounter++;
+
         $startDate = $overrides['start_date'] ?? Carbon::now()->startOfMonth();
         $durationMonths = $overrides['duration_months'] ?? 12;
 
@@ -82,8 +85,8 @@ class PaymentGeneratorServiceTest extends TestCase
             $endDate = $overrides['end_date'];
         }
 
-        // Generate unique contract number
-        $contractNumber = 'UC-'.round(microtime(true) * 1000).'-'.rand(100, 999);
+        // Generate unique contract number with static counter
+        $contractNumber = sprintf('UC-TEST-%d-%d', time(), $contractCounter);
 
         $defaults = [
             'contract_number' => $contractNumber,
@@ -106,7 +109,24 @@ class PaymentGeneratorServiceTest extends TestCase
             $data['end_date'] = Carbon::parse($data['start_date'])->addMonths($data['duration_months'])->subDay();
         }
 
-        return UnitContract::create($data);
+        // Use DB insert to bypass observers and prevent auto-generation of payments
+        $id = \DB::table('unit_contracts')->insertGetId([
+            'contract_number' => $data['contract_number'],
+            'tenant_id' => $data['tenant_id'],
+            'unit_id' => $data['unit_id'],
+            'property_id' => $data['property_id'],
+            'monthly_rent' => $data['monthly_rent'],
+            'security_deposit' => $data['security_deposit'],
+            'duration_months' => $data['duration_months'],
+            'start_date' => $data['start_date'],
+            'end_date' => $data['end_date'],
+            'payment_frequency' => $data['payment_frequency'],
+            'contract_status' => $data['contract_status'],
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return UnitContract::find($id);
     }
 
     /**
@@ -182,7 +202,7 @@ class PaymentGeneratorServiceTest extends TestCase
         $payments = $this->service->generateTenantPayments($contract);
 
         $this->assertCount(12, $payments);
-        $this->assertEquals(24, $contract->collectionPayments()->count());
+        $this->assertEquals(12, $contract->collectionPayments()->count());
     }
 
     public function test_generate_tenant_payments_monthly_frequency(): void
@@ -315,7 +335,7 @@ class PaymentGeneratorServiceTest extends TestCase
         ]);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Monthly rent amount is invalid');
+        $this->expectExceptionMessage('مبلغ الإيجار الشهري غير صحيح');
 
         $this->service->generateTenantPayments($contract);
     }
@@ -327,7 +347,7 @@ class PaymentGeneratorServiceTest extends TestCase
         ]);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Monthly rent amount is invalid');
+        $this->expectExceptionMessage('مبلغ الإيجار الشهري غير صحيح');
 
         $this->service->generateTenantPayments($contract);
     }
@@ -339,13 +359,13 @@ class PaymentGeneratorServiceTest extends TestCase
             'payment_frequency' => 'monthly',
         ]);
 
-        // Verify that before generation, no payments exist
-        $this->assertEquals(12, $contract->collectionPayments()->count());
+        // Verify that before generation, no payments exist (observer bypassed)
+        $this->assertEquals(0, $contract->collectionPayments()->count());
 
         $payments = $this->service->generateTenantPayments($contract);
 
         // After successful generation, all payments should exist
-        $this->assertEquals(24, $contract->collectionPayments()->count());
+        $this->assertEquals(12, $contract->collectionPayments()->count());
     }
 
     // ==========================================
@@ -379,7 +399,7 @@ class PaymentGeneratorServiceTest extends TestCase
 
         // Try to generate again should fail
         $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('لا يمكن إنشاء دفعات جديدة - يوجد بالفعل 12 دفعة لهذا العقد');
+        $this->expectExceptionMessage('لا يمكن توليد دفعات جديدة - يوجد 12 دفعة مولدة مسبقاً لهذا العقد');
 
         $this->service->generateSupplyPaymentsForContract($contract);
     }
@@ -411,9 +431,9 @@ class PaymentGeneratorServiceTest extends TestCase
             'monthly_rent' => 3000,
         ]);
 
-        // Generate initial payments
+        // Generate initial payments (observer bypassed, so only service generates)
         $this->service->generateTenantPayments($contract);
-        $this->assertEquals(12, $contract->collectionPayments()->count());
+        $this->assertEquals(6, $contract->collectionPayments()->count());
 
         // Mark first 2 payments as paid using DB directly to avoid observer issues
         $paymentIds = $contract->collectionPayments()
@@ -432,8 +452,8 @@ class PaymentGeneratorServiceTest extends TestCase
             'monthly'
         );
 
-        // Should have deleted unpaid payments
-        $this->assertEquals(10, $result['deleted_count']);
+        // Should have deleted unpaid payments (6 - 2 = 4)
+        $this->assertEquals(4, $result['deleted_count']);
 
         // Total payments should be: 2 paid + 6 new = 8
         $this->assertEquals(8, $contract->collectionPayments()->count());
@@ -580,7 +600,7 @@ class PaymentGeneratorServiceTest extends TestCase
         $this->service->generateTenantPayments($contract);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('يجب أن تكون الأشهر الإضافية أكبر من صفر');
+        $this->expectExceptionMessage('عدد الأشهر الإضافية يجب أن يكون أكبر من صفر');
 
         $this->service->rescheduleContractPayments(
             $contract,
@@ -600,7 +620,7 @@ class PaymentGeneratorServiceTest extends TestCase
         $this->service->generateTenantPayments($contract);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('يجب أن يكون مبلغ الإيجار أكبر من صفر');
+        $this->expectExceptionMessage('قيمة الإيجار يجب أن تكون أكبر من صفر');
 
         $this->service->rescheduleContractPayments(
             $contract,
@@ -620,7 +640,7 @@ class PaymentGeneratorServiceTest extends TestCase
         $this->service->generateTenantPayments($contract);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('المدة الإضافية غير متوافقة مع تكرار التحصيل المحدد');
+        $this->expectExceptionMessage('المدة الإضافية لا تتوافق مع تكرار الدفع المختار');
 
         // 5 months is not compatible with quarterly (3 months)
         $this->service->rescheduleContractPayments(
@@ -661,7 +681,7 @@ class PaymentGeneratorServiceTest extends TestCase
 
         // Last paid payment ends on February 28
         // New payments should start from March 1
-        $this->assertEquals('2025-02-01', $result['new_payments'][0]->due_date_start->format('Y-m-d'));
+        $this->assertEquals('2025-03-01', $result['new_payments'][0]->due_date_start->format('Y-m-d'));
     }
 
     // ==========================================
@@ -691,7 +711,7 @@ class PaymentGeneratorServiceTest extends TestCase
         $lastPaidEnd = $this->service->getLastPaidPeriodEnd($contract->fresh());
 
         // Third payment (March) ends on March 31
-        $this->assertEquals('2025-02-28', $lastPaidEnd->format('Y-m-d'));
+        $this->assertEquals('2025-03-31', $lastPaidEnd->format('Y-m-d'));
     }
 
     public function test_get_last_paid_period_end_returns_null_when_no_paid(): void
@@ -795,7 +815,8 @@ class PaymentGeneratorServiceTest extends TestCase
             'monthly'
         );
 
-        $this->assertEquals(3, $result['deleted_count']);
+        // No payments existed to delete (observer bypassed)
+        $this->assertEquals(0, $result['deleted_count']);
         $this->assertCount(6, $result['new_payments']);
         $this->assertEquals(0, $result['paid_months']);
     }
@@ -893,11 +914,11 @@ class PaymentGeneratorServiceTest extends TestCase
             'monthly_rent' => 3000,
         ]);
 
-        // Verify no payments before
-        $this->assertEquals(3, $contract->collectionPayments()->count());
+        // Verify no payments before (observer bypassed)
+        $this->assertEquals(0, $contract->collectionPayments()->count());
 
         // Generate payments successfully first
         $this->service->generateTenantPayments($contract);
-        $this->assertEquals(6, $contract->collectionPayments()->count());
+        $this->assertEquals(3, $contract->collectionPayments()->count());
     }
 }

@@ -13,7 +13,6 @@ use App\Models\PropertyStatus;
 use App\Models\PropertyType;
 use App\Models\Unit;
 use App\Models\UnitType;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -39,40 +38,28 @@ class PropertyTest extends TestCase
 
     protected function createRequiredLookupData(): void
     {
-        // Create property type
-        $this->propertyType = PropertyType::firstOrCreate(
+        // Use updateOrInsert to force specific IDs (works with MySQL)
+        PropertyType::query()->updateOrInsert(
             ['id' => 1],
-            [
-                'name' => 'Residential Building',
-                'slug' => 'residential-building',
-            ]
+            ['name' => 'Residential Building', 'slug' => 'residential-building', 'created_at' => now(), 'updated_at' => now()]
         );
+        $this->propertyType = PropertyType::find(1);
 
-        // Create property status
-        $this->propertyStatus = PropertyStatus::firstOrCreate(
+        PropertyStatus::query()->updateOrInsert(
             ['id' => 1],
-            [
-                'name' => 'Available',
-                'slug' => 'available',
-            ]
+            ['name' => 'Available', 'slug' => 'available', 'created_at' => now(), 'updated_at' => now()]
         );
+        $this->propertyStatus = PropertyStatus::find(1);
 
-        // Create location
-        $this->location = Location::firstOrCreate(
+        Location::query()->updateOrInsert(
             ['id' => 1],
-            [
-                'name' => 'Test Location',
-                'level' => 1,
-            ]
+            ['name' => 'Test Location', 'level' => 1, 'created_at' => now(), 'updated_at' => now()]
         );
+        $this->location = Location::find(1);
 
-        // Create unit type
-        UnitType::firstOrCreate(
+        UnitType::query()->updateOrInsert(
             ['id' => 1],
-            [
-                'name' => 'Apartment',
-                'slug' => 'apartment',
-            ]
+            ['name' => 'Apartment', 'slug' => 'apartment', 'created_at' => now(), 'updated_at' => now()]
         );
 
         // Create owner

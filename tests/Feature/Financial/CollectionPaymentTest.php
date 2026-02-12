@@ -42,7 +42,6 @@ class CollectionPaymentTest extends TestCase
 
     protected UnitContract $contract;
 
-
     protected CollectionPaymentService $service;
 
     protected function setUp(): void
@@ -71,32 +70,15 @@ class CollectionPaymentTest extends TestCase
 
     protected function createDependencies(): void
     {
-        // Create location
-        $this->location = Location::create([
-            'name' => 'Test Location',
-            'level' => 1,
-        ]);
+        // Use existing lookup data seeded by TestCase::seedLookupData()
+        $this->location = Location::first();
+        $this->propertyType = PropertyType::first();
+        $this->propertyStatus = PropertyStatus::first();
+        $this->unitType = UnitType::first();
 
-        // Create property type
-        $this->propertyType = PropertyType::create([
-            'name' => 'Apartment',
-            'slug' => 'apartment',
-        ]);
-
-        // Create property status
-        $this->propertyStatus = PropertyStatus::create([
-            'name' => 'Available',
-            'slug' => 'available',
-        ]);
-
-        // Create unit type
-        $this->unitType = UnitType::create([
-            'name' => 'Residential Apartment',
-            'slug' => 'residential-apartment',
-        ]);
-
-        // Set default payment_due_days setting
+        // Set default payment settings
         Setting::set('payment_due_days', 7);
+        Setting::set('allowed_delay_days', 0);
 
         // Create owner
         $this->owner = User::factory()->create([

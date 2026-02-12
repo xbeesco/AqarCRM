@@ -33,40 +33,25 @@ class TenantTest extends TestCase
 
     protected function createRequiredLookupData(): void
     {
-        // Create property type
-        PropertyType::firstOrCreate(
+        // Use updateOrInsert to force specific IDs (works with MySQL)
+        PropertyType::query()->updateOrInsert(
             ['id' => 1],
-            [
-                'name' => 'Apartment',
-                'slug' => 'apartment',
-            ]
+            ['name' => 'Apartment', 'slug' => 'apartment', 'created_at' => now(), 'updated_at' => now()]
         );
 
-        // Create property status
-        PropertyStatus::firstOrCreate(
+        PropertyStatus::query()->updateOrInsert(
             ['id' => 1],
-            [
-                'name' => 'Available',
-                'slug' => 'available',
-            ]
+            ['name' => 'Available', 'slug' => 'available', 'created_at' => now(), 'updated_at' => now()]
         );
 
-        // Create location
-        Location::firstOrCreate(
+        Location::query()->updateOrInsert(
             ['id' => 1],
-            [
-                'name' => 'Test Location',
-                'level' => 1,
-            ]
+            ['name' => 'Test Location', 'level' => 1, 'created_at' => now(), 'updated_at' => now()]
         );
 
-        // Create unit type
-        UnitType::firstOrCreate(
+        UnitType::query()->updateOrInsert(
             ['id' => 1],
-            [
-                'name' => 'Apartment',
-                'slug' => 'apartment',
-            ]
+            ['name' => 'Apartment', 'slug' => 'apartment', 'created_at' => now(), 'updated_at' => now()]
         );
     }
 

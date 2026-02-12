@@ -728,16 +728,14 @@ class PropertyContractTest extends TestCase
     #[Test]
     public function property_contract_factory_has_draft_state(): void
     {
-        // Create without events to avoid observer changing status to active
-        $contract = PropertyContract::withoutEvents(function () {
-            return PropertyContract::factory()->draft()->create([
-                'owner_id' => $this->owner->id,
-                'property_id' => $this->property->id,
-                'start_date' => Carbon::now()->addYears(52),
-                'duration_months' => 12,
-                'payment_frequency' => 'monthly',
-            ]);
-        });
+        // Use a far future start date to avoid overlap validation issues
+        $contract = PropertyContract::factory()->draft()->create([
+            'owner_id' => $this->owner->id,
+            'property_id' => $this->property->id,
+            'start_date' => Carbon::now()->addYears(52),
+            'duration_months' => 12,
+            'payment_frequency' => 'monthly',
+        ]);
 
         $this->assertEquals('draft', $contract->contract_status);
     }

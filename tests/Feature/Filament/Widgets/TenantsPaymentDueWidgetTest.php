@@ -136,6 +136,9 @@ class TenantsPaymentDueWidgetTest extends TestCase
 
         // Create payment_due_days setting (7 days grace period)
         Setting::set('payment_due_days', 7);
+
+        // Set allowed_delay_days to 0 so payments are visible immediately when due
+        Setting::set('allowed_delay_days', 0);
     }
 
     /**

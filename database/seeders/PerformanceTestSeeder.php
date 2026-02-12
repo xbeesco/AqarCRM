@@ -46,6 +46,7 @@ class PerformanceTestSeeder extends Seeder
             ]
         );
 
+        // Scale: 200 properties × 50 units × 100 contracts = 1,000,000 contracts
         $propertiesCount = 200;
         $unitsPerProperty = 50;
         $contractsPerUnit = 100;
@@ -56,12 +57,16 @@ class PerformanceTestSeeder extends Seeder
         $properties = [];
         $now = now();
 
+        // Get location ID
+        $locationId = DB::table('locations')->first()?->id ?? 1;
+
         for ($i = 1; $i <= $propertiesCount; $i++) {
             $properties[] = [
                 'name' => "عقار اختبار {$i}",
                 'owner_id' => $owner->id,
-                'status_id' => rand(1, 3),
-                'type_id' => rand(1, 4),
+                'status_id' => rand(1, 2), // Only 1 and 2 exist
+                'type_id' => rand(1, 3), // Only 1, 2, 3 exist
+                'location_id' => $locationId,
                 'address' => "شارع الاختبار {$i}",
                 'postal_code' => rand(10000, 99999),
                 'parking_spots' => rand(5, 20),
@@ -127,9 +132,7 @@ class PerformanceTestSeeder extends Seeder
         $totalContracts = 0;
         $chunkSize = 2000; // MySQL limit: 65535 placeholders / 20 columns ≈ 3276 max
 
-        $statuses = ['draft', 'active', 'expired', 'terminated', 'renewed'];
         $frequencies = ['monthly', 'quarterly', 'semi_annually', 'annually'];
-        $methods = ['bank_transfer', 'cash', 'check', 'online'];
 
         foreach ($unitData as $unit) {
             for ($k = 1; $k <= $contractsPerUnit; $k++) {
@@ -170,13 +173,6 @@ class PerformanceTestSeeder extends Seeder
                     'end_date' => $endDate->format('Y-m-d'),
                     'contract_status' => $status,
                     'payment_frequency' => $frequencies[array_rand($frequencies)],
-                    'payment_method' => $methods[array_rand($methods)],
-                    'grace_period_days' => [3, 5, 7, 10][array_rand([3, 5, 7, 10])],
-                    'late_fee_rate' => rand(0, 5),
-                    'utilities_included' => rand(0, 1),
-                    'furnished' => rand(0, 1),
-                    'evacuation_notice_days' => [30, 60, 90][array_rand([30, 60, 90])],
-                    'created_by' => 1,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];

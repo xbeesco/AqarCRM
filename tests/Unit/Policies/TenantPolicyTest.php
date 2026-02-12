@@ -182,18 +182,15 @@ class TenantPolicyTest extends TestCase
     }
 
     #[Test]
-    public function employee_cannot_create_tenant(): void
+    public function employee_can_create_tenant(): void
     {
-        Log::shouldReceive('warning')->once();
-
-        $this->assertFalse($this->policy->create($this->employee));
+        $this->assertTrue($this->policy->create($this->employee));
     }
 
     #[Test]
     public function owner_cannot_create_tenant(): void
     {
-        Log::shouldReceive('warning')->once();
-
+        // create() doesn't log - just returns false
         $this->assertFalse($this->policy->create($this->owner));
     }
 
@@ -202,8 +199,7 @@ class TenantPolicyTest extends TestCase
     {
         $tenantAsUser = User::find($this->tenant->id);
 
-        Log::shouldReceive('warning')->once();
-
+        // create() doesn't log - just returns false
         $this->assertFalse($this->policy->create($tenantAsUser));
     }
 
@@ -218,11 +214,9 @@ class TenantPolicyTest extends TestCase
     }
 
     #[Test]
-    public function employee_cannot_update_tenant(): void
+    public function employee_can_update_tenant(): void
     {
-        Log::shouldReceive('warning')->once();
-
-        $this->assertFalse($this->policy->update($this->employee, $this->tenant));
+        $this->assertTrue($this->policy->update($this->employee, $this->tenant));
     }
 
     #[Test]

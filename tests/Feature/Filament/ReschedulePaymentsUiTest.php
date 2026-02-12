@@ -2,21 +2,22 @@
 
 namespace Tests\Feature\Filament;
 
-use Tests\TestCase;
-use App\Models\User;
-use App\Models\UnitContract;
+use App\Filament\Resources\UnitContracts\Pages\ReschedulePayments;
 use App\Models\Property;
 use App\Models\Unit;
-use App\Filament\Resources\UnitContractResource\Pages\ReschedulePayments;
-use Livewire\Livewire;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Models\UnitContract;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
+use Tests\TestCase;
 
 class ReschedulePaymentsUiTest extends TestCase
 {
     use RefreshDatabase;
 
     protected User $superAdmin;
+
     protected UnitContract $contract;
 
     protected function setUp(): void

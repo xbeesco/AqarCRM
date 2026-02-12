@@ -41,21 +41,10 @@ class SupplyPaymentTest extends TestCase
         // Clear cache
         \Illuminate\Support\Facades\Cache::flush();
 
-        // Create required reference data
-        $this->location = Location::create([
-            'name' => 'Test Location',
-            'level' => 1,
-        ]);
-
-        $this->propertyType = PropertyType::create([
-            'name' => 'Villa',
-            'slug' => 'villa',
-        ]);
-
-        $this->propertyStatus = PropertyStatus::create([
-            'name' => 'Available',
-            'slug' => 'available',
-        ]);
+        // Use existing lookup data seeded by TestCase::seedLookupData()
+        $this->location = Location::first();
+        $this->propertyType = PropertyType::first();
+        $this->propertyStatus = PropertyStatus::first();
 
         // Create owner, property, and contract
         $this->owner = $this->createOwner();

@@ -3,9 +3,9 @@
 namespace Tests\Feature\Filament;
 
 use App\Enums\UserType;
-use App\Filament\Resources\PropertyContracts\PropertyContractResource;
 use App\Filament\Resources\PropertyContracts\Pages\CreatePropertyContract;
 use App\Filament\Resources\PropertyContracts\Pages\ListPropertyContracts;
+use App\Filament\Resources\PropertyContracts\PropertyContractResource;
 use App\Models\Location;
 use App\Models\Property;
 use App\Models\PropertyContract;
@@ -182,10 +182,6 @@ class PropertyContractResourceTest extends TestCase
         $this->assertTrue(PropertyContractResource::canEdit($contract));
 
         // Also verify can access the edit page
-        if (! \Route::has('filament.admin.resources.property-contracts.edit')) {
-            $this->markTestSkipped('Edit route is not registered for property contracts.');
-        }
-
         $response = $this->get(PropertyContractResource::getUrl('edit', ['record' => $contract]));
 
         $response->assertSuccessful();
@@ -620,8 +616,6 @@ class PropertyContractResourceTest extends TestCase
     #[Test]
     public function test_edit_action_visible_for_super_admin_only(): void
     {
-        $this->markTestSkipped('Edit table action helpers are not available for property contracts.');
-
         // Create a contract
         $contract = $this->createContractWithRelations([
             'start_date' => Carbon::now()->addYears(7),
@@ -630,18 +624,12 @@ class PropertyContractResourceTest extends TestCase
         // Super admin should see edit action
         $this->actingAs($this->superAdmin);
         $livewire = Livewire::test(ListPropertyContracts::class);
-        if (! $livewire->instance()->getTableAction('edit')) {
-            $this->markTestSkipped('Edit table action is not available for property contracts.');
-        }
 
         $livewire->assertTableActionVisible('edit', $contract);
 
         // Admin should not see edit action
         $this->actingAs($this->admin);
         $livewire = Livewire::test(ListPropertyContracts::class);
-        if (! $livewire->instance()->getTableAction('edit')) {
-            $this->markTestSkipped('Edit table action is not available for property contracts.');
-        }
 
         $livewire
             ->assertTableActionExists('edit')
@@ -798,7 +786,7 @@ class PropertyContractResourceTest extends TestCase
     }
 
     #[Test]
-    public function test_policy_denies_admin_to_update(): void
+    public function test_policy_allows_admin_to_update(): void
     {
         $contract = $this->createContractWithRelations([
             'start_date' => Carbon::now()->addYears(16),
@@ -806,8 +794,8 @@ class PropertyContractResourceTest extends TestCase
 
         $this->actingAs($this->admin);
 
-        // Admin should not be able to update via policy
-        $this->assertFalse($this->admin->can('update', $contract));
+        // Admin should be able to update via policy
+        $this->assertTrue($this->admin->can('update', $contract));
     }
 
     #[Test]

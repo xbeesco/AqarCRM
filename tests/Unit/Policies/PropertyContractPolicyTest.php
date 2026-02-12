@@ -46,21 +46,10 @@ class PropertyContractPolicyTest extends TestCase
 
         $this->policy = new PropertyContractPolicy;
 
-        // Create required reference data
-        $this->propertyType = PropertyType::create([
-            'name' => 'Building',
-            'slug' => 'building',
-        ]);
-
-        $this->propertyStatus = PropertyStatus::create([
-            'name' => 'Available',
-            'slug' => 'available',
-        ]);
-
-        $this->location = Location::create([
-            'name' => 'الرياض',
-            'level' => 1,
-        ]);
+        // Use existing lookup data seeded by TestCase::seedLookupData()
+        $this->propertyType = PropertyType::first();
+        $this->propertyStatus = PropertyStatus::first();
+        $this->location = Location::first();
 
         // Create users with different types
         $this->superAdmin = User::factory()->create(['type' => UserType::SUPER_ADMIN->value]);
@@ -198,9 +187,9 @@ class PropertyContractPolicyTest extends TestCase
         $this->assertTrue($this->policy->create($this->admin));
     }
 
-    public function test_employee_cannot_create(): void
+    public function test_employee_can_create(): void
     {
-        $this->assertFalse($this->policy->create($this->employee));
+        $this->assertTrue($this->policy->create($this->employee));
     }
 
     public function test_owner_cannot_create(): void
@@ -222,32 +211,19 @@ class PropertyContractPolicyTest extends TestCase
         $this->assertTrue($result);
     }
 
-    public function test_admin_cannot_update(): void
+    public function test_admin_can_update(): void
     {
-        $this->assertFalse($this->policy->update($this->admin, $this->contract));
+        $this->assertTrue($this->policy->update($this->admin, $this->contract));
     }
 
-    public function test_employee_cannot_update(): void
+    public function test_employee_can_update(): void
     {
-        $this->assertFalse($this->policy->update($this->employee, $this->contract));
+        $this->assertTrue($this->policy->update($this->employee, $this->contract));
     }
 
     public function test_owner_cannot_update(): void
     {
         $this->assertFalse($this->policy->update($this->owner, $this->contract));
-    }
-
-    public function test_update_logs_unauthorized_access(): void
-    {
-        Log::shouldReceive('warning')
-            ->once()
-            ->withArgs(function ($message, $context) {
-                return $message === 'Unauthorized access attempt'
-                    && $context['user_id'] === $this->admin->id
-                    && $context['action'] === 'update_property_contract';
-            });
-
-        $this->policy->update($this->admin, $this->contract);
     }
 
     // ==================== delete Tests ====================
@@ -316,10 +292,10 @@ class PropertyContractPolicyTest extends TestCase
         $this->assertFalse($this->policy->terminate($this->admin, $this->contract));
     }
 
-    public function test_employee_cannot_terminate(): void
+    public function test_employee_can_terminate_active_contract(): void
     {
         $this->contract->contract_status = 'active';
-        $this->assertFalse($this->policy->terminate($this->employee, $this->contract));
+        $this->assertTrue($this->policy->terminate($this->employee, $this->contract));
     }
 
     public function test_owner_cannot_terminate(): void

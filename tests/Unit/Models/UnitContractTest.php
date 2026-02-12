@@ -32,26 +32,11 @@ class UnitContractTest extends TestCase
     {
         parent::setUp();
 
-        // Create required reference data
-        $this->location = Location::create([
-            'name' => 'Test Location',
-            'level' => 1,
-        ]);
-
-        $this->propertyType = PropertyType::create([
-            'name' => 'Apartment',
-            'slug' => 'apartment',
-        ]);
-
-        $this->propertyStatus = PropertyStatus::create([
-            'name' => 'Available',
-            'slug' => 'available',
-        ]);
-
-        $this->unitType = UnitType::create([
-            'name' => 'Residential Apartment',
-            'slug' => 'residential-apartment',
-        ]);
+        // Use existing lookup data seeded by TestCase::seedLookupData()
+        $this->location = Location::first();
+        $this->propertyType = PropertyType::first();
+        $this->propertyStatus = PropertyStatus::first();
+        $this->unitType = UnitType::first();
     }
 
     /**
