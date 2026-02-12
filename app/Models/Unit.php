@@ -77,7 +77,6 @@ class Unit extends Model
     public function activeContract(): HasOne
     {
         return $this->hasOne(UnitContract::class)
-            ->where('contract_status', 'active')
             ->where('start_date', '<=', now())
             ->where('end_date', '>=', now())
             ->latest();

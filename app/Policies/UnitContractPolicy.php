@@ -127,12 +127,12 @@ class UnitContractPolicy extends BasePolicy
 
     /**
      * Determine whether the user can renew the contract.
-     * Admins and employees can renew active contracts only
+     * Admins and employees can renew active or draft contracts
      */
     public function renew(User $user, UnitContract $contract): bool
     {
         return ($this->isAdmin($user) || $this->isEmployee($user))
-            && $contract->contract_status === 'active';
+            && in_array($contract->contract_status, ['active', 'draft']);
     }
 
     /**

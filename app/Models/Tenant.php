@@ -72,6 +72,16 @@ class Tenant extends User
     }
 
     /**
+     * Get the active (current) unit contract for this tenant.
+     */
+    public function activeContract()
+    {
+        return $this->hasOne(UnitContract::class, 'tenant_id')
+            ->where('contract_status', 'active')
+            ->latest('start_date');
+    }
+
+    /**
      * Get collection payments for this tenant.
      */
     public function collectionPayments()

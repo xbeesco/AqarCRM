@@ -2,26 +2,23 @@
 
 namespace App\Filament\Resources\UnitCategories;
 
-use Str;
-use Filament\GlobalSearch\GlobalSearchResult;
 use App\Filament\Resources\UnitCategories\Pages\ManageUnitCategories;
 use App\Models\UnitCategory;
-use BackedEnum;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
+use Filament\GlobalSearch\GlobalSearchResult;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class UnitCategoryResource extends Resource
 {
     protected static ?string $model = UnitCategory::class;
 
-    protected static string | \BackedEnum | null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
     protected static ?string $navigationLabel = 'تصنيفات الوحدات';
 
@@ -29,7 +26,7 @@ class UnitCategoryResource extends Resource
 
     protected static ?string $pluralModelLabel = 'تصنيفات الوحدات';
 
-    protected static ?string $recordTitleAttribute = 'name_ar';
+    protected static ?string $recordTitleAttribute = 'name';
 
     public static function form(Schema $schema): Schema
     {

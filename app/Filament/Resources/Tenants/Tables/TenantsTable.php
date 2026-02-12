@@ -2,11 +2,16 @@
 
 namespace App\Filament\Resources\Tenants\Tables;
 
+use App\Filament\Resources\CollectionPayments\CollectionPaymentResource;
+use App\Filament\Resources\UnitContracts\UnitContractResource;
+use App\Filament\Resources\Units\UnitResource;
+use Filament\Actions\BulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 
 class TenantsTable
 {
@@ -49,7 +54,24 @@ class TenantsTable
                     ->label('تعديل')
                     ->icon('heroicon-o-pencil-square'),
             ])
-            ->toolbarActions([])
+            ->maxSelectableRecords(1)
+            ->bulkActions([
+                BulkAction::make('view_units')
+                    ->label('الوحدات')
+                    ->action(function (Collection $records) {
+                        return redirect(UnitResource::getUrl('index').'?tenant_id='.$records->first()->id);
+                    }),
+                BulkAction::make('view_unit_contracts')
+                    ->label('عقود الوحدات')
+                    ->action(function (Collection $records) {
+                        return redirect(UnitContractResource::getUrl('index').'?tenant_id='.$records->first()->id);
+                    }),
+                BulkAction::make('view_collection_payments')
+                    ->label('دفعات المستأجر')
+                    ->action(function (Collection $records) {
+                        return redirect(CollectionPaymentResource::getUrl('index').'?tenant_id='.$records->first()->id);
+                    }),
+            ])
             ->defaultSort('created_at', 'desc');
     }
 }
