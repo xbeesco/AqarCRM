@@ -25,18 +25,18 @@ class ListUnitContracts extends ListRecords
     {
         parent::mount();
 
-        // Get filter parameters from URL
-        $this->propertyId = request()->integer('property_id') ?: null;
-        $this->ownerId = request()->integer('owner_id') ?: null;
-        $this->tenantId = request()->integer('tenant_id') ?: null;
-        $this->unitId = request()->integer('unit_id') ?: null;
+        // Get filter parameters from URL (support both simple and Filament formats)
+        $this->propertyId = request()->integer('property_id') ?: request()->input('tableFilters.property_id.value') ?: null;
+        $this->ownerId = request()->integer('owner_id') ?: request()->input('tableFilters.owner_id.value') ?: null;
+        $this->tenantId = request()->integer('tenant_id') ?: request()->input('tableFilters.tenant_id.value') ?: null;
+        $this->unitId = request()->integer('unit_id') ?: request()->input('tableFilters.unit_id.value') ?: null;
 
         if ($this->propertyId) {
-            $this->tableFilters['property']['values'] = [$this->propertyId];
+            $this->tableFilters['property_id']['value'] = $this->propertyId;
         }
 
         if ($this->ownerId) {
-            $this->tableFilters['owner']['owner_id'] = $this->ownerId;
+            $this->tableFilters['owner_id']['value'] = $this->ownerId;
         }
 
         if ($this->tenantId) {

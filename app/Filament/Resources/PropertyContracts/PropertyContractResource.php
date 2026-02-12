@@ -44,8 +44,9 @@ class PropertyContractResource extends Resource
             'index' => Pages\ListPropertyContracts::route('/'),
             'create' => Pages\CreatePropertyContract::route('/create'),
             'view' => Pages\ViewPropertyContract::route('/{record}'),
-            // 'edit' => Pages\EditPropertyContract::route('/{record}/edit'), // Only accessible by super_admin
+            'edit' => Pages\EditPropertyContract::route('/{record}/edit'),
             'reschedule' => Pages\ReschedulePayments::route('/{record}/reschedule'),
+            'renew' => Pages\RenewContract::route('/{record}/renew'),
         ];
     }
 

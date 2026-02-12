@@ -151,10 +151,17 @@ class ReschedulePayments extends Page implements HasForms
         $frequency = $get('new_frequency');
 
         if (! PropertyContractService::isValidDuration($months, $frequency)) {
+            $periodName = match ($frequency) {
+                'monthly' => 'شهر',
+                'quarterly' => 'ربع سنة',
+                'semi_annually' => 'نصف سنة',
+                'annually' => 'سنة',
+                default => 'شهر',
+            };
             Notification::make()
                 ->warning()
                 ->title('تنبيه')
-                ->body("عدد الاشهر ($months) لا يقبل القسمة علي $frequency")
+                ->body("عدد الاشهر ($months) لا يقبل القسمة علي {$periodName}")
                 ->send();
 
             $set('frequency_error', true);

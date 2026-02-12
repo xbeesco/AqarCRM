@@ -49,7 +49,7 @@ class ReschedulePayments extends Page implements HasForms
             abort(403, 'غير مصرح لك بإعادة جدولة الدفعات');
         }
 
-        // Additional reschedule eligibility check
+        // التحقق من إمكانية إعادة الجدولة
         if (! $this->record->canBeRescheduled()) {
             Notification::make()
                 ->title('لا يمكن إعادة جدولة هذا العقد')

@@ -28,7 +28,6 @@ class UnitContractForm
                             ->required()
                             ->searchable()
                             ->relationship('property', 'name')
-                            ->preload()
                             ->live()
                             ->afterStateUpdated(function (callable $set, $state) {
                                 $set('unit_id', null);
@@ -48,10 +47,13 @@ class UnitContractForm
                             ->required()
                             ->options(function (callable $get) {
                                 $propertyId = $get('property_id');
-                                if (!$propertyId) return [];
+                                if (! $propertyId) {
+                                    return [];
+                                }
+
                                 return Unit::where('property_id', $propertyId)->pluck('name', 'id');
                             })
-                            ->disabled(fn(callable $get): bool => !$get('property_id'))
+                            ->disabled(fn (callable $get): bool => ! $get('property_id'))
                             ->live()
                             ->afterStateUpdated(function (callable $set, $state) {
                                 if ($state) {
@@ -76,8 +78,7 @@ class UnitContractForm
                             ->label('المستأجر')
                             ->required()
                             ->searchable()
-                            ->relationship('tenant', 'name')
-                            ->options(User::where('type', 'tenant')->pluck('name', 'id'))
+                            ->options(fn () => User::where('type', 'tenant')->pluck('name', 'id'))
                             ->columnSpan(3),
 
                         DatePicker::make('start_date')
@@ -88,12 +89,16 @@ class UnitContractForm
                             ->rules([
                                 'required',
                                 'date',
-                                fn($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
+                                fn ($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
                                     $unitId = $get('unit_id');
-                                    if (!$unitId || !$value) return;
+                                    if (! $unitId || ! $value) {
+                                        return;
+                                    }
                                     $validationService = app(ContractValidationService::class);
                                     $error = $validationService->validateStartDate($unitId, $value, $record?->id);
-                                    if ($error) $fail($error);
+                                    if ($error) {
+                                        $fail($error);
+                                    }
                                 },
                             ])
                             ->columnSpan(3),
@@ -110,10 +115,18 @@ class UnitContractForm
                                 $set('payments_count', $count);
                             })
                             ->rules([
-                                fn($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
+                                fn ($get, $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
                                     $frequency = $get('payment_frequency') ?? 'monthly';
-                                    if (!PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
-                                        $fail("عدد الاشهر هذا لا يقبل القسمة علي " . $frequency);
+                                    if (! PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
+                                        $periodName = match ($frequency) {
+                                            'monthly' => 'شهر',
+                                            'quarterly' => 'ربع سنة',
+                                            'semi_annually' => 'نصف سنة',
+                                            'annually' => 'سنة',
+                                            default => 'شهر',
+                                        };
+                                        $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
+
                                         return;
                                     }
                                     $unitId = $get('unit_id');
@@ -121,7 +134,9 @@ class UnitContractForm
                                     if ($unitId && $startDate && $value) {
                                         $validationService = app(ContractValidationService::class);
                                         $error = $validationService->validateDuration($unitId, $startDate, $value, $record?->id);
-                                        if ($error) $fail($error);
+                                        if ($error) {
+                                            $fail($error);
+                                        }
                                     }
                                 },
                             ])

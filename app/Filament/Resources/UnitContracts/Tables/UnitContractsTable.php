@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\UnitContracts\Tables;
 
+use App\Models\User;
 use App\Services\PaymentGeneratorService;
 use Exception;
 use Filament\Actions\Action;
@@ -74,20 +75,75 @@ class UnitContractsTable
                     ->money('SAR', 1, null, 0),
             ])
             ->filters([
+                SelectFilter::make('owner_id')
+                    ->label('المالك')
+                    ->options(function () {
+                        return User::where('type', 'owner')
+                            ->orderBy('name')
+                            ->pluck('name', 'id');
+                    })
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (! empty($data['value'])) {
+                            return $query->whereHas('property', function ($q) use ($data) {
+                                $q->where('owner_id', $data['value']);
+                            });
+                        }
+
+                        return $query;
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (! empty($data['value'])) {
+                            $owner = User::find($data['value']);
+
+                            return $owner ? 'المالك: '.$owner->name : null;
+                        }
+
+                        return null;
+                    })
+                    ->searchable()
+                    ->preload(),
+
                 SelectFilter::make('property_id')
                     ->label('العقار')
                     ->relationship('property', 'name')
-                    ->searchable(),
+                    ->searchable()
+                    ->indicateUsing(function (array $data): ?string {
+                        if (! empty($data['value'])) {
+                            $property = \App\Models\Property::find($data['value']);
+
+                            return $property ? 'العقار: '.$property->name : null;
+                        }
+
+                        return null;
+                    }),
 
                 SelectFilter::make('unit_id')
                     ->label('الوحدة')
                     ->relationship('unit', 'name')
-                    ->searchable(),
+                    ->searchable()
+                    ->indicateUsing(function (array $data): ?string {
+                        if (! empty($data['value'])) {
+                            $unit = \App\Models\Unit::find($data['value']);
+
+                            return $unit ? 'الوحدة: '.$unit->name : null;
+                        }
+
+                        return null;
+                    }),
 
                 SelectFilter::make('tenant_id')
                     ->label('المستأجر')
                     ->relationship('tenant', 'name')
-                    ->searchable(),
+                    ->searchable()
+                    ->indicateUsing(function (array $data): ?string {
+                        if (! empty($data['value'])) {
+                            $tenant = User::find($data['value']);
+
+                            return $tenant ? 'المستأجر: '.$tenant->name : null;
+                        }
+
+                        return null;
+                    }),
 
                 SelectFilter::make('payment_frequency')
                     ->label('سداد الدفعات')
@@ -162,6 +218,14 @@ class UnitContractsTable
                     ->color('warning')
                     ->url(fn ($record) => $record ? route('filament.admin.resources.unit-contracts.reschedule', $record) : '#')
                     ->visible(fn ($record) => $record && $record->canReschedule()),
+
+                Action::make('renewContract')
+                    ->label('تجديد العقد')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('primary')
+                    ->url(fn ($record) => $record ? route('filament.admin.resources.unit-contracts.renew', $record) : '#')
+                    ->visible(fn ($record) => $record && auth()->user()?->can('renew', $record)),
+
                 EditAction::make()
                     ->label('تعديل')
                     ->icon('heroicon-o-pencil-square')->visible(fn () => auth()->user()?->type === 'super_admin'),

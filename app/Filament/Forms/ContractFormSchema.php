@@ -36,27 +36,29 @@ class ContractFormSchema
                     }
                 })
                 ->rules([
-                    fn($get): Closure => function (string $attribute, $value, Closure $fail) use ($get, $type, $record) {
+                    fn ($get): Closure => function (string $attribute, $value, Closure $fail) use ($get, $type, $record) {
                         $frequency = $get($record ? 'new_frequency' : 'payment_frequency') ?? 'monthly';
 
-                        // 1. Validate Frequency Compatibility
-                        if (!PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
+                        // 1. التحقق من توافق المدة مع دورية الدفع
+                        if (! PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
                             $periodName = match ($frequency) {
+                                'monthly' => 'شهر',
                                 'quarterly' => 'ربع سنة',
                                 'semi_annually' => 'نصف سنة',
                                 'annually' => 'سنة',
-                                default => $frequency,
+                                default => 'شهر',
                             };
                             $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
+
                             return;
                         }
 
-                        // 2. Validate Future Overlap
+                        // 2. التحقق من عدم التداخل مع عقود مستقبلية
                         $startDate = $get('start_date');
                         $idAttribute = $type === 'unit' ? 'unit_id' : 'property_id';
                         $id = $get($idAttribute);
 
-                        // If rescheduling/renewing, the start date for the "new" period is after the paid months
+                        // في حالة إعادة الجدولة/التجديد، تاريخ البداية للفترة الجديدة يكون بعد الأشهر المدفوعة
                         if ($record) {
                             $paidMonths = $record->getPaidMonthsCount();
                             $startDate = $record->start_date->copy()->addMonths($paidMonths);
@@ -108,6 +110,7 @@ class ContractFormSchema
                 ->default(function ($get) use ($record) {
                     $duration = $get($record ? 'additional_months' : 'duration_months') ?? 0;
                     $frequency = $get($record ? 'new_frequency' : 'payment_frequency') ?? 'monthly';
+
                     return PropertyContractService::calculatePaymentsCount($duration, $frequency);
                 })
                 ->columnSpan(3),

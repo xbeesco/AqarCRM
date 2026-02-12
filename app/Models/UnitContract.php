@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use Carbon\Carbon;
 use App\Services\PropertyContractService;
 use App\Services\UnitContractService;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -44,7 +44,7 @@ class UnitContract extends Model
             // Generate contract number if not set
             if (empty($contract->contract_number)) {
                 // Use millisecond timestamp to ensure uniqueness
-                $contract->contract_number = 'UC-' . round(microtime(true) * 1000);
+                $contract->contract_number = 'UC-'.round(microtime(true) * 1000);
             }
 
             // Calculate end_date if not set
@@ -318,5 +318,85 @@ class UnitContract extends Model
     public function isRenewed(): bool
     {
         return $this->contract_status === 'renewed';
+    }
+
+    /**
+     * Get unpaid payments for this contract.
+     */
+    public function getUnpaidPayments()
+    {
+        return $this->collectionPayments()->whereNull('paid_date')->get();
+    }
+
+    /**
+     * Get count of unpaid payments.
+     */
+    public function getUnpaidPaymentsCount(): int
+    {
+        return $this->collectionPayments()->whereNull('paid_date')->count();
+    }
+
+    /**
+     * Check if contract can be rescheduled.
+     */
+    public function canBeRescheduled(): bool
+    {
+        $validStatuses = ['active', 'draft'];
+        if (! in_array($this->contract_status, $validStatuses)) {
+            return false;
+        }
+
+        if (! $this->collectionPayments()->exists()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Get paid payments for this contract.
+     */
+    public function getPaidPayments()
+    {
+        return $this->collectionPayments()->whereNotNull('paid_date')->get();
+    }
+
+    /**
+     * Get count of paid payments.
+     */
+    public function getPaidPaymentsCount(): int
+    {
+        return $this->collectionPayments()->whereNotNull('paid_date')->count();
+    }
+
+    /**
+     * Get count of paid months (approximate).
+     */
+    public function getPaidMonthsCount(): int
+    {
+        $count = 0;
+        foreach ($this->getPaidPayments() as $payment) {
+            $monthsPerPayment = match ($this->payment_frequency) {
+                'monthly' => 1,
+                'quarterly' => 3,
+                'semi_annually' => 6,
+                'annually' => 12,
+                default => 1,
+            };
+            $count += $monthsPerPayment;
+        }
+
+        return $count;
+    }
+
+    /**
+     * Get remaining months (unpaid).
+     */
+    public function getRemainingMonths(): int
+    {
+        $totalMonths = $this->duration_months ?? 0;
+        $paidMonths = $this->getPaidMonthsCount();
+
+        return max(0, $totalMonths - $paidMonths);
     }
 }

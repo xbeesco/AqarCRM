@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\UnitContracts\Pages;
 
-use App\Filament\Resources\UnitContracts\UnitContractResource;
 use App\Models\UnitContract;
 use App\Services\ContractValidationService;
 use App\Services\PaymentGeneratorService;
@@ -118,10 +117,11 @@ class RenewContract extends Page implements HasForms
 
                                         if (! PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
                                             $periodName = match ($frequency) {
+                                                'monthly' => 'شهر',
                                                 'quarterly' => 'ربع سنة',
                                                 'semi_annually' => 'نصف سنة',
                                                 'annually' => 'سنة',
-                                                default => $frequency,
+                                                default => 'شهر',
                                             };
                                             $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
                                         }

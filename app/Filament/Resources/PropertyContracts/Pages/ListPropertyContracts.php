@@ -21,12 +21,12 @@ class ListPropertyContracts extends ListRecords
     {
         parent::mount();
 
-        // Get filter parameters from URL
-        $this->propertyId = request()->integer('property_id') ?: null;
-        $this->ownerId = request()->integer('owner_id') ?: null;
+        // Get filter parameters from URL (support both simple and Filament formats)
+        $this->propertyId = request()->integer('property_id') ?: request()->input('tableFilters.property_id.value') ?: null;
+        $this->ownerId = request()->integer('owner_id') ?: request()->input('tableFilters.owner.owner_id') ?: null;
 
         if ($this->propertyId) {
-            $this->tableFilters['property']['values'] = [$this->propertyId];
+            $this->tableFilters['property_id']['value'] = $this->propertyId;
         }
 
         if ($this->ownerId) {

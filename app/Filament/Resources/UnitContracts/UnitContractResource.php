@@ -46,6 +46,7 @@ class UnitContractResource extends Resource
             'view' => Pages\ViewUnitContracts::route('/{record}'),
             'edit' => Pages\EditUnitContract::route('/{record}/edit'), // Only accessible by super_admin
             'reschedule' => Pages\ReschedulePayments::route('/{record}/reschedule'), // Only accessible by super_admin
+            'renew' => Pages\RenewContract::route('/{record}/renew'),
         ];
     }
 

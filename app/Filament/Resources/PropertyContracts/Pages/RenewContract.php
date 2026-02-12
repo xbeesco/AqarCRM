@@ -2,10 +2,10 @@
 
 namespace App\Filament\Resources\PropertyContracts\Pages;
 
-use App\Filament\Resources\PropertyContracts\PropertyContractResource;
 use App\Models\PropertyContract;
 use App\Services\PaymentGeneratorService;
 use App\Services\PropertyContractService;
+use App\Services\PropertyContractValidationService;
 use Carbon\Carbon;
 use Closure;
 use Filament\Actions\Action;
@@ -104,12 +104,34 @@ class RenewContract extends Page implements HasForms
 
                                         if (! PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
                                             $periodName = match ($frequency) {
+                                                'monthly' => 'شهر',
                                                 'quarterly' => 'ربع سنة',
                                                 'semi_annually' => 'نصف سنة',
                                                 'annually' => 'سنة',
-                                                default => $frequency,
+                                                default => 'شهر',
                                             };
                                             $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
+                                        }
+                                    },
+                                    // التحقق من التداخل مع عقود مستقبلية
+                                    fn (): Closure => function (string $attribute, $value, Closure $fail) {
+                                        if (! $value || $value < 1) {
+                                            return;
+                                        }
+
+                                        $propertyId = $this->record->property_id;
+                                        $renewalStartDate = $this->record->end_date->copy()->addDay();
+
+                                        $validationService = app(PropertyContractValidationService::class);
+                                        $error = $validationService->validateDuration(
+                                            $propertyId,
+                                            $renewalStartDate,
+                                            $value,
+                                            $this->record->id
+                                        );
+
+                                        if ($error) {
+                                            $fail($error);
                                         }
                                     },
                                 ])
