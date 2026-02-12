@@ -1,34 +1,19 @@
 <?php
 
-namespace Tests;
+namespace Tests\Traits;
 
 use App\Models\Location;
 use App\Models\PropertyStatus;
 use App\Models\PropertyType;
 use App\Models\UnitCategory;
 use App\Models\UnitType;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
-abstract class TestCase extends BaseTestCase
+/**
+ * Trait to seed required lookup data for tests.
+ * This ensures foreign key constraints are satisfied in MySQL.
+ */
+trait SeedsLookupData
 {
-    /**
-     * Setup the test environment.
-     */
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        // Automatically seed lookup data for tests that use RefreshDatabase
-        if (in_array(RefreshDatabase::class, class_uses_recursive($this))) {
-            $this->seedLookupData();
-        }
-    }
-
-    /**
-     * Seed required lookup data for tests.
-     * This ensures foreign key constraints are satisfied in MySQL.
-     */
     protected function seedLookupData(): void
     {
         // Use updateOrInsert to force specific IDs (works with MySQL)
