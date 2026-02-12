@@ -333,7 +333,7 @@
 <body>
     <button class="auto-print" onclick="window.print()">طباعة التقرير</button>
     
-    <div class="print-container">
+    <div class="print-container print-content">
         {{-- Header --}}
         <div class="print-header">
             <h1>تقرير العقار التفصيلي</h1>
@@ -444,7 +444,7 @@
         <div class="table-container">
             <div class="table-header">
                 <div class="table-title">تقرير عقاري تفصيلي: قيمة الإيجار حسب الدفعات</div>
-                <div class="table-subtitle">النسبة الإدارية 5%</div>
+                <div class="table-subtitle">النسبة الإدارية {{ $commissionRate ?? 5 }}%</div>
             </div>
             <table>
                 <thead>

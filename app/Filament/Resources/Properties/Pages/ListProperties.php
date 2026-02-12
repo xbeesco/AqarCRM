@@ -19,8 +19,8 @@ class ListProperties extends ListRecords
     {
         parent::mount();
 
-        // Get filter parameters from URL
-        $this->ownerId = request()->integer('owner_id') ?: null;
+        // Get filter parameters from URL (support both simple and Filament formats)
+        $this->ownerId = request()->integer('owner_id') ?: request()->input('tableFilters.owner_id.value') ?: null;
 
         if ($this->ownerId) {
             $this->tableFilters['owner_id']['value'] = $this->ownerId;
@@ -87,14 +87,14 @@ class ListProperties extends ListRecords
 
                 // البحث في نوع العقار
                 $query->orWhereHas('propertyType', function ($q) use ($normalizedSearch, $searchWithoutSpaces) {
-                    $q->where('name_ar', 'LIKE', "%{$normalizedSearch}%")
-                        ->orWhere('name_ar', 'LIKE', "%{$searchWithoutSpaces}%");
+                    $q->where('name', 'LIKE', "%{$normalizedSearch}%")
+                        ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%");
                 });
 
                 // البحث في حالة العقار
                 $query->orWhereHas('propertyStatus', function ($q) use ($normalizedSearch, $searchWithoutSpaces) {
-                    $q->where('name_ar', 'LIKE', "%{$normalizedSearch}%")
-                        ->orWhere('name_ar', 'LIKE', "%{$searchWithoutSpaces}%");
+                    $q->where('name', 'LIKE', "%{$normalizedSearch}%")
+                        ->orWhere('name', 'LIKE', "%{$searchWithoutSpaces}%");
                 });
             });
         }

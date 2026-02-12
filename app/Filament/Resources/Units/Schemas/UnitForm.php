@@ -26,6 +26,8 @@ class UnitForm
                         ->searchable()
                         ->required()
                         ->preload()
+                        ->disabled(fn (string $operation): bool => $operation === 'edit')
+                        ->dehydrated()
                         ->columnSpan(3),
 
                     Select::make('unit_type_id')
@@ -54,7 +56,7 @@ class UnitForm
                 ->schema([
                     Grid::make(3)->schema([
                         TextInput::make('rent_price')
-                            ->label('سعر الايجار الاستدلالي')
+                            ->label('الايجار الشهري الاستدلالي')
                             ->numeric()
                             ->required()
                             ->minValue(0)

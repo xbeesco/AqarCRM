@@ -32,6 +32,8 @@ class PropertyForm
                             ->searchable()
                             ->preload()
                             ->required()
+                            ->disabled(fn (string $operation): bool => $operation === 'edit')
+                            ->dehydrated()
                             ->columnSpan(1),
                     ]),
 
