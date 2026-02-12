@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UnitOccupancyStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -70,10 +71,14 @@ class Unit extends Model
         return $this->hasMany(UnitContract::class);
     }
 
+    /**
+     * Get the active contract for this unit (currently running today)
+     */
     public function activeContract(): HasOne
     {
         return $this->hasOne(UnitContract::class)
-            ->where('contract_status', 'active')
+            ->where('start_date', '<=', now())
+            ->where('end_date', '>=', now())
             ->latest();
     }
 
@@ -82,14 +87,28 @@ class Unit extends Model
         return $this->morphMany(Expense::class, 'subject');
     }
 
+    /**
+     * حساب إجمالي النفقات للوحدة
+     */
     public function getTotalExpensesAttribute(): float
     {
         return (float) $this->expenses()->sum('cost');
     }
 
+    /**
+     * حساب نفقات الشهر الحالي للوحدة
+     */
     public function getCurrentMonthExpensesAttribute(): float
     {
         return (float) $this->expenses()->thisMonth()->sum('cost');
+    }
+
+    /**
+     * الحصول على حالة إشغال الوحدة
+     */
+    public function getOccupancyStatusAttribute(): UnitOccupancyStatus
+    {
+        return UnitOccupancyStatus::fromUnit($this);
     }
 
     /**

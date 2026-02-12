@@ -10,17 +10,11 @@ return new class extends Migration
     {
         Schema::create('unit_types', function (Blueprint $table) {
             $table->id();
-            $table->string('name_ar', 100);
-            $table->string('name_en', 100);
+            $table->string('name', 255);
             $table->string('slug', 120)->unique();
-            $table->string('icon', 50)->nullable()->default('heroicon-o-home');
-            $table->text('description')->nullable();
-            $table->boolean('is_active')->default(true)->index();
-            $table->integer('sort_order')->default(0);
             $table->timestamps();
 
-            $table->index(['name_ar', 'name_en']);
-            $table->index(['is_active', 'sort_order']);
+            $table->index('name');
         });
     }
 

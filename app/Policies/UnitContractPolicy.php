@@ -2,8 +2,8 @@
 
 namespace App\Policies;
 
-use App\Models\User;
 use App\Models\UnitContract;
+use App\Models\User;
 
 class UnitContractPolicy extends BasePolicy
 {
@@ -33,7 +33,7 @@ class UnitContractPolicy extends BasePolicy
     {
         // Everyone except tenants can view contracts list
         // Tenants can only see their own
-        return match($user->type) {
+        return match ($user->type) {
             'super_admin', 'admin', 'employee', 'owner' => true,
             'tenant' => true, // Will be filtered in query
             default => false,
@@ -45,7 +45,7 @@ class UnitContractPolicy extends BasePolicy
      */
     public function view(User $user, UnitContract $contract): bool
     {
-        return match($user->type) {
+        return match ($user->type) {
             'super_admin', 'admin', 'employee' => true,
             'owner' => $contract->property?->owner_id === $user->id,
             'tenant' => $contract->tenant_id === $user->id,
@@ -103,7 +103,7 @@ class UnitContractPolicy extends BasePolicy
     {
         // Log the attempt
         $this->logUnauthorizedAccess($user, 'force_delete_unit_contract', $contract);
-        
+
         return false;
     }
 
@@ -113,17 +113,26 @@ class UnitContractPolicy extends BasePolicy
      */
     public function terminate(User $user, UnitContract $contract): bool
     {
-        return $this->isAdmin($user) && $contract->contract_status === 'active';
+        return in_array($user->type, ['super_admin', 'admin', 'employee']) && $contract->contract_status === 'active';
+    }
+
+    /**
+     * Determine whether the user can approve the contract.
+     * Only admins can approve contracts
+     */
+    public function approve(User $user, UnitContract $contract): bool
+    {
+        return in_array($user->type, ['super_admin', 'admin', 'employee']) && $contract->contract_status === 'draft';
     }
 
     /**
      * Determine whether the user can renew the contract.
-     * Admins and employees can renew
+     * Admins and employees can renew active or draft contracts
      */
     public function renew(User $user, UnitContract $contract): bool
     {
         return ($this->isAdmin($user) || $this->isEmployee($user))
-            && in_array($contract->contract_status, ['active', 'expired']);
+            && in_array($contract->contract_status, ['active', 'draft']);
     }
 
     /**
@@ -133,6 +142,6 @@ class UnitContractPolicy extends BasePolicy
     public function reschedule(User $user, UnitContract $contract): bool
     {
         return ($this->isAdmin($user) || $this->isEmployee($user))
-            && $contract->canReschedule();
+            && $contract->canBeRescheduled();
     }
 }

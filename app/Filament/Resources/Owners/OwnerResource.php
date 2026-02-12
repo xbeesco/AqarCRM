@@ -2,24 +2,33 @@
 
 namespace App\Filament\Resources\Owners;
 
-use App\Filament\Concerns\HasFormComponents;
-use App\Filament\Resources\Owners\Schemas\OwnerForm;
-use App\Filament\Resources\Owners\Tables\OwnersTable;
+use App\Filament\Resources\CollectionPayments\CollectionPaymentResource;
+use App\Filament\Resources\Expenses\ExpenseResource;
+use App\Filament\Resources\Properties\PropertyResource;
+use App\Filament\Resources\PropertyContracts\PropertyContractResource;
+use App\Filament\Resources\SupplyPayments\SupplyPaymentResource;
+use App\Filament\Resources\UnitContracts\UnitContractResource;
+use App\Filament\Resources\Units\UnitResource;
 use App\Models\CollectionPayment;
 use App\Models\Owner;
 use App\Models\SupplyPayment;
-use Filament\GlobalSearch\GlobalSearchResult;
+use Filament\Actions\BulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class OwnerResource extends Resource
 {
-    use HasFormComponents;
-
     protected static ?string $model = Owner::class;
 
     protected static ?string $navigationLabel = 'الملاك';
@@ -30,10 +39,12 @@ class OwnerResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    // صلاحيات الوصول للـ Resource
     public static function canViewAny(): bool
     {
         $userType = auth()->user()?->type;
 
+        // الكل يمكنه رؤية الملاك ماعدا owner و tenant
         return ! in_array($userType, ['owner', 'tenant']);
     }
 
@@ -41,34 +52,213 @@ class OwnerResource extends Resource
     {
         $userType = auth()->user()?->type;
 
-        return in_array($userType, ['super_admin', 'admin', 'manager']);
+        // super_admin و admin و employee يمكنهم إضافة ملاك
+        return in_array($userType, ['super_admin', 'admin', 'employee']);
     }
 
-    public static function canEdit(Model $record): bool
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
         $userType = auth()->user()?->type;
 
-        return in_array($userType, ['super_admin', 'admin', 'manager']);
+        // super_admin و admin و employee يمكنهم تعديل الملاك
+        return in_array($userType, ['super_admin', 'admin', 'employee']);
     }
 
-    public static function canDelete(Model $record): bool
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
+        // فقط super_admin يمكنه حذف الملاك
         return auth()->user()?->type === 'super_admin';
     }
 
     public static function canDeleteAny(): bool
     {
+        // فقط super_admin يمكنه الحذف الجماعي
         return auth()->user()?->type === 'super_admin';
     }
 
     public static function form(Schema $schema): Schema
     {
-        return OwnerForm::configure($schema);
+        return $schema
+            ->schema([
+                Section::make('معلومات عامة')
+                    ->schema([
+                        TextInput::make('name')
+                            ->required()
+                            ->label('الاسم الكامل')
+                            ->maxLength(255)
+                            ->columnSpan('full'),
+
+                        TextInput::make('phone')
+                            ->numeric()
+                            ->required()
+                            ->label('الهاتف الأول')
+                            ->maxLength(20)
+                            ->columnSpan(6),
+
+                        TextInput::make('secondary_phone')
+                            ->numeric()
+                            ->label('الهاتف الثاني')
+                            ->maxLength(20)
+                            ->columnSpan(6),
+
+                        FileUpload::make('identity_file')
+                            ->label('ملف الهوية')
+                            ->directory('owner--identity-file')
+                            ->columnSpan('full'),
+                    ])
+                    ->columns(12)
+                    ->columnSpan('full'),
+
+            ]);
     }
 
     public static function table(Table $table): Table
     {
-        return OwnersTable::configure($table);
+        return $table
+            ->columns([
+                TextColumn::make('name')
+                    ->label('الاسم')
+                    ->searchable()
+                    ->sortable(),
+
+                TextColumn::make('phone')
+                    ->label('التليفون 1')
+                    ->searchable(),
+
+                TextColumn::make('secondary_phone')
+                    ->label('التليفون 2')
+                    ->searchable(),
+
+                TextColumn::make('email')
+                    ->label('الإيميل')
+                    ->searchable(),
+
+                \Filament\Tables\Columns\ImageColumn::make('identity_file')
+                    ->label('ملف الهوية')
+                    ->disk('local')
+                    ->height(40)
+                    ->width(40)
+                    ->defaultImageUrl(asset('images/no-image.png'))
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('created_at')
+                    ->label('تاريخ الإنشاء')
+                    ->dateTime('Y-m-d H:i')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+            ])
+            ->filters([])
+            ->recordActions([
+                ViewAction::make()
+                    ->label('تقرير')
+                    ->icon('heroicon-o-document-text'),
+                EditAction::make()
+                    ->label('تعديل')
+                    ->icon('heroicon-o-pencil-square'),
+            ])
+            ->maxSelectableRecords(1)
+            ->bulkActions([
+                BulkAction::make('view_properties')
+                    ->label('العقارات')
+                    ->action(function (EloquentCollection $records) {
+                        if ($records->count() > 1) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('يرجى اختيار مالك واحد فقط')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        return redirect(PropertyResource::getUrl('index').'?owner_id='.$records->first()->id);
+                    }),
+                BulkAction::make('view_units')
+                    ->label('الوحدات')
+                    ->action(function (EloquentCollection $records) {
+                        if ($records->count() > 1) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('يرجى اختيار مالك واحد فقط')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        return redirect(UnitResource::getUrl('index').'?owner_id='.$records->first()->id);
+                    }),
+                BulkAction::make('view_property_contracts')
+                    ->label('عقود العقارات')
+                    ->action(function (EloquentCollection $records) {
+                        if ($records->count() > 1) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('يرجى اختيار مالك واحد فقط')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        return redirect(PropertyContractResource::getUrl('index').'?owner_id='.$records->first()->id);
+                    }),
+                BulkAction::make('view_unit_contracts')
+                    ->label('عقود الوحدات')
+                    ->action(function (EloquentCollection $records) {
+                        if ($records->count() > 1) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('يرجى اختيار مالك واحد فقط')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        return redirect(UnitContractResource::getUrl('index').'?owner_id='.$records->first()->id);
+                    }),
+                BulkAction::make('view_supply_payments')
+                    ->label('دفعات المالك')
+                    ->action(function (EloquentCollection $records) {
+                        if ($records->count() > 1) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('يرجى اختيار مالك واحد فقط')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        return redirect(SupplyPaymentResource::getUrl('index').'?owner_id='.$records->first()->id);
+                    }),
+                BulkAction::make('view_collection_payments')
+                    ->label('دفعات المستأجرين')
+                    ->action(function (EloquentCollection $records) {
+                        if ($records->count() > 1) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('يرجى اختيار مالك واحد فقط')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        return redirect(CollectionPaymentResource::getUrl('index').'?owner_id='.$records->first()->id);
+                    }),
+                BulkAction::make('view_expenses')
+                    ->label('النفقات')
+                    ->action(function (EloquentCollection $records) {
+                        if ($records->count() > 1) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('يرجى اختيار مالك واحد فقط')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        return redirect(ExpenseResource::getUrl('index').'?owner_id='.$records->first()->id);
+                    }),
+            ])
+            ->defaultSort('created_at', 'desc');
     }
 
     public static function getEloquentQuery(): Builder
@@ -105,17 +295,18 @@ class OwnerResource extends Resource
 
     public static function getGlobalSearchResults(string $search): Collection
     {
-        // Normalize Arabic characters
+        // تنظيف البحث وإزالة الهمزات
         $normalizedSearch = str_replace(
             ['أ', 'إ', 'آ', 'ء', 'ؤ', 'ئ'],
             ['ا', 'ا', 'ا', '', 'و', 'ي'],
             $search
         );
 
+        // إزالة المسافات الزائدة
         $searchWithoutSpaces = str_replace(' ', '', $normalizedSearch);
         $searchWithSpaces = str_replace(' ', '%', $normalizedSearch);
 
-        // Arabic to English status mapping
+        // خريطة الترجمات العربية لحالات التوريد
         $statusMap = [
             'محول' => 'collected',
             'تم التحويل' => 'collected',
@@ -127,6 +318,7 @@ class OwnerResource extends Resource
             'جاهز' => 'worth_collecting',
         ];
 
+        // تحويل البحث إلى حروف صغيرة للبحث في حالات التوريد
         $searchLower = mb_strtolower($search, 'UTF-8');
         $englishStatus = null;
         foreach ($statusMap as $arabic => $english) {
@@ -138,7 +330,7 @@ class OwnerResource extends Resource
 
         $query = static::getModel()::query();
 
-        // Search by supply payment status
+        // إذا كان البحث عن حالة توريد، ابحث عن الملاك الذين لديهم دفعات بهذه الحالة
         if ($englishStatus) {
             $query->whereHas('supplyPayments', function (Builder $q) use ($englishStatus) {
                 match ($englishStatus) {
@@ -149,38 +341,39 @@ class OwnerResource extends Resource
                 };
             });
         } else {
-            // Standard search
+            // البحث العادي
             $query->where(function (Builder $query) use ($normalizedSearch, $searchWithoutSpaces, $searchWithSpaces, $search) {
                 $query->where('name', 'LIKE', "%{$search}%")
                     ->orWhere('phone', 'LIKE', "%{$search}%")
                     ->orWhere('secondary_phone', 'LIKE', "%{$search}%")
-                    // Search without hamza
+                    // البحث بدون همزات
                     ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(name, 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا'), 'ء', ''), 'ؤ', 'و'), 'ئ', 'ي') LIKE ?", ["%{$normalizedSearch}%"])
-                    // Search without spaces
+                    // البحث بدون مسافات
                     ->orWhereRaw("REPLACE(name, ' ', '') LIKE ?", ["%{$searchWithoutSpaces}%"])
-                    ->orWhere('name', 'LIKE', "%{$searchWithSpaces}%")
-                    // Search by date formats
-                    ->orWhereRaw("DATE_FORMAT(created_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
-                    ->orWhereRaw("DATE_FORMAT(created_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
-                    ->orWhereRaw("DATE_FORMAT(created_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
-                    ->orWhereRaw("DATE_FORMAT(created_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"])
-                    ->orWhereRaw("DATE_FORMAT(deleted_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
-                    ->orWhereRaw("DATE_FORMAT(deleted_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
-                    ->orWhereRaw("DATE_FORMAT(deleted_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
-                    ->orWhereRaw("DATE_FORMAT(deleted_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"]);
+                    // البحث مع تجاهل المسافات في الكلمة المبحوث عنها
+                    ->orWhere('name', 'LIKE', "%{$searchWithSpaces}%");
+
+                // البحث بالتواريخ - تاريخ الإنشاء (MySQL only)
+                if (DB::connection()->getDriverName() === 'mysql') {
+                    $query->orWhereRaw("DATE_FORMAT(created_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
+                        ->orWhereRaw("DATE_FORMAT(created_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
+                        ->orWhereRaw("DATE_FORMAT(created_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
+                        ->orWhereRaw("DATE_FORMAT(created_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"]);
+                }
             });
         }
 
         return $query->limit(50)
             ->get()
             ->map(function ($record) use ($englishStatus) {
+                // إضافة معلومات عن حالة التوريد في التفاصيل إذا كان البحث عنها
                 $details = [
                     'الهاتف' => $record->phone ?? 'غير محدد',
                     'الهاتف الثاني' => $record->secondary_phone ?? 'غير محدد',
                     'تاريخ الإنشاء' => $record->created_at?->format('Y-m-d') ?? 'غير محدد',
-                    'تاريخ الحذف' => $record->deleted_at?->format('Y-m-d') ?? 'نشط',
                 ];
 
+                // إضافة عدد المدفوعات بحالة التوريد المبحوث عنها
                 if ($englishStatus) {
                     $count = match ($englishStatus) {
                         'collected' => $record->supplyPayments()->collected()->count(),
@@ -201,7 +394,7 @@ class OwnerResource extends Resource
                     ], $details);
                 }
 
-                return new GlobalSearchResult(
+                return new \Filament\GlobalSearch\GlobalSearchResult(
                     title: $record->name,
                     url: static::getUrl('edit', ['record' => $record]),
                     details: $details,
@@ -210,11 +403,11 @@ class OwnerResource extends Resource
             });
     }
 
-    public static function getGlobalSearchResultActions(Model $record): array
+    public static function getGlobalSearchResultActions(\Illuminate\Database\Eloquent\Model $record): array
     {
         return [
             // Action::make('view_report')
-            //     ->label('View Report')
+            //     ->label('عرض التقرير')
             //     ->url(\App\Filament\Pages\Reports\OwnerReport::getUrl() . '?owner_id=' . $record->id)
             //     ->icon('heroicon-o-document-text')
             //     ->color('info')
@@ -232,8 +425,10 @@ class OwnerResource extends Resource
 
     public static function getOwnerStatistics($owner): array
     {
+        // تحميل العلاقات
         $owner->load(['properties', 'properties.units']);
 
+        // إحصائيات العقارات
         $propertiesCount = $owner->properties->count();
         $totalUnits = $owner->properties->sum(function ($property) {
             return $property->units->count();
@@ -244,48 +439,61 @@ class OwnerResource extends Resource
         $vacantUnits = $totalUnits - $occupiedUnits;
         $occupancyRate = $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100) : 0;
 
-        // Financial statistics - last 12 months
+        // إحصائيات مالية - آخر 12 شهر
         $dateFrom = now()->subYear();
         $dateTo = now();
 
-        // Use already-loaded property IDs instead of subquery to avoid cardinality issues
-        $propertyIds = $owner->properties->pluck('id')->toArray();
-        $totalCollection = CollectionPayment::whereIn('property_id', $propertyIds)
+        // إجمالي التحصيل من عقارات المالك
+        $totalCollection = CollectionPayment::where('property_id', function ($query) use ($owner) {
+            $query->select('id')
+                ->from('properties')
+                ->where('owner_id', $owner->id);
+        })
             ->collectedPayments()
             ->whereBetween('paid_date', [$dateFrom, $dateTo])
             ->sum('total_amount');
 
-        // Management fees (10% default)
+        // الرسوم الإدارية (10% افتراضي)
         $managementFees = $totalCollection * 0.10;
 
+        // صافي المبلغ المستحق للمالك
         $ownerDue = $totalCollection - $managementFees;
 
+        // المبالغ المحولة للمالك فعلياً
         $paidToOwner = SupplyPayment::where('owner_id', $owner->id)
             ->collected()
             ->whereBetween('paid_date', [$dateFrom, $dateTo])
             ->sum('net_amount');
 
+        // الرصيد المعلق
         $pendingBalance = $ownerDue - $paidToOwner;
 
+        // عدد العمليات المالية
         $totalOperations = SupplyPayment::where('owner_id', $owner->id)->count();
         $completedOperations = SupplyPayment::where('owner_id', $owner->id)
             ->collected()
             ->count();
 
+        // آخر عملية تحويل
         $lastPayment = SupplyPayment::where('owner_id', $owner->id)
             ->collected()
             ->latest('paid_date')
             ->first();
 
+        // العملية القادمة (المعلقة)
         $nextPayment = SupplyPayment::where('owner_id', $owner->id)
             ->pending()
             ->oldest('created_at')
             ->first();
 
+        // متوسط الدخل الشهري
         $averageMonthlyIncome = $paidToOwner / 12;
+
+        // نسبة التحويل
         $transferRate = $ownerDue > 0 ? round(($paidToOwner / $ownerDue) * 100) : 0;
 
         return [
+            // معلومات المالك
             'owner_name' => $owner->name,
             'owner_phone' => $owner->phone,
             'owner_secondary_phone' => $owner->secondary_phone,
@@ -293,6 +501,7 @@ class OwnerResource extends Resource
             'identity_file' => $owner->identity_file,
             'created_at' => $owner->created_at,
 
+            // إحصائيات العقارات
             'properties_count' => $propertiesCount,
             'total_units' => $totalUnits,
             'occupied_units' => $occupiedUnits,
@@ -300,6 +509,7 @@ class OwnerResource extends Resource
             'occupancy_rate' => $occupancyRate,
             'properties_list' => $owner->properties->pluck('name')->toArray(),
 
+            // الإحصائيات المالية
             'total_collection' => $totalCollection,
             'management_fees' => $managementFees,
             'owner_due' => $ownerDue,
@@ -308,10 +518,12 @@ class OwnerResource extends Resource
             'transfer_rate' => $transferRate,
             'average_monthly_income' => $averageMonthlyIncome,
 
+            // معلومات العمليات
             'total_operations' => $totalOperations,
             'completed_operations' => $completedOperations,
             'completion_rate' => $totalOperations > 0 ? round(($completedOperations / $totalOperations) * 100) : 0,
 
+            // آخر دفعة والدفعة القادمة
             'last_payment' => $lastPayment ? [
                 'payment_number' => $lastPayment->payment_number,
                 'amount' => $lastPayment->net_amount,
@@ -324,6 +536,7 @@ class OwnerResource extends Resource
                 'created_date' => $nextPayment->created_at,
             ] : null,
 
+            // حالة المالك
             'is_active' => $propertiesCount > 0 && $occupancyRate > 0,
             'performance_level' => $transferRate >= 80 ? 'excellent' : ($transferRate >= 50 ? 'good' : 'needs_attention'),
         ];

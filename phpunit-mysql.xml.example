@@ -1,19 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-    MySQL Testing Configuration
-    Usage: composer test:mysql
+    MySQL Testing Configuration Template
 
-    Setup:
+    SETUP INSTRUCTIONS:
     1. Copy this file: cp phpunit-mysql.xml.example phpunit-mysql.xml
-    2. Edit DB settings below to match your local environment
-    3. Create the test database: CREATE DATABASE aqarcrm_test;
+    2. Edit phpunit-mysql.xml with your local database credentials
+    3. Run tests: composer test:mysql
 
-    WARNING: RefreshDatabase will DELETE ALL DATA in the test database!
+    Usage:
+    Run all tests: composer test:mysql
+    Run specific file: composer test:mysql tests/Feature/YourTest.php
+
+    Database: aqarcrm_test
+    WARNING: RefreshDatabase will DELETE ALL DATA in this database!
 -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="vendor/autoload.php"
          colors="true"
+         displayDetailsOnTestsThatTriggerWarnings="true"
+         displayDetailsOnTestsThatTriggerDeprecations="true"
+         displayDetailsOnTestsThatTriggerErrors="true"
+         displayDetailsOnTestsThatTriggerNotices="true"
 >
     <testsuites>
         <testsuite name="Unit">
@@ -39,12 +47,12 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
-        <!-- MySQL Database Settings - Edit these for your environment -->
+        <!-- MySQL Database Settings - EDIT THESE IN YOUR LOCAL phpunit-mysql.xml -->
         <env name="DB_CONNECTION" value="mysql"/>
         <env name="DB_HOST" value="127.0.0.1"/>
         <env name="DB_PORT" value="3306"/>
         <env name="DB_DATABASE" value="aqarcrm_test"/>
-        <env name="DB_USERNAME" value="root"/>
-        <env name="DB_PASSWORD" value=""/>
+        <env name="DB_USERNAME" value="root"/>  <!-- Change to your MySQL username -->
+        <env name="DB_PASSWORD" value=""/>      <!-- Change to your MySQL password -->
     </php>
 </phpunit>

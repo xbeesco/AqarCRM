@@ -69,7 +69,7 @@ class UnitContractObserver
 
         // Validate no overlap when updating critical fields
         if ($contract->isDirty(['unit_id', 'start_date', 'end_date', 'contract_status'])) {
-            if (in_array($contract->contract_status, ['active', 'renewed', 'draft'])) {
+            if (in_array($contract->contract_status, ['active', 'draft'])) {
                 $this->validateNoOverlap($contract);
             }
         }
@@ -130,7 +130,7 @@ class UnitContractObserver
     protected function validateNoOverlap(UnitContract $contract): void
     {
         $query = UnitContract::where('unit_id', $contract->unit_id)
-            ->whereIn('contract_status', ['active', 'renewed', 'draft'])
+            ->whereIn('contract_status', ['active', 'draft'])  // renewed contracts don't block
             ->where(function ($q) use ($contract) {
                 $q->where(function ($q1) use ($contract) {
                     // Start date falls within existing period

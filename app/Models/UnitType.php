@@ -12,18 +12,12 @@ class UnitType extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name_ar',
-        'name_en',
+        'name',
         'slug',
-        'icon',
-        'description',
-        'is_active',
-        'sort_order',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
-        'sort_order' => 'integer',
+        //
     ];
 
     protected static function boot()
@@ -32,13 +26,13 @@ class UnitType extends Model
 
         static::creating(function ($model) {
             if (empty($model->slug)) {
-                $model->slug = Str::slug($model->name_en ?: $model->name_ar);
+                $model->slug = Str::slug($model->name);
             }
         });
 
         static::updating(function ($model) {
-            if ($model->isDirty('name_en') || $model->isDirty('name_ar')) {
-                $model->slug = Str::slug($model->name_en ?: $model->name_ar);
+            if ($model->isDirty('name')) {
+                $model->slug = Str::slug($model->name);
             }
         });
     }
@@ -48,23 +42,8 @@ class UnitType extends Model
         return $this->hasMany(Unit::class);
     }
 
-    public function getCurrentNameAttribute(): string
-    {
-        return app()->getLocale() === 'ar' ? $this->name_ar : ($this->name_en ?: $this->name_ar);
-    }
-
-    public function getNameAttribute(): string
-    {
-        return app()->getLocale() === 'ar' ? $this->name_ar : ($this->name_en ?: $this->name_ar);
-    }
-
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
-    }
-
     public function scopeOrdered($query)
     {
-        return $query->orderBy('sort_order')->orderBy('name_ar');
+        return $query->orderBy('name');
     }
 }

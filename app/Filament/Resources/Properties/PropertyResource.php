@@ -4,7 +4,9 @@ namespace App\Filament\Resources\Properties;
 
 use App\Filament\Resources\Properties\Schemas\PropertyForm;
 use App\Filament\Resources\Properties\Tables\PropertiesTable;
+use App\Models\CollectionPayment;
 use App\Models\Property;
+use Carbon\Carbon;
 use Filament\GlobalSearch\GlobalSearchResult;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -68,8 +70,8 @@ class PropertyResource extends Resource
             'name', 'address', 'postal_code', 'notes',
             'owner.name', 'owner.phone',
             'location.name',
-            'propertyType.name_ar',
-            'propertyStatus.name_ar',
+            'propertyType.name',
+            'propertyStatus.name',
         ];
     }
 
@@ -118,11 +120,11 @@ class PropertyResource extends Resource
                 });
 
                 $query->orWhereHas('propertyType', function ($q) use ($normalizedSearch) {
-                    $q->where('name_ar', 'LIKE', "%{$normalizedSearch}%");
+                    $q->where('name', 'LIKE', "%{$normalizedSearch}%");
                 });
 
                 $query->orWhereHas('propertyStatus', function ($q) use ($normalizedSearch) {
-                    $q->where('name_ar', 'LIKE', "%{$normalizedSearch}%");
+                    $q->where('name', 'LIKE', "%{$normalizedSearch}%");
                 });
             })
             ->limit(50)
@@ -133,12 +135,50 @@ class PropertyResource extends Resource
                     url: static::getUrl('view', ['record' => $record]),
                     details: [
                         'المالك' => $record->owner?->name ?? 'غير محدد',
-                        'النوع' => $record->propertyType?->name_ar ?? 'غير محدد',
-                        'الحالة' => $record->propertyStatus?->name_ar ?? 'غير محدد',
+                        'النوع' => $record->propertyType?->name ?? 'غير محدد',
+                        'الحالة' => $record->propertyStatus?->name ?? 'غير محدد',
                         'الموقع' => $record->location?->name ?? 'غير محدد',
                         'العنوان' => $record->address ?? 'غير محدد',
                     ]
                 );
             });
+    }
+
+    public static function getPropertyStatistics(Property $property): array
+    {
+        $property->load(['units.activeContract', 'contracts']);
+
+        $totalUnits = $property->units->count();
+        $occupiedUnits = $property->units->filter(fn ($unit) => $unit->activeContract !== null)->count();
+        $vacantUnits = $totalUnits - $occupiedUnits;
+        $occupancyRate = $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100, 2) : 0;
+
+        // Monthly revenue = potential monthly income from occupied units
+        $monthlyRevenue = $property->units
+            ->filter(fn ($unit) => $unit->activeContract !== null)
+            ->sum('rent_price');
+
+        // Yearly revenue = collected payments this year
+        $currentYear = Carbon::now()->format('Y');
+        $yearlyRevenue = CollectionPayment::where('property_id', $property->id)
+            ->whereNotNull('collection_date')
+            ->whereYear('collection_date', $currentYear)
+            ->sum('total_amount');
+
+        // Pending payments = overdue and not collected
+        $pendingPayments = CollectionPayment::where('property_id', $property->id)
+            ->where('due_date_start', '<=', Carbon::now())
+            ->whereNull('collection_date')
+            ->sum('total_amount');
+
+        return [
+            'total_units' => $totalUnits,
+            'occupied_units' => $occupiedUnits,
+            'vacant_units' => $vacantUnits,
+            'occupancy_rate' => $occupancyRate,
+            'monthly_revenue' => $monthlyRevenue,
+            'yearly_revenue' => $yearlyRevenue,
+            'pending_payments' => $pendingPayments,
+        ];
     }
 }

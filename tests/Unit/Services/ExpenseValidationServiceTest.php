@@ -67,10 +67,8 @@ class ExpenseValidationServiceTest extends TestCase
         $this->propertyType = PropertyType::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'عمارة سكنية',
-                'name_en' => 'Residential Building',
+                'name' => 'Residential Building',
                 'slug' => 'residential-building',
-                'is_active' => true,
             ]
         );
 
@@ -78,10 +76,8 @@ class ExpenseValidationServiceTest extends TestCase
         $this->propertyStatus = PropertyStatus::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'متاح',
-                'name_en' => 'Available',
+                'name' => 'Available',
                 'slug' => 'available',
-                'is_active' => true,
             ]
         );
 
@@ -90,10 +86,7 @@ class ExpenseValidationServiceTest extends TestCase
             ['id' => 1],
             [
                 'name' => 'Test Location',
-                'name_ar' => 'موقع اختبار',
-                'name_en' => 'Test Location',
                 'level' => 1,
-                'is_active' => true,
             ]
         );
 
@@ -101,10 +94,8 @@ class ExpenseValidationServiceTest extends TestCase
         $this->unitType = UnitType::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'شقة',
-                'name_en' => 'Apartment',
+                'name' => 'Apartment',
                 'slug' => 'apartment',
-                'is_active' => true,
             ]
         );
 
@@ -191,12 +182,6 @@ class ExpenseValidationServiceTest extends TestCase
     #[Test]
     public function validate_expense_date_returns_null_when_supply_payment_exists_and_unpaid(): void
     {
-        if (! $this->isUsingMysql()) {
-            // When using SQLite, JSON_EXTRACT doesn't work properly,
-            // so the query returns null which means no error (allows expense)
-            $this->markTestSkipped('This test requires MySQL for JSON_EXTRACT support.');
-        }
-
         $this->createSupplyPayment([
             'invoice_details' => [
                 'period_start' => '2026-01-01',
@@ -213,10 +198,6 @@ class ExpenseValidationServiceTest extends TestCase
     #[Test]
     public function validate_expense_date_returns_error_when_no_supply_payment_exists(): void
     {
-        if (! $this->isUsingMysql()) {
-            $this->markTestSkipped('This test requires MySQL for JSON_EXTRACT support.');
-        }
-
         // No supply payment created
 
         $result = $this->service->validateExpenseDate($this->property->id, '2026-01-15');
@@ -228,10 +209,6 @@ class ExpenseValidationServiceTest extends TestCase
     #[Test]
     public function validate_expense_date_returns_error_when_supply_payment_is_already_paid(): void
     {
-        if (! $this->isUsingMysql()) {
-            $this->markTestSkipped('This test requires MySQL for JSON_EXTRACT support.');
-        }
-
         $this->createSupplyPayment([
             'invoice_details' => [
                 'period_start' => '2026-01-01',
@@ -269,10 +246,6 @@ class ExpenseValidationServiceTest extends TestCase
     #[Test]
     public function validate_expense_date_for_unit_uses_property_from_unit(): void
     {
-        if (! $this->isUsingMysql()) {
-            $this->markTestSkipped('This test requires MySQL for JSON_EXTRACT support.');
-        }
-
         $this->createSupplyPayment([
             'invoice_details' => [
                 'period_start' => '2026-01-01',
@@ -318,10 +291,6 @@ class ExpenseValidationServiceTest extends TestCase
     #[Test]
     public function validate_expense_for_property_type(): void
     {
-        if (! $this->isUsingMysql()) {
-            $this->markTestSkipped('This test requires MySQL for JSON_EXTRACT support.');
-        }
-
         $this->createSupplyPayment([
             'invoice_details' => [
                 'period_start' => '2026-01-01',
@@ -338,10 +307,6 @@ class ExpenseValidationServiceTest extends TestCase
     #[Test]
     public function validate_expense_for_unit_type(): void
     {
-        if (! $this->isUsingMysql()) {
-            $this->markTestSkipped('This test requires MySQL for JSON_EXTRACT support.');
-        }
-
         $this->createSupplyPayment([
             'invoice_details' => [
                 'period_start' => '2026-01-01',
@@ -404,10 +369,6 @@ class ExpenseValidationServiceTest extends TestCase
     #[Test]
     public function can_edit_expense_returns_true_when_supply_payment_exists_and_unpaid(): void
     {
-        if (! $this->isUsingMysql()) {
-            $this->markTestSkipped('This test requires MySQL for JSON_EXTRACT support.');
-        }
-
         $this->createSupplyPayment([
             'invoice_details' => [
                 'period_start' => '2026-01-01',
@@ -431,10 +392,6 @@ class ExpenseValidationServiceTest extends TestCase
     #[Test]
     public function can_edit_expense_returns_false_when_supply_payment_is_paid(): void
     {
-        if (! $this->isUsingMysql()) {
-            $this->markTestSkipped('This test requires MySQL for JSON_EXTRACT support.');
-        }
-
         $this->createSupplyPayment([
             'invoice_details' => [
                 'period_start' => '2026-01-01',
@@ -458,10 +415,6 @@ class ExpenseValidationServiceTest extends TestCase
     #[Test]
     public function can_edit_expense_works_for_unit_expenses(): void
     {
-        if (! $this->isUsingMysql()) {
-            $this->markTestSkipped('This test requires MySQL for JSON_EXTRACT support.');
-        }
-
         $this->createSupplyPayment([
             'invoice_details' => [
                 'period_start' => '2026-01-01',
@@ -504,10 +457,6 @@ class ExpenseValidationServiceTest extends TestCase
     #[Test]
     public function validate_expense_date_works_with_boundary_dates(): void
     {
-        if (! $this->isUsingMysql()) {
-            $this->markTestSkipped('This test requires MySQL for JSON_EXTRACT support.');
-        }
-
         $this->createSupplyPayment([
             'invoice_details' => [
                 'period_start' => '2026-01-01',
@@ -528,10 +477,6 @@ class ExpenseValidationServiceTest extends TestCase
     #[Test]
     public function validate_expense_date_returns_error_for_date_outside_period(): void
     {
-        if (! $this->isUsingMysql()) {
-            $this->markTestSkipped('This test requires MySQL for JSON_EXTRACT support.');
-        }
-
         $this->createSupplyPayment([
             'invoice_details' => [
                 'period_start' => '2026-01-01',

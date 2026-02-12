@@ -5,16 +5,13 @@ namespace App\Filament\Resources\Expenses\Schemas;
 use App\Models\Expense;
 use App\Models\Property;
 use App\Models\Unit;
-use App\Services\ExpenseValidationService;
 use Closure;
 use Filament\Forms\Components\Builder;
-use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Set;
@@ -24,7 +21,7 @@ class ExpenseForm
 {
     public static function configure(Schema $schema): Schema
     {
-        return $schema->components([
+        return $schema->schema([
             Section::make('بيانات النفقة')
                 ->schema([
                     Textarea::make('desc')
@@ -58,7 +55,7 @@ class ExpenseForm
                                 ->afterStateUpdated(function (Set $set, $get, $state) {
                                     // Clear unit selection when property changes
                                     $set('unit_id', null);
-                                    // Revalidate date when property changes
+                                    // إعادة التحقق من التاريخ عند تغيير العقار
                                     if ($get('date')) {
                                         $set('date', $get('date'));
                                     }
@@ -78,13 +75,13 @@ class ExpenseForm
                                     if ($state !== 'unit') {
                                         $set('unit_id', null);
                                     } else {
-                                        // If user selects "specific unit" but property has no units, revert to "whole property"
+                                        // إذا اختار وحدة معينة ولكن العقار ليس له وحدات، غيّر الاختيار للعقار ككل
                                         $propertyId = $get('property_id');
                                         if ($propertyId) {
                                             $unitsCount = Unit::where('property_id', $propertyId)->count();
                                             if ($unitsCount === 0) {
                                                 $set('expense_for', 'property');
-                                                Notification::make()
+                                                \Filament\Notifications\Notification::make()
                                                     ->warning()
                                                     ->title('تنبيه')
                                                     ->body('هذا العقار ليس له وحدات، تم تغيير النفقة لتكون للعقار ككل')
@@ -145,7 +142,7 @@ class ExpenseForm
                                     }
                                     $unitsCount = Unit::where('property_id', $get('property_id'))->count();
                                     if ($unitsCount === 0) {
-                                        return 'لا توجد وحدات مضافة لهذا العقار';
+                                        return '⚠️ لا توجد وحدات مضافة لهذا العقار';
                                     }
 
                                     return 'عدد الوحدات المتاحة: '.$unitsCount;
@@ -163,7 +160,7 @@ class ExpenseForm
                                                 $fail('يجب اختيار وحدة');
                                             }
                                         }
-                                        // Verify selected unit belongs to the selected property
+                                        // التحقق من أن الوحدة المختارة تنتمي للعقار المختار
                                         if ($value && $value !== '0' && $get('property_id')) {
                                             $unit = Unit::find($value);
                                             if ($unit && $unit->property_id != $get('property_id')) {
@@ -200,11 +197,11 @@ class ExpenseForm
                                             return;
                                         }
 
-                                        $validationService = app(ExpenseValidationService::class);
+                                        $validationService = app(\App\Services\ExpenseValidationService::class);
                                         $excludeId = $record ? $record->id : null;
                                         $expenseFor = $get('expense_for') ?? 'property';
 
-                                        // Validate expense date against supply payment periods
+                                        // استخدام نفس الطريقة مع المعاملات الصحيحة
                                         $error = $validationService->validateExpense($expenseFor, $propertyId, $unitId, $value, $excludeId);
                                         if ($error) {
                                             $fail($error);
@@ -220,7 +217,7 @@ class ExpenseForm
                     Builder::make('docs')
                         ->label('الإثباتات')
                         ->blocks([
-                            Block::make('purchase_invoice')
+                            Builder\Block::make('purchase_invoice')
                                 ->label('فاتورة مشتريات')
                                 ->icon('heroicon-o-receipt-percent')
                                 ->schema([
@@ -241,7 +238,7 @@ class ExpenseForm
 
                                 ])->columns(2),
 
-                            Block::make('labor_invoice')
+                            Builder\Block::make('labor_invoice')
                                 ->label('فاتورة عمل يد')
                                 ->icon('heroicon-o-wrench-screwdriver')
                                 ->schema([
@@ -261,7 +258,7 @@ class ExpenseForm
                                         ->required(),
                                 ])->columns(2),
 
-                            Block::make('government_document')
+                            Builder\Block::make('government_document')
                                 ->label('وثيقة حكومية')
                                 ->icon('heroicon-o-building-office')
                                 ->schema([

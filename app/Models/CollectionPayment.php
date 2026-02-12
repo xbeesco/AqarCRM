@@ -37,7 +37,6 @@ class CollectionPayment extends Model
         'unit_id',
         'property_id',
         'tenant_id',
-        'payment_method_id',
         'amount',
         'late_fee',
         'total_amount',
@@ -70,17 +69,20 @@ class CollectionPayment extends Model
         parent::boot();
 
         static::creating(function ($payment) {
-            // Note: Payment number generation is handled by HasPaymentNumber trait
+            // توليد رقم الدفعة تلقائياً
+            if (empty($payment->payment_number)) {
+                $payment->payment_number = self::generatePaymentNumber();
+            }
 
-            // Default late fee
+            // قيمة افتراضية للغرامة
             if (is_null($payment->late_fee)) {
                 $payment->late_fee = 0;
             }
 
-            // Calculate total
+            // حساب المجموع الكلي
             $payment->total_amount = ($payment->amount ?? 0) + ($payment->late_fee ?? 0);
 
-            // Generate month_year for reports
+            // توليد الشهر والسنة للتقارير
             if (empty($payment->month_year)) {
                 $dateForMonth = $payment->due_date_start ?? Carbon::now();
                 $payment->month_year = Carbon::parse($dateForMonth)->format('Y-m');
@@ -91,7 +93,7 @@ class CollectionPayment extends Model
             // Recalculate total
             $payment->total_amount = ($payment->amount ?? 0) + ($payment->late_fee ?? 0);
 
-            // Update month_year
+            // تحديث الشهر والسنة
             if (empty($payment->month_year) && ! empty($payment->due_date_start)) {
                 $payment->month_year = Carbon::parse($payment->due_date_start)->format('Y-m');
             }
@@ -122,11 +124,6 @@ class CollectionPayment extends Model
         return $this->belongsTo(User::class, 'tenant_id');
     }
 
-    public function paymentMethod(): BelongsTo
-    {
-        return $this->belongsTo(PaymentMethod::class);
-    }
-
     public function collectedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'collected_by');
@@ -150,9 +147,10 @@ class CollectionPayment extends Model
         }
 
         $today = Carbon::now()->startOfDay();
-        $paymentsDueDays = Setting::get('payment_due_days', 7);
-        $overdueDate = $today->copy()->subDays($paymentsDueDays);
+        $totalGraceDays = $this->getTotalGraceThreshold();
+        $overdueDate = $today->copy()->subDays($totalGraceDays);
 
+        // إذا كانت متأخرة (تجاوزت مدة السماح الكلية)
         if ($this->due_date_start < $overdueDate) {
             return PaymentStatus::OVERDUE;
         }
@@ -184,7 +182,8 @@ class CollectionPayment extends Model
      */
     public function getCanBePostponedAttribute(): bool
     {
-        return app(CollectionPaymentService::class)->canBePostponed($this);
+        return $this->collection_date === null &&
+            ($this->delay_duration === null || $this->delay_duration == 0);
     }
 
     /**
@@ -192,7 +191,7 @@ class CollectionPayment extends Model
      */
     public function getCanBeCollectedAttribute(): bool
     {
-        return app(CollectionPaymentService::class)->canBeCollected($this);
+        return $this->collection_date === null;
     }
 
     // ==========================================
@@ -212,6 +211,42 @@ class CollectionPayment extends Model
     public function scopeByMonth($query, $monthYear)
     {
         return $query->where('month_year', $monthYear);
+    }
+
+    public function scopePostponedWithDetails($query)
+    {
+        return $query->postponedPayments()
+            ->with(['tenant:id,name,phone', 'unit:id,name', 'property:id,name'])
+            ->select([
+                'id',
+                'payment_number',
+                'tenant_id',
+                'unit_id',
+                'property_id',
+                'amount',
+                'total_amount',
+                'delay_reason',
+                'delay_duration',
+                'due_date_start',
+                'due_date_end',
+                'late_payment_notes',
+                'created_at',
+            ]);
+    }
+
+    public function scopeCriticalPostponed($query)
+    {
+        return $query->postponedPayments()
+            ->where(function ($q) {
+                $q->where('delay_duration', '>', 30)
+                    ->orWhere('due_date_end', '<', Carbon::now()->subDays(30));
+            });
+    }
+
+    public function scopeRecentPostponed($query, $days = 7)
+    {
+        return $query->postponedPayments()
+            ->where('created_at', '>=', Carbon::now()->subDays($days));
     }
 
     /**
@@ -247,9 +282,9 @@ class CollectionPayment extends Model
      */
     public function scopeOverduePayments($query)
     {
-        $paymentDueDays = Setting::get('payment_due_days', 7);
         $today = Carbon::now()->startOfDay();
-        $overdueDate = $today->copy()->subDays($paymentDueDays);
+        $totalGraceDays = (new self)->getTotalGraceThreshold();
+        $overdueDate = $today->copy()->subDays($totalGraceDays);
 
         return $query->where('due_date_start', '<', $overdueDate)
             ->whereNull('collection_date')
@@ -307,32 +342,6 @@ class CollectionPayment extends Model
         });
     }
 
-    public function scopePostponedWithDetails($query)
-    {
-        return $query->postponedPayments()
-            ->with(['tenant:id,name,phone', 'unit:id,name', 'property:id,name'])
-            ->select([
-                'id', 'payment_number', 'tenant_id', 'unit_id', 'property_id',
-                'amount', 'total_amount', 'delay_reason', 'delay_duration',
-                'due_date_start', 'due_date_end', 'late_payment_notes', 'created_at',
-            ]);
-    }
-
-    public function scopeCriticalPostponed($query)
-    {
-        return $query->postponedPayments()
-            ->where(function ($q) {
-                $q->where('delay_duration', '>', 30)
-                    ->orWhere('due_date_end', '<', Carbon::now()->subDays(30));
-            });
-    }
-
-    public function scopeRecentPostponed($query, $days = 7)
-    {
-        return $query->postponedPayments()
-            ->where('created_at', '>=', Carbon::now()->subDays($days));
-    }
-
     /**
      * Scope for paid payments (alias).
      */
@@ -349,11 +358,111 @@ class CollectionPayment extends Model
         return $query->whereNull('collection_date');
     }
 
+    // ==========================================
+    // Methods
+    // ==========================================
+
+    /**
+     * تأجيل الدفعة
+     */
+    public function postpone(int $days, string $reason): void
+    {
+        $this->update([
+            'delay_duration' => $days,
+            'delay_reason' => $reason,
+        ]);
+    }
+
+    /**
+     * تأكيد استلام الدفعة
+     */
+    public function markAsCollected(): void
+    {
+        $currentDate = Carbon::now();
+        $this->update([
+            'collection_date' => $currentDate,
+            'paid_date' => $currentDate,
+        ]);
+    }
+
+    public static function generatePaymentNumber(): string
+    {
+        $year = date('Y');
+        $count = self::whereYear('created_at', $year)->count() + 1;
+
+        return 'COLLECTION-'.$year.'-'.str_pad($count, 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * الحصول على أيام التأخير المسموح بها قبل اعتبار الدفعة متأخرة
+     */
+    public function getTotalGraceThreshold(): int
+    {
+        return (int) Setting::get('allowed_delay_days', 5);
+    }
+
+    public function calculateLateFee(): float
+    {
+        if (! $this->isOverdue()) {
+            return 0.00;
+        }
+
+        $daysOverdue = $this->getDaysOverdue();
+        $dailyFeeRate = 0.05; // 0.05% per day
+
+        return round($this->amount * ($dailyFeeRate / 100) * $daysOverdue, 2);
+    }
+
+    public function getDaysOverdue(): int
+    {
+        if (! $this->isOverdue()) {
+            return 0;
+        }
+
+        $totalGraceDays = $this->getTotalGraceThreshold();
+        $baseDate = $this->due_date_start;
+        $overdueDate = ($baseDate instanceof Carbon ? $baseDate->copy() : Carbon::parse($baseDate))->addDays($totalGraceDays);
+
+        return (int) Carbon::now()->startOfDay()->diffInDays($overdueDate);
+    }
+
     /**
      * Check if payment is overdue.
      */
     public function isOverdue(): bool
     {
-        return app(CollectionPaymentService::class)->isOverdue($this);
+        return $this->payment_status === PaymentStatus::OVERDUE;
+    }
+
+    public function canTransitionTo($statusId): bool
+    {
+        // تم تبسيط المنطق ليعتمد على الـ Enum مباشرة
+        $newStatus = is_string($statusId) ? PaymentStatus::from($statusId) : $statusId;
+
+        // هنا يمكن إضافة قواعد الانتقال إذا لزم الأمر
+        return true;
+    }
+
+    public function processPayment($paymentMethodId, $paidDate = null, $paymentReference = null): bool
+    {
+        $this->update([
+            'payment_method_id' => $paymentMethodId,
+            'paid_date' => $paidDate ?: Carbon::now()->toDateString(),
+            'payment_reference' => $paymentReference,
+            'payment_status_id' => PaymentStatus::COLLECTED,
+            'receipt_number' => $this->generateReceiptNumber(),
+        ]);
+
+        return true;
+    }
+
+    public function generateReceiptNumber(): string
+    {
+        $year = date('Y');
+        $count = self::whereYear('paid_date', $year)
+            ->whereNotNull('receipt_number')
+            ->count() + 1;
+
+        return 'REC-'.$year.'-'.str_pad($count, 6, '0', STR_PAD_LEFT);
     }
 }

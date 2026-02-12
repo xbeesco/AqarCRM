@@ -3,15 +3,12 @@
 namespace Tests\Unit\Models;
 
 use App\Enums\UserType;
-use App\Models\Location;
 use App\Models\Owner;
 use App\Models\Property;
 use App\Models\PropertyContract;
 use App\Models\PropertyStatus;
-use App\Models\PropertyType;
 use App\Models\SupplyPayment;
 use App\Models\Unit;
-use App\Models\UnitType;
 use App\Models\User;
 use App\Services\OwnerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -28,51 +25,7 @@ class OwnerTest extends TestCase
         parent::setUp();
 
         // Create required lookup tables data
-        $this->createRequiredLookupData();
-    }
-
-    protected function createRequiredLookupData(): void
-    {
-        // Create property type
-        PropertyType::firstOrCreate(
-            ['id' => 1],
-            [
-                'name_ar' => 'شقة',
-                'name_en' => 'Apartment',
-                'slug' => 'apartment',
-            ]
-        );
-
-        // Create property status
-        PropertyStatus::firstOrCreate(
-            ['id' => 1],
-            [
-                'name_ar' => 'متاح',
-                'name_en' => 'Available',
-                'slug' => 'available',
-            ]
-        );
-
-        // Create location
-        Location::firstOrCreate(
-            ['id' => 1],
-            [
-                'name' => 'Test Location',
-                'name_ar' => 'موقع اختبار',
-                'name_en' => 'Test Location',
-                'level' => 1,
-            ]
-        );
-
-        // Create unit type
-        UnitType::firstOrCreate(
-            ['id' => 1],
-            [
-                'name_ar' => 'شقة',
-                'name_en' => 'Apartment',
-                'slug' => 'apartment',
-            ]
-        );
+        $this->seedLookupData();
     }
 
     protected function createOwner(array $attributes = []): Owner
@@ -486,11 +439,10 @@ class OwnerTest extends TestCase
 
         // Create active property status
         $activeStatus = PropertyStatus::firstOrCreate(
-            ['slug' => 'active'],
+            ['slug' => 'available'],
             [
-                'name_ar' => 'نشط',
-                'name_en' => 'Active',
-                'slug' => 'active',
+                'name' => 'Available',
+                'slug' => 'available',
             ]
         );
 
@@ -498,8 +450,7 @@ class OwnerTest extends TestCase
         $inactiveStatus = PropertyStatus::firstOrCreate(
             ['slug' => 'inactive'],
             [
-                'name_ar' => 'غير نشط',
-                'name_en' => 'Inactive',
+                'name' => 'Inactive',
                 'slug' => 'inactive',
             ]
         );

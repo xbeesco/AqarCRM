@@ -17,11 +17,11 @@ class PropertyFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => 'عقار '.$this->faker->words(2, true),
-            'owner_id' => \App\Models\User::byType('owner')->inRandomOrder()->first()->id ?? \App\Models\User::factory(),
-            'status_id' => 1, // Default status
-            'type_id' => 1, // Default type
-            'location_id' => 1, // Will be overridden by seeder
+            'name' => 'عقار ' . $this->faker->words(2, true),
+            'owner_id' => \App\Models\User::owners()->inRandomOrder()->first()->id ?? \App\Models\User::factory(),
+            'status_id' => $this->faker->randomElement([1, 2, 3]), // Use numeric IDs
+            'type_id' => $this->faker->randomElement([1, 2, 3, 4]), // Use numeric IDs
+            'location_id' => null, // Will be overridden by seeder or test
             'address' => $this->faker->address(),
             'postal_code' => $this->faker->postcode(),
             'parking_spots' => $this->faker->numberBetween(1, 20),

@@ -4,8 +4,8 @@ namespace Tests\Feature\Filament;
 
 use App\Enums\PaymentStatus;
 use App\Enums\UserType;
-use App\Filament\Resources\CollectionPaymentResource;
-use App\Filament\Resources\CollectionPaymentResource\Pages\ListCollectionPayments;
+use App\Filament\Resources\CollectionPayments\CollectionPaymentResource;
+use App\Filament\Resources\CollectionPayments\Pages\ListCollectionPayments;
 use App\Models\CollectionPayment;
 use App\Models\Location;
 use App\Models\Property;
@@ -75,25 +75,25 @@ class CollectionPaymentResourceTest extends TestCase
         // Create default Location
         Location::firstOrCreate(
             ['id' => 1],
-            ['name' => 'Default Location', 'level' => 1, 'is_active' => true]
+            ['name' => 'Default Location', 'level' => 1]
         );
 
         // Create default PropertyType
         PropertyType::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'شقة', 'name_en' => 'Apartment', 'slug' => 'apartment', 'is_active' => true]
+            ['name' => 'Apartment', 'slug' => 'apartment']
         );
 
         // Create default PropertyStatus
         PropertyStatus::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'متاح', 'name_en' => 'Available', 'slug' => 'available', 'is_active' => true]
+            ['name' => 'Available', 'slug' => 'available']
         );
 
         // Create default UnitType
         UnitType::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'شقة', 'name_en' => 'Apartment', 'slug' => 'apartment', 'is_active' => true]
+            ['name' => 'Apartment', 'slug' => 'apartment']
         );
 
         // Create payment_due_days setting

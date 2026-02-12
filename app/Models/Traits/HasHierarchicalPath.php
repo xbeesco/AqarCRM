@@ -96,8 +96,7 @@ trait HasHierarchicalPath
      */
     public static function getHierarchicalOptions(): array
     {
-        $locations = self::where('is_active', true)
-            ->orderBy('path')
+        $locations = self::orderBy('path')
             ->get();
         $options = [];
 
@@ -117,7 +116,7 @@ trait HasHierarchicalPath
                 default => ''
             };
 
-            $options[$location->id] = $indent.$levelLabel.' '.implode(' › ', $fullPath);
+            $options[$location->id] = $indent . $levelLabel . ' ' . implode(' › ', $fullPath);
         }
 
         return $options;
@@ -139,11 +138,11 @@ trait HasHierarchicalPath
         if ($this->level > 1) {
             $treeStructure = str_repeat('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;', $this->level - 1);
         }
-        $treeStructure .= ($badges[$this->level] ?? '').'&nbsp;';
+        $treeStructure .= ($badges[$this->level] ?? '') . '&nbsp;';
 
-        $displayName = '<span class="font-medium text-gray-900">'.e($this->name).'</span>';
+        $displayName = '<span class="font-medium text-gray-900">' . e($this->name) . '</span>';
 
-        return '<div class="py-1">'.$treeStructure.$displayName.'</div>';
+        return '<div class="py-1">' . $treeStructure . $displayName . '</div>';
     }
 
     /**
@@ -166,8 +165,7 @@ trait HasHierarchicalPath
      */
     public static function getHierarchicalOptionsWithHtml(): array
     {
-        $locations = self::where('is_active', true)
-            ->orderBy('path')
+        $locations = self::orderBy('path')
             ->get();
 
         $levelStyles = [
@@ -187,15 +185,15 @@ trait HasHierarchicalPath
             $html = '';
             if ($location->level > 1) {
                 $paddingLeft = ($location->level - 1) * 20;
-                $html .= '<span style="padding-left: '.$paddingLeft.'px;">';
+                $html .= '<span style="padding-left: ' . $paddingLeft . 'px;">';
             }
 
             $html .= '<span style="display: inline-flex; align-items: center; gap: 8px;">';
-            $html .= '<span style="background-color: '.$levelConfig['bg'].'; ';
-            $html .= 'color: '.$levelConfig['color'].'; ';
+            $html .= '<span style="background-color: ' . $levelConfig['bg'] . '; ';
+            $html .= 'color: ' . $levelConfig['color'] . '; ';
             $html .= 'padding: 2px 8px; border-radius: 6px; font-size: 11px; ';
-            $html .= 'font-weight: 500; white-space: nowrap;">'.$levelConfig['label'].'</span>';
-            $html .= '<span style="color: #111827; font-weight: 500;">'.e(implode(' › ', $fullPath)).'</span>';
+            $html .= 'font-weight: 500; white-space: nowrap;">' . $levelConfig['label'] . '</span>';
+            $html .= '<span style="color: #111827; font-weight: 500;">' . e(implode(' › ', $fullPath)) . '</span>';
             $html .= '</span>';
 
             if ($location->level > 1) {

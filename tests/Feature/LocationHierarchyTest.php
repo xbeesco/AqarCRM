@@ -14,6 +14,9 @@ class LocationHierarchyTest extends TestCase
     {
         parent::setUp();
 
+        // Clear any pre-existing locations from seed data to ensure clean test state
+        Location::query()->delete();
+
         // Create test hierarchy data
         $this->createTestHierarchy();
     }

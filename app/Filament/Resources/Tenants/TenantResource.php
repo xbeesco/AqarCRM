@@ -14,6 +14,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class TenantResource extends Resource
 {
@@ -40,14 +41,14 @@ class TenantResource extends Resource
     {
         $userType = auth()->user()?->type;
 
-        return in_array($userType, ['super_admin', 'admin', 'manager']);
+        return in_array($userType, ['super_admin', 'admin', 'employee']);
     }
 
     public static function canEdit(Model $record): bool
     {
         $userType = auth()->user()?->type;
 
-        return in_array($userType, ['super_admin', 'admin', 'manager']);
+        return in_array($userType, ['super_admin', 'admin', 'employee']);
     }
 
     public static function canDelete(Model $record): bool
@@ -141,9 +142,13 @@ class TenantResource extends Resource
                     ->orWhere('secondary_phone', 'LIKE', "%{$search}%")
                     ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(name, 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا'), 'ء', ''), 'ؤ', 'و'), 'ئ', 'ي') LIKE ?", ["%{$normalizedSearch}%"])
                     ->orWhereRaw("REPLACE(name, ' ', '') LIKE ?", ["%{$searchWithoutSpaces}%"])
-                    ->orWhere('name', 'LIKE', "%{$searchWithSpaces}%")
-                    ->orWhereRaw("DATE_FORMAT(created_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
-                    ->orWhereRaw("DATE_FORMAT(created_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"]);
+                    ->orWhere('name', 'LIKE', "%{$searchWithSpaces}%");
+
+                // Date search only works on MySQL (DATE_FORMAT is MySQL-specific)
+                if (DB::connection()->getDriverName() === 'mysql') {
+                    $query->orWhereRaw("DATE_FORMAT(created_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
+                        ->orWhereRaw("DATE_FORMAT(created_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"]);
+                }
             });
         }
 

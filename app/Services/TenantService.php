@@ -108,7 +108,7 @@ class TenantService
     public function getPaymentHistory(Tenant $tenant, ?int $limit = null): Collection
     {
         $query = CollectionPayment::where('tenant_id', $tenant->id)
-            ->with(['unit', 'property', 'paymentMethod'])
+            ->with(['unit', 'property'])
             ->orderBy('due_date_start', 'desc');
 
         if ($limit) {

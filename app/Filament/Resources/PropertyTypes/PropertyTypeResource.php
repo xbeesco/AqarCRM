@@ -15,21 +15,17 @@ use Filament\Tables\Table;
 class PropertyTypeResource extends Resource
 {
     protected static ?string $model = PropertyType::class;
-    
+
     protected static ?string $label = 'نوع عقار';
-    
+
     protected static ?string $pluralLabel = 'أنواع العقارات';
 
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-                TextInput::make('name_ar')
-                    ->label('الاسم بالعربية')
-                    ->required()
-                    ->maxLength(255),
-                TextInput::make('name_en')
-                    ->label('الاسم بالإنجليزية')
+                TextInput::make('name')
+                    ->label('الاسم')
                     ->required()
                     ->maxLength(255),
             ]);
@@ -39,11 +35,8 @@ class PropertyTypeResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('name_ar')
-                    ->label('الاسم بالعربية')
-                    ->searchable(),
-                TextColumn::make('name_en')
-                    ->label('الاسم بالإنجليزية')
+                TextColumn::make('name')
+                    ->label('الاسم')
                     ->searchable(),
             ])
             ->searchable(false)

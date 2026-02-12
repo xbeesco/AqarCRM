@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Expenses\Tables;
 use App\Models\Expense;
 use App\Models\Property;
 use App\Models\Unit;
+use App\Models\User;
 use Carbon\Carbon;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
@@ -67,6 +68,45 @@ class ExpensesTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('owner_id')
+                    ->label('المالك')
+                    ->options(function () {
+                        return User::where('type', 'owner')
+                            ->orderBy('name')
+                            ->pluck('name', 'id');
+                    })
+                    ->query(function (EloquentBuilder $query, array $data): EloquentBuilder {
+                        if (! empty($data['value'])) {
+                            return $query->where(function ($q) use ($data) {
+                                // Expenses for properties owned by this owner
+                                $q->where(function ($subQ) use ($data) {
+                                    $subQ->where('subject_type', Property::class)
+                                        ->whereIn('subject_id', Property::where('owner_id', $data['value'])->pluck('id'));
+                                })
+                                // Expenses for units in properties owned by this owner
+                                    ->orWhere(function ($subQ) use ($data) {
+                                        $subQ->where('subject_type', Unit::class)
+                                            ->whereIn('subject_id', Unit::whereHas('property', function ($pq) use ($data) {
+                                                $pq->where('owner_id', $data['value']);
+                                            })->pluck('id'));
+                                    });
+                            });
+                        }
+
+                        return $query;
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (! empty($data['value'])) {
+                            $owner = User::find($data['value']);
+
+                            return $owner ? 'المالك: '.$owner->name : null;
+                        }
+
+                        return null;
+                    })
+                    ->searchable()
+                    ->preload(),
+
                 Filter::make('property_and_unit')
                     ->label('العقار')
                     ->schema([

@@ -9,13 +9,12 @@ use App\Helpers\AppHelper;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable implements FilamentUser
 {
-    use HasFactory, Notifiable, SoftDeletes;
+    use HasFactory, Notifiable;
 
     protected $fillable = [
         'name',
@@ -38,7 +37,6 @@ class User extends Authenticatable implements FilamentUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'deleted_at' => 'datetime',
         ];
     }
 
@@ -57,7 +55,7 @@ class User extends Authenticatable implements FilamentUser
 
     public static function generateEmail(string $identifier): string
     {
-        return $identifier.'@'.AppHelper::getEmailDomain();
+        return $identifier . '@' . AppHelper::getEmailDomain();
     }
 
     protected static function boot()

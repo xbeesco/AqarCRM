@@ -35,6 +35,11 @@ class Property extends Model
         'floors_count' => 'integer',
     ];
 
+    protected static function boot()
+    {
+        parent::boot();
+    }
+
     public function owner(): BelongsTo
     {
         return $this->belongsTo(Owner::class, 'owner_id');
@@ -77,11 +82,17 @@ class Property extends Model
         return $this->morphMany(Expense::class, 'subject');
     }
 
+    /**
+     * حساب إجمالي النفقات للعقار
+     */
     public function getTotalExpensesAttribute(): float
     {
         return $this->expenses()->sum('cost');
     }
 
+    /**
+     * حساب نفقات الشهر الحالي للعقار
+     */
     public function getCurrentMonthExpensesAttribute(): float
     {
         return $this->expenses()->thisMonth()->sum('cost');
@@ -90,5 +101,35 @@ class Property extends Model
     public function getTotalUnitsAttribute(): int
     {
         return $this->units()->count();
+    }
+
+    /**
+     * حساب عدد الوحدات المشغولة (التي لها عقد نشط اليوم)
+     */
+    public function getOccupiedUnitsCountAttribute(): int
+    {
+        return $this->units()
+            ->whereHas('activeContract')
+            ->count();
+    }
+
+    /**
+     * حساب عدد الوحدات الشاغرة
+     */
+    public function getVacantUnitsCountAttribute(): int
+    {
+        return $this->total_units - $this->occupied_units_count;
+    }
+
+    /**
+     * حساب نسبة الإشغال
+     */
+    public function getOccupancyRateAttribute(): float
+    {
+        if ($this->total_units === 0) {
+            return 0;
+        }
+
+        return round(($this->occupied_units_count / $this->total_units) * 100);
     }
 }

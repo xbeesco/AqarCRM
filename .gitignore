@@ -12,6 +12,7 @@ phpunit-mysql.xml
 /.idea
 /.nova
 /.phpunit.cache
+phpunit-mysql.xml
 /.vscode
 /.zed
 /auth.json

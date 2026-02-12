@@ -32,19 +32,21 @@ class PropertyForm
                             ->searchable()
                             ->preload()
                             ->required()
+                            ->disabled(fn (string $operation): bool => $operation === 'edit')
+                            ->dehydrated()
                             ->columnSpan(1),
                     ]),
 
                     Grid::make(2)->schema([
                         Select::make('status_id')
                             ->label('حالة العقار')
-                            ->options(PropertyStatus::where('is_active', true)->orderBy('sort_order')->pluck('name_ar', 'id'))
+                            ->options(PropertyStatus::all()->pluck('name', 'id'))
                             ->searchable()
                             ->required(),
 
                         Select::make('type_id')
                             ->label('نوع العقار')
-                            ->options(PropertyType::all()->pluck('name_ar', 'id'))
+                            ->options(PropertyType::all()->pluck('name', 'id'))
                             ->searchable()
                             ->required(),
                     ]),
@@ -102,7 +104,7 @@ class PropertyForm
                     Grid::make(2)->schema([
                         CheckboxList::make('features')
                             ->label('المميزات')
-                            ->relationship('features', 'name_ar')
+                            ->relationship('features', 'name')
                             ->columns(4)
                             ->columnSpan(1),
 

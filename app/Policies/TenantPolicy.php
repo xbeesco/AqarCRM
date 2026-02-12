@@ -47,14 +47,8 @@ class TenantPolicy extends BasePolicy
      */
     public function create(User $user): bool
     {
-        // Only admins can create tenants
-        if (! $this->isAdmin($user)) {
-            $this->logUnauthorizedAccess($user, 'create', Tenant::class);
-
-            return false;
-        }
-
-        return true;
+        // Admins and employees can create tenants
+        return in_array($user->type, ['super_admin', 'admin', 'employee']);
     }
 
     /**
@@ -62,16 +56,9 @@ class TenantPolicy extends BasePolicy
      */
     public function update(User $user, Tenant $model): bool
     {
-        // Admins can update any tenant
-        if ($this->isAdmin($user)) {
+        // Admins and employees can update tenants
+        if (in_array($user->type, ['super_admin', 'admin', 'employee'])) {
             return true;
-        }
-
-        // Employees cannot update tenants
-        if ($user->type === 'employee') {
-            $this->logUnauthorizedAccess($user, 'update', $model);
-
-            return false;
         }
 
         // Tenant can update limited fields of their own profile

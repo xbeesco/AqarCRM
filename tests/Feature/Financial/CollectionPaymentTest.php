@@ -6,7 +6,6 @@ use App\Enums\PaymentStatus;
 use App\Enums\UserType;
 use App\Models\CollectionPayment;
 use App\Models\Location;
-use App\Models\PaymentMethod;
 use App\Models\Property;
 use App\Models\PropertyStatus;
 use App\Models\PropertyType;
@@ -43,8 +42,6 @@ class CollectionPaymentTest extends TestCase
 
     protected UnitContract $contract;
 
-    protected PaymentMethod $paymentMethod;
-
     protected CollectionPaymentService $service;
 
     protected function setUp(): void
@@ -73,53 +70,15 @@ class CollectionPaymentTest extends TestCase
 
     protected function createDependencies(): void
     {
-        // Create location
-        $this->location = Location::create([
-            'name' => 'Test Location',
-            'code' => 'TEST',
-            'level' => 1,
-            'is_active' => true,
-        ]);
+        // Use existing lookup data seeded by TestCase::seedLookupData()
+        $this->location = Location::first();
+        $this->propertyType = PropertyType::first();
+        $this->propertyStatus = PropertyStatus::first();
+        $this->unitType = UnitType::first();
 
-        // Create property type
-        $this->propertyType = PropertyType::create([
-            'name_ar' => 'شقة',
-            'name_en' => 'Apartment',
-            'slug' => 'apartment',
-            'is_active' => true,
-            'sort_order' => 1,
-        ]);
-
-        // Create property status
-        $this->propertyStatus = PropertyStatus::create([
-            'name_ar' => 'متاح',
-            'name_en' => 'Available',
-            'slug' => 'available',
-            'color' => 'green',
-            'is_available' => true,
-            'is_active' => true,
-            'sort_order' => 1,
-        ]);
-
-        // Create unit type
-        $this->unitType = UnitType::create([
-            'name_ar' => 'شقة سكنية',
-            'name_en' => 'Residential Apartment',
-            'slug' => 'residential-apartment',
-            'is_active' => true,
-            'sort_order' => 1,
-        ]);
-
-        // Create payment method
-        $this->paymentMethod = PaymentMethod::create([
-            'name_ar' => 'نقدي',
-            'name_en' => 'Cash',
-            'slug' => 'cash',
-            'is_active' => true,
-        ]);
-
-        // Set default payment_due_days setting
+        // Set default payment settings
         Setting::set('payment_due_days', 7);
+        Setting::set('allowed_delay_days', 0);
 
         // Create owner
         $this->owner = User::factory()->create([
@@ -241,7 +200,7 @@ class CollectionPaymentTest extends TestCase
         // Use the service to process payment
         $result = $this->service->processPayment(
             $payment,
-            $this->paymentMethod->id,
+            null,
             now()->toDateString(),
             'REF123'
         );

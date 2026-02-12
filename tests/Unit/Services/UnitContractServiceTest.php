@@ -46,25 +46,25 @@ class UnitContractServiceTest extends TestCase
         // Create location
         $location = Location::firstOrCreate(
             ['name' => 'Test Location'],
-            ['level' => 1, 'is_active' => true]
+            ['level' => 1]
         );
 
         // Create property status
         $propertyStatus = PropertyStatus::firstOrCreate(
             ['slug' => 'available'],
-            ['name_ar' => 'متاح', 'name_en' => 'Available', 'color' => 'success', 'is_active' => true]
+            ['name' => 'Available']
         );
 
         // Create property type
         $propertyType = PropertyType::firstOrCreate(
             ['slug' => 'building'],
-            ['name_ar' => 'مبنى', 'name_en' => 'Building', 'is_active' => true]
+            ['name' => 'Building']
         );
 
         // Create unit type
         $unitType = UnitType::firstOrCreate(
             ['slug' => 'apartment'],
-            ['name_ar' => 'شقة', 'name_en' => 'Apartment', 'is_active' => true]
+            ['name' => 'Apartment']
         );
 
         // Create owner

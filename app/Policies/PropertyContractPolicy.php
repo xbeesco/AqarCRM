@@ -2,8 +2,8 @@
 
 namespace App\Policies;
 
-use App\Models\User;
 use App\Models\PropertyContract;
+use App\Models\User;
 
 class PropertyContractPolicy extends BasePolicy
 {
@@ -38,25 +38,17 @@ class PropertyContractPolicy extends BasePolicy
      */
     public function create(User $user): bool
     {
-        // Only admins can create contracts
-        return $this->isAdmin($user);
+        // Admins and employees can create contracts
+        return in_array($user->type, ['super_admin', 'admin', 'employee']);
     }
 
     /**
      * Determine whether the user can update the model.
-     * ⚠️ Only super_admin can update contracts
+     * Super admins, admins and employees can update contracts
      */
     public function update(User $user, PropertyContract $contract): bool
     {
-        // Super admin handled in before() method
-
-        // Log attempt for non-super admins
-        if ($user->type !== 'super_admin') {
-            $this->logUnauthorizedAccess($user, 'update_property_contract', $contract);
-        }
-
-        // Others cannot update
-        return false;
+        return in_array($user->type, ['super_admin', 'admin', 'employee']);
     }
 
     /**
@@ -101,7 +93,7 @@ class PropertyContractPolicy extends BasePolicy
      */
     public function terminate(User $user, PropertyContract $contract): bool
     {
-        return $this->isAdmin($user) && $contract->contract_status === 'active';
+        return in_array($user->type, ['super_admin', 'admin', 'employee']) && $contract->contract_status === 'active';
     }
 
     /**
@@ -110,7 +102,17 @@ class PropertyContractPolicy extends BasePolicy
      */
     public function reschedule(User $user, PropertyContract $contract): bool
     {
-        return ($this->isAdmin($user) || $this->isEmployee($user))
-            && $contract->canReschedule();
+        return in_array($user->type, ['super_admin', 'admin', 'employee'])
+            && $contract->canBeRescheduled();
+    }
+
+    /**
+     * Determine whether the user can renew the contract.
+     * Admins and employees can renew
+     */
+    public function renew(User $user, PropertyContract $contract): bool
+    {
+        return in_array($user->type, ['super_admin', 'admin', 'employee'])
+            && $contract->canBeRescheduled();
     }
 }

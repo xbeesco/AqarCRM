@@ -15,17 +15,8 @@ class PropertyStatus extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'name_ar',
-        'name_en',
+        'name',
         'slug',
-        'color',
-        'icon',
-        'description_ar',
-        'description_en',
-        'is_available',
-        'is_active',
-        'sort_order',
-        'properties_count'
     ];
 
     /**
@@ -34,10 +25,7 @@ class PropertyStatus extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'is_available' => 'boolean',
-        'is_active' => 'boolean',
-        'sort_order' => 'integer',
-        'properties_count' => 'integer'
+        //
     ];
 
 
@@ -50,41 +38,18 @@ class PropertyStatus extends Model
 
         static::creating(function ($propertyStatus) {
             if (empty($propertyStatus->slug)) {
-                $propertyStatus->slug = Str::slug($propertyStatus->name_en);
+                $propertyStatus->slug = Str::slug($propertyStatus->name);
             }
         });
     }
 
-    /**
-     * Get the localized name attribute.
-     */
-    public function getNameAttribute(): string
-    {
-        return app()->getLocale() === 'ar' ? $this->name_ar : $this->name_en;
-    }
 
     /**
-     * Scope a query to only include active statuses.
-     */
-    public function scopeActive(Builder $query): Builder
-    {
-        return $query->where('is_active', true);
-    }
-
-    /**
-     * Scope a query to only include available statuses.
-     */
-    public function scopeAvailable(Builder $query): Builder
-    {
-        return $query->where('is_available', true);
-    }
-
-    /**
-     * Scope a query to order statuses by sort order.
+     * Scope a query to order statuses by name.
      */
     public function scopeOrdered(Builder $query): Builder
     {
-        return $query->orderBy('sort_order')->orderBy('name_en');
+        return $query->orderBy('name');
     }
 
     /**
@@ -94,5 +59,4 @@ class PropertyStatus extends Model
     {
         return $this->hasMany(Property::class, 'status_id');
     }
-
 }

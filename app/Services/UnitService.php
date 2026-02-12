@@ -93,8 +93,6 @@ class UnitService
             // Terminate the contract
             $contract->update([
                 'contract_status' => 'terminated',
-                'terminated_reason' => $reason,
-                'terminated_at' => now(),
             ]);
 
             return [

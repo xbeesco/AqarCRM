@@ -6,11 +6,8 @@ use App\Filament\Resources\PropertyContracts\PropertyContractResource;
 use App\Models\PropertyContract;
 use App\Services\PaymentGeneratorService;
 use App\Services\PropertyContractService;
-use Closure;
-use Exception;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Placeholder;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -30,44 +27,36 @@ class ReschedulePayments extends Page implements HasForms
 
     protected string $view = 'filament.resources.property-contract-resource.pages.reschedule-payments';
 
+    protected static ?string $title = 'إعادة جدولة دفعات العقد';
+
     public PropertyContract $record;
 
     public ?array $data = [];
-
-    protected ?PaymentGeneratorService $paymentService = null;
-
-    public function __construct()
-    {
-        $this->paymentService = app(PaymentGeneratorService::class);
-    }
 
     public function mount(PropertyContract $record): void
     {
         $this->record = $record;
 
-        // Check permissions using Policy
-        if (! auth()->user()->can('reschedule', $record)) {
+        // التحقق من الصلاحيات - super_admin, admin, employee
+        if (! in_array(auth()->user()?->type, ['super_admin', 'admin', 'employee'])) {
             abort(403, 'غير مصرح لك بإعادة جدولة الدفعات');
         }
 
-        // Additional reschedule eligibility check
-        if (! $record->canReschedule()) {
+        if (! $this->record->canBeRescheduled()) {
             Notification::make()
                 ->title('لا يمكن إعادة جدولة هذا العقد')
                 ->body('العقد غير نشط أو لا توجد دفعات')
                 ->danger()
                 ->send();
 
-            $this->redirectRoute('filament.admin.resources.property-contracts.index');
+            $this->redirect(PropertyContractResource::getUrl('index'));
 
             return;
         }
 
-        // Load default data
         $this->form->fill([
-            'new_commission_rate' => $record->commission_rate,
-            'additional_months' => app(PropertyContractService::class)->getRemainingMonths($record),
-            'new_frequency' => $record->payment_frequency ?? 'monthly',
+            'new_commission_rate' => $this->record->commission_rate,
+            'new_frequency' => $this->record->payment_frequency ?? 'monthly',
         ]);
     }
 
@@ -79,7 +68,7 @@ class ReschedulePayments extends Page implements HasForms
     public function form(Schema $schema): Schema
     {
         return $schema
-            ->components([
+            ->schema([
                 Section::make(null)
                     ->columnspan(2)
                     ->schema([
@@ -88,107 +77,18 @@ class ReschedulePayments extends Page implements HasForms
                                 ->label('نسبة العمولة')
                                 ->numeric()
                                 ->required()
+                                ->suffix('%')
                                 ->minValue(0)
                                 ->maxValue(100)
-                                ->step(0.01)
-                                ->suffix('%')
                                 ->columnSpan(3),
 
-                            TextInput::make('additional_months')
-                                ->label('المدة المعاد جدولتها')
-                                ->numeric()
-                                ->required()
-                                ->minValue(1)
-                                ->suffix('شهر')
-                                ->live(onBlur: true)
-                                ->afterStateUpdated(function ($state, $get, $set) {
-                                    $frequency = $get('new_frequency') ?? 'monthly';
-                                    $count = PropertyContractService::calculatePaymentsCount($state ?? 0, $frequency);
-                                    $set('new_payments_count', $count);
-
-                                    if ($state && ! PropertyContractService::isValidDuration($state, $frequency)) {
-                                        $set('frequency_error', true);
-                                    } else {
-                                        $set('frequency_error', false);
-                                    }
-                                })
-                                ->rules([
-                                    fn ($get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
-                                        $frequency = $get('new_frequency') ?? 'monthly';
-                                        if (! PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
-                                            $periodName = match ($frequency) {
-                                                'quarterly' => 'ربع سنة',
-                                                'semi_annually' => 'نصف سنة',
-                                                'annually' => 'سنة',
-                                                default => $frequency,
-                                            };
-
-                                            $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
-                                        }
-                                    },
-                                ])
-                                ->validationAttribute('مدة التعاقد')
-                                ->columnSpan(3),
-
-                            Select::make('new_frequency')
-                                ->label('تحصيل تلك المدة سيكون كل')
-                                ->required()
-                                ->searchable()
-                                ->options([
-                                    'monthly' => 'شهر',
-                                    'quarterly' => 'ربع سنة',
-                                    'semi_annually' => 'نصف سنة',
-                                    'annually' => 'سنة',
-                                ])
-                                ->default('monthly')
-                                ->live()
-                                ->afterStateUpdated(function ($state, $get, $set) {
-                                    $duration = $get('additional_months') ?? 0;
-                                    $count = PropertyContractService::calculatePaymentsCount($duration, $state ?? 'monthly');
-                                    $set('new_payments_count', $count);
-
-                                    if ($duration && ! PropertyContractService::isValidDuration($duration, $state ?? 'monthly')) {
-                                        $set('frequency_error', true);
-                                    } else {
-                                        $set('frequency_error', false);
-                                    }
-                                })
-                                ->rules([
-                                    fn ($get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
-                                        $duration = $get('additional_months') ?? 0;
-                                        if (! PropertyContractService::isValidDuration($duration, $value ?? 'monthly')) {
-                                            $periodName = match ($value) {
-                                                'quarterly' => 'ربع سنة',
-                                                'semi_annually' => 'نصف سنة',
-                                                'annually' => 'سنة',
-                                                default => $value,
-                                            };
-                                            $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
-                                        }
-                                    },
-                                ])
-                                ->validationAttribute('تكرار التحصيل')
-                                ->columnSpan(3),
-
-                            TextInput::make('new_payments_count')
-                                ->label('عدد الدفعات')
-                                ->disabled()
-                                ->dehydrated(false)
-                                ->default(function ($get) {
-                                    $duration = $get('additional_months') ?? 0;
-                                    $frequency = $get('new_frequency') ?? 'monthly';
-                                    $result = PropertyContractService::calculatePaymentsCount($duration, $frequency);
-
-                                    return $result;
-                                })
-                                ->columnSpan(3),
+                            ...(\App\Filament\Forms\ContractFormSchema::getDurationFields('property', $this->record)),
                         ]),
                     ]),
 
                 Section::make('معلومات العقد الحالي')
                     ->columnspan(1)
                     ->schema([
-
                         Grid::make(3)->schema([
                             Placeholder::make('original_duration')
                                 ->label('المدة الأصلية')
@@ -196,21 +96,21 @@ class ReschedulePayments extends Page implements HasForms
 
                             Placeholder::make('paid_months')
                                 ->label('الأشهر المدفوعة')
-                                ->content(fn () => app(PropertyContractService::class)->getPaidMonthsCount($this->record).' شهر'),
+                                ->content($this->record->getPaidMonthsCount().' شهر'),
 
                             Placeholder::make('remaining_months')
                                 ->label('الأشهر المتبقية حالياً')
-                                ->content(fn () => app(PropertyContractService::class)->getRemainingMonths($this->record).' شهر'),
+                                ->content($this->record->getRemainingMonths().' شهر'),
                         ]),
 
                         Grid::make(2)->schema([
                             Placeholder::make('paid_payments')
                                 ->label('الدفعات المدفوعة')
-                                ->content(fn () => app(PropertyContractService::class)->getPaidPaymentsCount($this->record).' دفعة'),
+                                ->content($this->record->getPaidPayments()->count().' دفعة'),
 
                             Placeholder::make('unpaid_payments')
-                                ->label('الدفعات غير المدفوعة')
-                                ->content(fn () => app(PropertyContractService::class)->getUnpaidPaymentsCount($this->record).' دفعة (سيتم حذفها)'),
+                                ->label('الدفعات الغير مدفوعة')
+                                ->content($this->record->getUnpaidPayments()->count().' دفعة (سيتم حذفها)'),
                         ]),
                     ]),
 
@@ -219,18 +119,19 @@ class ReschedulePayments extends Page implements HasForms
                         Placeholder::make('ملخص التغييرات')
                             ->label('')
                             ->content(function ($get) {
-                                $paidMonths = app(PropertyContractService::class)->getPaidMonthsCount($this->record);
-                                $additionalMonths = $get('additional_months') ?? 0;
+                                $paidMonths = $this->record->getPaidMonthsCount();
+                                $additionalMonths = (int) $get('additional_months');
                                 $newTotal = $paidMonths + $additionalMonths;
+                                $unpaidCount = $this->record->getUnpaidPayments()->count();
 
                                 $summary = "📊 **الملخص:**\n";
                                 $summary .= "• الأشهر المدفوعة: {$paidMonths} شهر (ستبقى كما هي)\n";
                                 $summary .= "• الأشهر الجديدة: {$additionalMonths} شهر\n";
                                 $summary .= "• إجمالي مدة العقد الجديدة: {$newTotal} شهر\n";
-                                $summary .= '• الدفعات غير المدفوعة: '.app(PropertyContractService::class)->getUnpaidPaymentsCount($this->record)." دفعة (سيتم حذفها)\n";
+                                $summary .= "• الدفعات الغير مدفوعة: {$unpaidCount} دفعة (سيتم حذفها)\n";
 
-                                $frequency = $get('new_frequency') ?? 'monthly';
-                                if (PropertyContractService::isValidDuration($additionalMonths, $frequency)) {
+                                $frequency = $get('new_frequency');
+                                if ($frequency && PropertyContractService::isValidDuration($additionalMonths, $frequency)) {
                                     $newPaymentsCount = PropertyContractService::calculatePaymentsCount($additionalMonths, $frequency);
                                     $summary .= "• الدفعات الجديدة: {$newPaymentsCount} دفعة\n";
                                 }
@@ -238,52 +139,78 @@ class ReschedulePayments extends Page implements HasForms
                                 return $summary;
                             }),
                     ])
-                    ->visible(fn ($get) => $get('additional_months') > 0),
+                    ->visible(fn ($get) => (int) $get('additional_months') > 0),
             ])
             ->columns(2)
             ->statePath('data');
     }
 
-    protected function getActions(): array
+    protected function validateDuration($get, $set)
+    {
+        $months = (int) $get('additional_months');
+        $frequency = $get('new_frequency');
+
+        if (! PropertyContractService::isValidDuration($months, $frequency)) {
+            $periodName = match ($frequency) {
+                'monthly' => 'شهر',
+                'quarterly' => 'ربع سنة',
+                'semi_annually' => 'نصف سنة',
+                'annually' => 'سنة',
+                default => 'شهر',
+            };
+            Notification::make()
+                ->warning()
+                ->title('تنبيه')
+                ->body("عدد الاشهر ($months) لا يقبل القسمة علي {$periodName}")
+                ->send();
+
+            $set('frequency_error', true);
+        } else {
+            $set('frequency_error', false);
+        }
+
+        $count = PropertyContractService::calculatePaymentsCount($months, $frequency);
+        $set('new_payments_count', $count);
+    }
+
+    public function getActions(): array
     {
         return [
             Action::make('reschedule')
                 ->label('تنفيذ إعادة الجدولة')
                 ->color('success')
                 ->icon('heroicon-o-check')
+                ->mountUsing(function () {
+                    // التحقق من صحة النموذج قبل عرض نافذة التأكيد
+                    $this->form->validate();
+                })
                 ->requiresConfirmation()
                 ->modalHeading('تأكيد إعادة الجدولة')
                 ->modalDescription(function () {
-                    $contractNumber = $this->record->contract_number ?? 'غير محدد';
-                    $ownerName = $this->record->owner?->name ?? 'غير محدد';
-                    $propertyName = $this->record->property?->name ?? 'غير محدد';
-
-                    $newCommissionRate = number_format($this->data['new_commission_rate'] ?? 0, 2);
                     $additionalMonths = $this->data['additional_months'] ?? 0;
-                    $newPaymentsCount = $this->data['new_payments_count'] ?? 0;
-
-                    $unpaidCount = app(PropertyContractService::class)->getUnpaidPaymentsCount($this->record);
+                    $newCommission = $this->data['new_commission_rate'] ?? 0;
+                    $frequency = $this->data['new_frequency'] ?? 'monthly';
+                    $newPaymentsCount = PropertyContractService::calculatePaymentsCount($additionalMonths, $frequency);
+                    $unpaidCount = $this->record->getUnpaidPayments()->count();
 
                     return new HtmlString(
                         "<div style='text-align: right; direction: rtl;'>
-                            <p>رقم العقد: <strong>{$contractNumber}</strong></p>
-                            <p>المالك: <strong>{$ownerName}</strong></p>
-                            <p>العقار: <strong>{$propertyName}</strong></p>
+                            <p>رقم العقد: <strong>{$this->record->contract_number}</strong></p>
+                            <p>المالك: <strong>{$this->record->owner?->name}</strong></p>
+                            <p>العقار: <strong>{$this->record->property?->name}</strong></p>
                             <hr style='margin: 10px 0;'>
                             <p style='color: red;'>سيتم حذف: <strong>{$unpaidCount} دفعة غير مدفوعة</strong></p>
                             <p style='color: green;'>سيتم إنشاء: <strong>{$newPaymentsCount} دفعة جديدة</strong></p>
-                            <p>نسبة العمولة الجديدة: <strong>{$newCommissionRate}%</strong></p>
-                            <p>المدة: <strong>{$additionalMonths} شهر</strong></p>
-                            <hr style='margin: 10px 0;'>
-                            <p style='color: #666; font-size: 0.9em;'>هل أنت متأكد من إعادة الجدولة؟</p>
+                            <p>العمولة الجديدة: <strong>{$newCommission}%</strong></p>
+                            <p>المدة الإضافية: <strong>{$additionalMonths} شهر</strong></p>
                         </div>"
                     );
                 })
                 ->modalSubmitActionLabel('نعم، أعد الجدولة')
-                ->disabled(fn () => $this->data['frequency_error'] ?? false)
                 ->action(function () {
                     try {
-                        $result = $this->paymentService->reschedulePropertyContractPayments(
+                        $service = app(PaymentGeneratorService::class);
+                        $result = $service->reschedulePropertyContractPayments(
                             $this->record,
                             $this->data['new_commission_rate'],
                             $this->data['additional_months'],
@@ -296,20 +223,18 @@ class ReschedulePayments extends Page implements HasForms
                             ->success()
                             ->send();
 
-                        return redirect()->route('filament.admin.resources.property-contracts.view', $this->record);
-                    } catch (Exception $e) {
-                        Notification::make()
-                            ->title('فشلت إعادة الجدولة')
-                            ->body($e->getMessage())
-                            ->danger()
-                            ->send();
+                        return redirect()->to(PropertyContractResource::getUrl('view', ['record' => $this->record]));
+
+                    } catch (\Exception $e) {
+                        // إظهار الخطأ تحت حقل المدة
+                        $this->addError('data.additional_months', $e->getMessage());
                     }
                 }),
 
             Action::make('cancel')
                 ->label('إلغاء')
                 ->color('gray')
-                ->url(route('filament.admin.resources.property-contracts.view', $this->record)),
+                ->url(PropertyContractResource::getUrl('view', ['record' => $this->record])),
         ];
     }
 }

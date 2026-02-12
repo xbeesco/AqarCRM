@@ -68,38 +68,11 @@ class CollectionPaymentServiceTest extends TestCase
 
     protected function createDependencies(): void
     {
-        $this->location = Location::create([
-            'name' => 'Test Location',
-            'code' => 'TEST',
-            'level' => 1,
-            'is_active' => true,
-        ]);
-
-        $this->propertyType = PropertyType::create([
-            'name_ar' => 'شقة',
-            'name_en' => 'Apartment',
-            'slug' => 'apartment',
-            'is_active' => true,
-            'sort_order' => 1,
-        ]);
-
-        $this->propertyStatus = PropertyStatus::create([
-            'name_ar' => 'متاح',
-            'name_en' => 'Available',
-            'slug' => 'available',
-            'color' => 'green',
-            'is_available' => true,
-            'is_active' => true,
-            'sort_order' => 1,
-        ]);
-
-        $this->unitType = UnitType::create([
-            'name_ar' => 'شقة سكنية',
-            'name_en' => 'Residential Apartment',
-            'slug' => 'residential-apartment',
-            'is_active' => true,
-            'sort_order' => 1,
-        ]);
+        // Use existing lookup data seeded by TestCase::seedLookupData()
+        $this->location = Location::first();
+        $this->propertyType = PropertyType::first();
+        $this->propertyStatus = PropertyStatus::first();
+        $this->unitType = UnitType::first();
 
         // Set default payment_due_days setting
         Setting::set('payment_due_days', 7);
@@ -560,17 +533,9 @@ class CollectionPaymentServiceTest extends TestCase
             'due_date_start' => now()->subDays(5),
         ]);
 
-        // Create a payment method first
-        $paymentMethod = \App\Models\PaymentMethod::create([
-            'name_ar' => 'نقدي',
-            'name_en' => 'Cash',
-            'slug' => 'cash',
-            'is_active' => true,
-        ]);
-
         $result = $this->service->processPayment(
             $payment,
-            $paymentMethod->id,
+            null,
             now()->toDateString(),
             'REF-123456'
         );
@@ -595,16 +560,9 @@ class CollectionPaymentServiceTest extends TestCase
             'due_date_start' => now()->subDays(3),
         ]);
 
-        $paymentMethod = \App\Models\PaymentMethod::create([
-            'name_ar' => 'نقدي',
-            'name_en' => 'Cash',
-            'slug' => 'cash-bulk',
-            'is_active' => true,
-        ]);
-
         $results = $this->service->bulkCollectPayments(
             [$payment1->id, $payment2->id],
-            $paymentMethod->id
+            null
         );
 
         $this->assertCount(2, $results);

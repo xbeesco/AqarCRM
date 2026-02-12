@@ -200,13 +200,11 @@ class SupplyPaymentResource extends Resource
 
                 $query->orWhereHas('propertyContract', function ($q) use ($search, $searchWithoutSpaces) {
                     $q->where('contract_number', 'LIKE', "%{$search}%")
-                        ->orWhere('contract_number', 'LIKE', "%{$searchWithoutSpaces}%")
-                        ->orWhere('notary_number', 'LIKE', "%{$search}%");
+                        ->orWhere('contract_number', 'LIKE', "%{$searchWithoutSpaces}%");
 
                     if (is_numeric($search)) {
                         $q->orWhere('commission_rate', 'LIKE', "%{$search}%")
-                            ->orWhere('duration_months', $search)
-                            ->orWhere('payment_day', $search);
+                            ->orWhere('duration_months', $search);
                     }
                 });
 
@@ -244,7 +242,7 @@ class SupplyPaymentResource extends Resource
                     details: [
                         'العقار' => $property,
                         'المالك' => $owner,
-                        'المبلغ الصافي' => number_format($record->net_amount, 2).' SAR',
+                        'المبلغ الصافي' => number_format($record->net_amount, 2) . ' SAR',
                         'الحالة' => $statusLabel,
                         'الشهر' => $record->month_year,
                     ]

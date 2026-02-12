@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use Carbon\Carbon;
 use App\Services\PropertyContractService;
 use App\Services\UnitContractService;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -24,21 +24,8 @@ class UnitContract extends Model
         'end_date',
         'contract_status',
         'payment_frequency',
-        'payment_method',
-        'grace_period_days',
-        'late_fee_rate',
-        'utilities_included',
-        'furnished',
-        'evacuation_notice_days',
-        'terms_and_conditions',
-        'special_conditions',
         'notes',
         'file',
-        'created_by',
-        'approved_by',
-        'approved_at',
-        'terminated_reason',
-        'terminated_at',
     ];
 
     protected $casts = [
@@ -47,13 +34,6 @@ class UnitContract extends Model
         'monthly_rent' => 'decimal:2',
         'security_deposit' => 'decimal:2',
         'duration_months' => 'integer',
-        'grace_period_days' => 'integer',
-        'late_fee_rate' => 'decimal:2',
-        'utilities_included' => 'boolean',
-        'furnished' => 'boolean',
-        'evacuation_notice_days' => 'integer',
-        'approved_at' => 'datetime',
-        'terminated_at' => 'datetime',
     ];
 
     protected static function boot()
@@ -64,34 +44,13 @@ class UnitContract extends Model
             // Generate contract number if not set
             if (empty($contract->contract_number)) {
                 // Use millisecond timestamp to ensure uniqueness
-                $contract->contract_number = 'UC-' . round(microtime(true) * 1000);
+                $contract->contract_number = 'UC-'.round(microtime(true) * 1000);
             }
 
             // Calculate end_date if not set
             if (empty($contract->end_date) && $contract->start_date && $contract->duration_months) {
                 $startDate = Carbon::parse($contract->start_date);
                 $contract->end_date = $startDate->copy()->addMonths($contract->duration_months)->subDay();
-            }
-
-            // Set default values if not provided
-            if (is_null($contract->security_deposit)) {
-                $contract->security_deposit = $contract->monthly_rent ?? 0;
-            }
-
-            if (is_null($contract->grace_period_days)) {
-                $contract->grace_period_days = 5;
-            }
-
-            if (is_null($contract->late_fee_rate)) {
-                $contract->late_fee_rate = 5.00;
-            }
-
-            if (is_null($contract->evacuation_notice_days)) {
-                $contract->evacuation_notice_days = 30;
-            }
-
-            if (is_null($contract->contract_status)) {
-                $contract->contract_status = 'active';
             }
         });
 
@@ -359,5 +318,85 @@ class UnitContract extends Model
     public function isRenewed(): bool
     {
         return $this->contract_status === 'renewed';
+    }
+
+    /**
+     * Get unpaid payments for this contract.
+     */
+    public function getUnpaidPayments()
+    {
+        return $this->collectionPayments()->whereNull('paid_date')->get();
+    }
+
+    /**
+     * Get count of unpaid payments.
+     */
+    public function getUnpaidPaymentsCount(): int
+    {
+        return $this->collectionPayments()->whereNull('paid_date')->count();
+    }
+
+    /**
+     * Check if contract can be rescheduled.
+     */
+    public function canBeRescheduled(): bool
+    {
+        $validStatuses = ['active', 'draft'];
+        if (! in_array($this->contract_status, $validStatuses)) {
+            return false;
+        }
+
+        if (! $this->collectionPayments()->exists()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Get paid payments for this contract.
+     */
+    public function getPaidPayments()
+    {
+        return $this->collectionPayments()->whereNotNull('paid_date')->get();
+    }
+
+    /**
+     * Get count of paid payments.
+     */
+    public function getPaidPaymentsCount(): int
+    {
+        return $this->collectionPayments()->whereNotNull('paid_date')->count();
+    }
+
+    /**
+     * Get count of paid months (approximate).
+     */
+    public function getPaidMonthsCount(): int
+    {
+        $count = 0;
+        foreach ($this->getPaidPayments() as $payment) {
+            $monthsPerPayment = match ($this->payment_frequency) {
+                'monthly' => 1,
+                'quarterly' => 3,
+                'semi_annually' => 6,
+                'annually' => 12,
+                default => 1,
+            };
+            $count += $monthsPerPayment;
+        }
+
+        return $count;
+    }
+
+    /**
+     * Get remaining months (unpaid).
+     */
+    public function getRemainingMonths(): int
+    {
+        $totalMonths = $this->duration_months ?? 0;
+        $paidMonths = $this->getPaidMonthsCount();
+
+        return max(0, $totalMonths - $paidMonths);
     }
 }

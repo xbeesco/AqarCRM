@@ -69,38 +69,11 @@ class TenantServiceTest extends TestCase
 
     protected function createDependencies(): void
     {
-        $this->location = Location::create([
-            'name' => 'Test Location',
-            'code' => 'TEST',
-            'level' => 1,
-            'is_active' => true,
-        ]);
-
-        $this->propertyType = PropertyType::create([
-            'name_ar' => 'شقة',
-            'name_en' => 'Apartment',
-            'slug' => 'apartment',
-            'is_active' => true,
-            'sort_order' => 1,
-        ]);
-
-        $this->propertyStatus = PropertyStatus::create([
-            'name_ar' => 'متاح',
-            'name_en' => 'Available',
-            'slug' => 'available',
-            'color' => 'green',
-            'is_available' => true,
-            'is_active' => true,
-            'sort_order' => 1,
-        ]);
-
-        $this->unitType = UnitType::create([
-            'name_ar' => 'شقة سكنية',
-            'name_en' => 'Residential Apartment',
-            'slug' => 'residential-apartment',
-            'is_active' => true,
-            'sort_order' => 1,
-        ]);
+        // Use existing lookup data seeded by TestCase::seedLookupData()
+        $this->location = Location::first();
+        $this->propertyType = PropertyType::first();
+        $this->propertyStatus = PropertyStatus::first();
+        $this->unitType = UnitType::first();
 
         // Set default payment_due_days setting
         Setting::set('payment_due_days', 7);

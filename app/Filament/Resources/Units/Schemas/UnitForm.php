@@ -26,11 +26,13 @@ class UnitForm
                         ->searchable()
                         ->required()
                         ->preload()
+                        ->disabled(fn (string $operation): bool => $operation === 'edit')
+                        ->dehydrated()
                         ->columnSpan(3),
 
                     Select::make('unit_type_id')
                         ->label('نوع الوحدة')
-                        ->relationship('unitType', 'name_ar')
+                        ->relationship('unitType', 'name')
                         ->required()
                         ->native(false)
                         ->columnSpan(3),
@@ -43,7 +45,7 @@ class UnitForm
 
                     Select::make('unit_category_id')
                         ->label('تصنيف الوحدة')
-                        ->relationship('unitCategory', 'name_ar')
+                        ->relationship('unitCategory', 'name')
                         ->required()
                         ->native(false)
                         ->columnSpan(3),
@@ -54,7 +56,7 @@ class UnitForm
                 ->schema([
                     Grid::make(3)->schema([
                         TextInput::make('rent_price')
-                            ->label('سعر الايجار الاستدلالي')
+                            ->label('الايجار الشهري الاستدلالي')
                             ->numeric()
                             ->required()
                             ->minValue(0)
@@ -123,7 +125,7 @@ class UnitForm
                     CheckboxList::make('features')
                         ->label('مميزات الوحدة')
                         ->hiddenLabel()
-                        ->relationship('features', 'name_ar')
+                        ->relationship('features', 'name')
                         ->columns(3),
                 ]),
 

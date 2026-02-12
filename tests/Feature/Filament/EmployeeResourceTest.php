@@ -3,10 +3,10 @@
 namespace Tests\Feature\Filament;
 
 use App\Enums\UserType;
-use App\Filament\Resources\EmployeeResource;
-use App\Filament\Resources\EmployeeResource\Pages\CreateEmployee;
-use App\Filament\Resources\EmployeeResource\Pages\EditEmployee;
-use App\Filament\Resources\EmployeeResource\Pages\ListEmployees;
+use App\Filament\Resources\Employees\EmployeeResource;
+use App\Filament\Resources\Employees\Pages\CreateEmployee;
+use App\Filament\Resources\Employees\Pages\EditEmployee;
+use App\Filament\Resources\Employees\Pages\ListEmployees;
 use App\Models\Employee;
 use App\Models\Location;
 use App\Models\PropertyStatus;
@@ -83,19 +83,19 @@ class EmployeeResourceTest extends TestCase
         // Create default Location
         Location::firstOrCreate(
             ['id' => 1],
-            ['name' => 'Default Location', 'level' => 1, 'is_active' => true]
+            ['name' => 'Default Location', 'level' => 1]
         );
 
         // Create default PropertyType
         PropertyType::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'شقة', 'name_en' => 'Apartment', 'slug' => 'apartment', 'is_active' => true]
+            ['name' => 'Apartment', 'slug' => 'apartment']
         );
 
         // Create default PropertyStatus
         PropertyStatus::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'متاح', 'name_en' => 'Available', 'slug' => 'available', 'is_active' => true]
+            ['name' => 'Available', 'slug' => 'available']
         );
     }
 
@@ -139,29 +139,22 @@ class EmployeeResourceTest extends TestCase
     }
 
     #[Test]
-    public function test_employee_cannot_view_employees_list(): void
+    public function test_employee_can_view_employees_list(): void
     {
         $this->actingAs($this->employee);
 
         $response = $this->get(EmployeeResource::getUrl('index'));
 
-        // Employee type is not in the allowed list (super_admin, admin, manager)
-        $response->assertStatus(403);
+        // Employee type is in the allowed list (super_admin, admin, employee)
+        $response->assertStatus(200);
     }
 
     #[Test]
-    public function test_manager_type_is_allowed_by_canViewAny(): void
+    public function test_employee_can_view_any(): void
     {
-        // Note: 'manager' is not a valid UserType enum value, but is allowed by canViewAny
-        // This test verifies the canViewAny permission check logic
-        $manager = User::factory()->create([
-            'type' => 'manager',
-            'email' => 'manager@test.com',
-        ]);
+        // Employee type is allowed by canViewAny policy
+        $this->actingAs($this->employee);
 
-        $this->actingAs($manager);
-
-        // canViewAny should return true for manager
         $this->assertTrue(EmployeeResource::canViewAny());
     }
 
@@ -202,12 +195,8 @@ class EmployeeResourceTest extends TestCase
         $this->actingAs($this->admin);
         $this->assertTrue(EmployeeResource::canViewAny());
 
-        // Test manager type user
-        $manager = User::factory()->create([
-            'type' => 'manager',
-            'email' => 'manager@test.com',
-        ]);
-        $this->actingAs($manager);
+        // Test employee
+        $this->actingAs($this->employee);
         $this->assertTrue(EmployeeResource::canViewAny());
     }
 
@@ -244,11 +233,12 @@ class EmployeeResourceTest extends TestCase
     }
 
     #[Test]
-    public function test_employee_cannot_create_employee(): void
+    public function test_employee_can_create_employee(): void
     {
         $this->actingAs($this->employee);
 
-        $this->assertFalse(EmployeeResource::canCreate());
+        // EmployeePolicy allows employees to create employees
+        $this->assertTrue(EmployeeResource::canCreate());
     }
 
     // ==========================================
@@ -559,13 +549,14 @@ class EmployeeResourceTest extends TestCase
     }
 
     #[Test]
-    public function test_employee_cannot_access_create_page(): void
+    public function test_employee_can_access_create_page(): void
     {
         $this->actingAs($this->employee);
 
         $response = $this->get(EmployeeResource::getUrl('create'));
 
-        $response->assertStatus(403);
+        // EmployeePolicy allows employees to create employees
+        $response->assertStatus(200);
     }
 
     // ==========================================

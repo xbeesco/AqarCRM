@@ -14,7 +14,6 @@ return new class extends Migration
             $table->foreignId('unit_feature_id')->constrained('unit_features')->cascadeOnDelete();
             $table->string('value')->nullable();
             $table->timestamps();
-
             $table->unique(['unit_id', 'unit_feature_id'], 'unit_feature_unique');
         });
     }

@@ -2,8 +2,8 @@
 
 namespace App\Policies;
 
-use App\Models\User;
 use App\Models\Employee;
+use App\Models\User;
 
 class EmployeePolicy extends BasePolicy
 {
@@ -12,12 +12,8 @@ class EmployeePolicy extends BasePolicy
      */
     public function viewAny(User $user): bool
     {
-        // Only admins can view employees list
-        if (!$this->isAdmin($user)) {
-            $this->logUnauthorizedAccess($user, 'viewAny', Employee::class);
-            return false;
-        }
-        return true;
+        // Admins and employees can view employees list
+        return in_array($user->type, ['super_admin', 'admin', 'employee']);
     }
 
     /**
@@ -29,13 +25,14 @@ class EmployeePolicy extends BasePolicy
         if ($this->isAdmin($user)) {
             return true;
         }
-        
+
         // Employee can view their own profile
         if ($user->id === $model->id) {
             return true;
         }
-        
+
         $this->logUnauthorizedAccess($user, 'view', $model);
+
         return false;
     }
 
@@ -44,12 +41,8 @@ class EmployeePolicy extends BasePolicy
      */
     public function create(User $user): bool
     {
-        // Super admin and admin can create employees
-        if (!$this->isAdmin($user)) {
-            $this->logUnauthorizedAccess($user, 'create', Employee::class);
-            return false;
-        }
-        return true;
+        // Super admin, admin and employee can create employees
+        return $this->isAdmin($user) || $this->isEmployee($user);
     }
 
     /**
@@ -61,24 +54,26 @@ class EmployeePolicy extends BasePolicy
         if ($user->type === 'super_admin') {
             return true;
         }
-        
+
         // Admin cannot update super admin or other admin employees
         if ($user->type === 'admin' && in_array($model->type, ['super_admin', 'admin'])) {
             $this->logUnauthorizedAccess($user, 'update', $model);
+
             return false;
         }
-        
+
         // Admin can update regular employees
         if ($user->type === 'admin' && $model->type === 'employee') {
             return true;
         }
-        
+
         // Employee can update limited fields of their own profile
         if ($user->id === $model->id) {
             return true;
         }
-        
+
         $this->logUnauthorizedAccess($user, 'update', $model);
+
         return false;
     }
 
@@ -88,20 +83,23 @@ class EmployeePolicy extends BasePolicy
     public function delete(User $user, Employee $model): bool
     {
         // Super admin and admin can delete employees
-        if (!$this->isAdmin($user)) {
+        if (! $this->isAdmin($user)) {
             $this->logUnauthorizedAccess($user, 'delete', $model);
+
             return false;
         }
 
         // Cannot delete self
         if ($user->id === $model->id) {
             $this->logUnauthorizedAccess($user, 'delete', $model);
+
             return false;
         }
 
         // Admin cannot delete super_admin or other admin
         if ($user->type === 'admin' && in_array($model->type, ['super_admin', 'admin'])) {
             $this->logUnauthorizedAccess($user, 'delete', $model);
+
             return false;
         }
 
@@ -116,15 +114,17 @@ class EmployeePolicy extends BasePolicy
         // Only super admin can promote/demote employees
         if ($user->type !== 'super_admin') {
             $this->logUnauthorizedAccess($user, 'changeType', $model);
+
             return false;
         }
-        
+
         // Cannot demote self from super_admin
         if ($user->id === $model->id && $user->type === 'super_admin' && $newType !== 'super_admin') {
             $this->logUnauthorizedAccess($user, 'changeType', $model);
+
             return false;
         }
-        
+
         return true;
     }
 }
