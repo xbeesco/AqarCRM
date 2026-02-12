@@ -2,14 +2,11 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\Unit;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables;
 use Filament\Tables\Table;
-use Filament\Tables\Grouping\Group;
 use Filament\Widgets\TableWidget as BaseWidget;
-use App\Models\Unit;
-use Filament\Forms;
 
 class VacantUnitsWidget extends BaseWidget
 {
@@ -17,7 +14,7 @@ class VacantUnitsWidget extends BaseWidget
 
     protected static ?int $sort = 3;
 
-    protected int | string | array $columnSpan = 'full';
+    protected int|string|array $columnSpan = 'full';
 
     protected static ?string $pollingInterval = '30s';
 
@@ -51,7 +48,7 @@ class VacantUnitsWidget extends BaseWidget
 
                 TextColumn::make('annual_rent')
                     ->label('الإيجار السنوي')
-                    ->getStateUsing(fn($record) => $record->rent_price * 12)
+                    ->getStateUsing(fn ($record) => $record->rent_price * 12)
                     ->money('SAR'),
             ])
             ->defaultSort('property_id', 'asc')
@@ -80,8 +77,8 @@ class VacantUnitsWidget extends BaseWidget
         $totalVacant = Unit::whereDoesntHave('activeContract')->count();
         $totalAnnualRent = Unit::whereDoesntHave('activeContract')->sum('rent_price') * 12;
 
-        $formattedRent = number_format($totalAnnualRent, 2) . ' ريال';
+        $formattedRent = number_format($totalAnnualRent, 2).' ريال';
 
-        return static::$heading . " ({$totalVacant} وحدة - القيمة السنوية: {$formattedRent})";
+        return static::$heading." ({$totalVacant} وحدة - القيمة السنوية: {$formattedRent})";
     }
 }
