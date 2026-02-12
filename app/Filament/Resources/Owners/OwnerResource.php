@@ -2,12 +2,17 @@
 
 namespace App\Filament\Resources\Owners;
 
-use App\Filament\Resources\Owners\Pages;
+use App\Filament\Resources\CollectionPayments\CollectionPaymentResource;
+use App\Filament\Resources\Expenses\ExpenseResource;
+use App\Filament\Resources\Properties\PropertyResource;
+use App\Filament\Resources\PropertyContracts\PropertyContractResource;
+use App\Filament\Resources\SupplyPayments\SupplyPaymentResource;
+use App\Filament\Resources\UnitContracts\UnitContractResource;
+use App\Filament\Resources\Units\UnitResource;
 use App\Models\CollectionPayment;
 use App\Models\Owner;
 use App\Models\SupplyPayment;
-use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
+use Filament\Actions\BulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\FileUpload;
@@ -18,7 +23,9 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class OwnerResource extends Resource
 {
@@ -149,29 +156,107 @@ class OwnerResource extends Resource
                 EditAction::make()
                     ->label('تعديل')
                     ->icon('heroicon-o-pencil-square'),
-                ActionGroup::make([
-                    Action::make('view_properties')
-                        ->label('العقارات')
-                        ->url(fn ($record) => PropertyResource::getUrl('index').'?owner_id='.$record->id),
-                    Action::make('view_units')
-                        ->label('الوحدات')
-                        ->url(fn ($record) => UnitResource::getUrl('index').'?owner_id='.$record->id),
-                    Action::make('view_property_contracts')
-                        ->label('عقود العقارات')
-                        ->url(fn ($record) => PropertyContractResource::getUrl('index').'?owner_id='.$record->id),
-                    Action::make('view_unit_contracts')
-                        ->label('عقود الوحدات')
-                        ->url(fn ($record) => UnitContractResource::getUrl('index').'?owner_id='.$record->id),
-                    Action::make('view_supply_payments')
-                        ->label('دفعات المالك')
-                        ->url(fn ($record) => SupplyPaymentResource::getUrl('index').'?owner_id='.$record->id),
-                    Action::make('view_collection_payments')
-                        ->label('دفعات المستأجرين')
-                        ->url(fn ($record) => CollectionPaymentResource::getUrl('index').'?owner_id='.$record->id),
-                    Action::make('view_expenses')
-                        ->label('النفقات')
-                        ->url(fn ($record) => ExpenseResource::getUrl('index').'?owner_id='.$record->id),
-                ])->label('عرض البيانات'),
+            ])
+            ->maxSelectableRecords(1)
+            ->bulkActions([
+                BulkAction::make('view_properties')
+                    ->label('العقارات')
+                    ->action(function (EloquentCollection $records) {
+                        if ($records->count() > 1) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('يرجى اختيار مالك واحد فقط')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        return redirect(PropertyResource::getUrl('index').'?owner_id='.$records->first()->id);
+                    }),
+                BulkAction::make('view_units')
+                    ->label('الوحدات')
+                    ->action(function (EloquentCollection $records) {
+                        if ($records->count() > 1) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('يرجى اختيار مالك واحد فقط')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        return redirect(UnitResource::getUrl('index').'?owner_id='.$records->first()->id);
+                    }),
+                BulkAction::make('view_property_contracts')
+                    ->label('عقود العقارات')
+                    ->action(function (EloquentCollection $records) {
+                        if ($records->count() > 1) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('يرجى اختيار مالك واحد فقط')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        return redirect(PropertyContractResource::getUrl('index').'?owner_id='.$records->first()->id);
+                    }),
+                BulkAction::make('view_unit_contracts')
+                    ->label('عقود الوحدات')
+                    ->action(function (EloquentCollection $records) {
+                        if ($records->count() > 1) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('يرجى اختيار مالك واحد فقط')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        return redirect(UnitContractResource::getUrl('index').'?owner_id='.$records->first()->id);
+                    }),
+                BulkAction::make('view_supply_payments')
+                    ->label('دفعات المالك')
+                    ->action(function (EloquentCollection $records) {
+                        if ($records->count() > 1) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('يرجى اختيار مالك واحد فقط')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        return redirect(SupplyPaymentResource::getUrl('index').'?owner_id='.$records->first()->id);
+                    }),
+                BulkAction::make('view_collection_payments')
+                    ->label('دفعات المستأجرين')
+                    ->action(function (EloquentCollection $records) {
+                        if ($records->count() > 1) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('يرجى اختيار مالك واحد فقط')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        return redirect(CollectionPaymentResource::getUrl('index').'?owner_id='.$records->first()->id);
+                    }),
+                BulkAction::make('view_expenses')
+                    ->label('النفقات')
+                    ->action(function (EloquentCollection $records) {
+                        if ($records->count() > 1) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('يرجى اختيار مالك واحد فقط')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        return redirect(ExpenseResource::getUrl('index').'?owner_id='.$records->first()->id);
+                    }),
             ])
             ->defaultSort('created_at', 'desc');
     }
@@ -266,17 +351,15 @@ class OwnerResource extends Resource
                     // البحث بدون مسافات
                     ->orWhereRaw("REPLACE(name, ' ', '') LIKE ?", ["%{$searchWithoutSpaces}%"])
                     // البحث مع تجاهل المسافات في الكلمة المبحوث عنها
-                    ->orWhere('name', 'LIKE', "%{$searchWithSpaces}%")
-                    // البحث بالتواريخ - تاريخ الإنشاء
-                    ->orWhereRaw("DATE_FORMAT(created_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
-                    ->orWhereRaw("DATE_FORMAT(created_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
-                    ->orWhereRaw("DATE_FORMAT(created_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
-                    ->orWhereRaw("DATE_FORMAT(created_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"])
-                    // البحث بالتواريخ - تاريخ الحذف
-                    ->orWhereRaw("DATE_FORMAT(deleted_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
-                    ->orWhereRaw("DATE_FORMAT(deleted_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
-                    ->orWhereRaw("DATE_FORMAT(deleted_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
-                    ->orWhereRaw("DATE_FORMAT(deleted_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"]);
+                    ->orWhere('name', 'LIKE', "%{$searchWithSpaces}%");
+
+                // البحث بالتواريخ - تاريخ الإنشاء (MySQL only)
+                if (DB::connection()->getDriverName() === 'mysql') {
+                    $query->orWhereRaw("DATE_FORMAT(created_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
+                        ->orWhereRaw("DATE_FORMAT(created_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
+                        ->orWhereRaw("DATE_FORMAT(created_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
+                        ->orWhereRaw("DATE_FORMAT(created_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"]);
+                }
             });
         }
 
@@ -288,7 +371,6 @@ class OwnerResource extends Resource
                     'الهاتف' => $record->phone ?? 'غير محدد',
                     'الهاتف الثاني' => $record->secondary_phone ?? 'غير محدد',
                     'تاريخ الإنشاء' => $record->created_at?->format('Y-m-d') ?? 'غير محدد',
-                    'تاريخ الحذف' => $record->deleted_at?->format('Y-m-d') ?? 'نشط',
                 ];
 
                 // إضافة عدد المدفوعات بحالة التوريد المبحوث عنها

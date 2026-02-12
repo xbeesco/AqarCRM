@@ -5,18 +5,239 @@ namespace App\Filament\Resources\Owners\Pages;
 use App\Filament\Resources\Owners\OwnerResource;
 use App\Models\CollectionPayment;
 use App\Models\Property;
-use App\Models\PropertyRepair;
+use App\Models\PropertyContract;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
+use Filament\Infolists\Components\RepeatableEntry;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Pages\ViewRecord;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Support\Enums\FontWeight;
 
 class ViewOwner extends ViewRecord
 {
     protected static string $resource = OwnerResource::class;
 
-    protected static ?string $title = 'عرض المالك';
+    protected static ?string $title = 'تقرير المالك';
 
-    protected string $view = 'filament.resources.owner-resource.pages.view-owner';
+    public function infolist(Schema $schema): Schema
+    {
+        $owner = $this->record;
+        $reportData = $this->getReportData();
+
+        return $schema
+            ->columns(2)
+            ->components([
+                // معلومات المالك الأساسية
+                Section::make('معلومات المالك')
+                    ->schema([
+                        Grid::make(2)
+                            ->schema([
+                                TextEntry::make('name')
+                                    ->label('اسم المالك')
+                                    ->weight(FontWeight::Bold)
+                                    ->size('lg'),
+                                TextEntry::make('phone')
+                                    ->label('التليفون')
+                                    ->icon('heroicon-o-phone')
+                                    ->color('primary'),
+                                TextEntry::make('secondary_phone')
+                                    ->label('التليفون 2')
+                                    ->icon('heroicon-o-phone')
+                                    ->placeholder('غير محدد'),
+                                TextEntry::make('email')
+                                    ->label('البريد الإلكتروني')
+                                    ->icon('heroicon-o-envelope')
+                                    ->placeholder('غير محدد'),
+                            ]),
+                    ])
+                    ->columnSpan(1),
+
+                // ملخص الإحصائيات
+                Section::make('ملخص الإحصائيات')
+                    ->schema([
+                        Grid::make(2)
+                            ->schema([
+                                TextEntry::make('total_properties')
+                                    ->label('عدد العقارات')
+                                    ->state($reportData['summary']['total_properties'])
+                                    ->badge()
+                                    ->color('primary')
+                                    ->size('lg'),
+                                TextEntry::make('total_units')
+                                    ->label('إجمالي الوحدات')
+                                    ->state($reportData['summary']['total_units'])
+                                    ->badge()
+                                    ->color('info'),
+                                TextEntry::make('occupied_units')
+                                    ->label('وحدات مشغولة')
+                                    ->state($reportData['summary']['occupied_units'])
+                                    ->badge()
+                                    ->color('success'),
+                                TextEntry::make('vacant_units')
+                                    ->label('وحدات شاغرة')
+                                    ->state($reportData['summary']['vacant_units'])
+                                    ->badge()
+                                    ->color('warning'),
+                                TextEntry::make('occupancy_rate')
+                                    ->label('نسبة الإشغال')
+                                    ->state($reportData['summary']['occupancy_rate'].'%')
+                                    ->badge()
+                                    ->color(fn () => match (true) {
+                                        $reportData['summary']['occupancy_rate'] >= 80 => 'success',
+                                        $reportData['summary']['occupancy_rate'] >= 50 => 'warning',
+                                        default => 'danger',
+                                    }),
+                            ]),
+                    ])
+                    ->columnSpan(1),
+
+                // الإحصائيات المالية
+                Section::make('الإحصائيات المالية')
+                    ->schema([
+                        Grid::make(4)
+                            ->schema([
+                                TextEntry::make('monthly_revenue')
+                                    ->label('الإيراد الشهري')
+                                    ->state(number_format($reportData['summary']['monthly_revenue'], 2).' ر.س')
+                                    ->color('success')
+                                    ->weight(FontWeight::Bold),
+                                TextEntry::make('annual_revenue')
+                                    ->label('الإيراد السنوي')
+                                    ->state(number_format($reportData['summary']['annual_revenue'], 2).' ر.س')
+                                    ->color('success')
+                                    ->weight(FontWeight::Bold),
+                                TextEntry::make('total_paid')
+                                    ->label('إجمالي المحصل')
+                                    ->state(number_format($reportData['summary']['total_paid'], 2).' ر.س')
+                                    ->color('success')
+                                    ->weight(FontWeight::Bold),
+                                TextEntry::make('total_overdue')
+                                    ->label('إجمالي المتأخر')
+                                    ->state(number_format($reportData['summary']['total_overdue'], 2).' ر.س')
+                                    ->color('danger')
+                                    ->weight(FontWeight::Bold),
+                            ]),
+                    ])
+                    ->columnSpanFull(),
+
+                // تقرير العقارات
+                Section::make('تقرير العقارات')
+                    ->schema([
+                        RepeatableEntry::make('properties_report')
+                            ->hiddenLabel()
+                            ->state($reportData['propertiesReport'])
+                            ->schema([
+                                Grid::make(3)
+                                    ->schema([
+                                        TextEntry::make('property_name')
+                                            ->label('اسم العقار')
+                                            ->weight(FontWeight::Bold)
+                                            ->size('lg'),
+                                        TextEntry::make('location')
+                                            ->label('الموقع')
+                                            ->icon('heroicon-o-map-pin'),
+                                        TextEntry::make('property_category')
+                                            ->label('صنف العقار')
+                                            ->badge()
+                                            ->color('info'),
+                                    ]),
+                                Grid::make(4)
+                                    ->schema([
+                                        TextEntry::make('collection_payments')
+                                            ->label('دفعات التحصيل')
+                                            ->badge()
+                                            ->color('warning'),
+                                        TextEntry::make('total_income')
+                                            ->label('المحصل')
+                                            ->formatStateUsing(fn ($state) => number_format($state, 2).' ر.س')
+                                            ->color('success')
+                                            ->weight(FontWeight::Bold),
+                                        TextEntry::make('admin_percentage')
+                                            ->label('نسبة الإدارة')
+                                            ->formatStateUsing(fn ($state) => $state.'%')
+                                            ->badge()
+                                            ->color('gray'),
+                                        TextEntry::make('admin_fee')
+                                            ->label('رسوم الإدارة')
+                                            ->formatStateUsing(fn ($state) => number_format($state, 2).' ر.س')
+                                            ->color('danger')
+                                            ->weight(FontWeight::Bold),
+                                    ]),
+                            ])
+                            ->columns(1),
+                    ])
+                    ->columnSpanFull()
+                    ->visible(count($reportData['propertiesReport']) > 0),
+
+                // إجمالي العقارات
+                Section::make('إجمالي تقرير العقارات')
+                    ->schema([
+                        Grid::make(2)
+                            ->schema([
+                                TextEntry::make('total_income')
+                                    ->label('إجمالي المحصل')
+                                    ->state(number_format($reportData['propertiesTotal']['total_income'], 2).' ر.س')
+                                    ->color('success')
+                                    ->weight(FontWeight::Bold)
+                                    ->size('lg'),
+                                TextEntry::make('total_admin_fee')
+                                    ->label('إجمالي رسوم الإدارة')
+                                    ->state(number_format($reportData['propertiesTotal']['total_admin_fee'], 2).' ر.س')
+                                    ->color('danger')
+                                    ->weight(FontWeight::Bold)
+                                    ->size('lg'),
+                            ]),
+                    ])
+                    ->columnSpanFull()
+                    ->visible(count($reportData['propertiesReport']) > 0),
+
+                // تقرير المستأجرين والعقود النشطة
+                Section::make('العقود النشطة والمستأجرين')
+                    ->schema([
+                        RepeatableEntry::make('tenants_report')
+                            ->hiddenLabel()
+                            ->state($reportData['tenantsReport'])
+                            ->schema([
+                                Grid::make(6)
+                                    ->schema([
+                                        TextEntry::make('property_name')
+                                            ->label('العقار')
+                                            ->badge()
+                                            ->color('primary'),
+                                        TextEntry::make('unit_name')
+                                            ->label('الوحدة')
+                                            ->icon('heroicon-o-home'),
+                                        TextEntry::make('tenant_name')
+                                            ->label('المستأجر')
+                                            ->weight(FontWeight::Bold),
+                                        TextEntry::make('tenant_phone')
+                                            ->label('الهاتف')
+                                            ->icon('heroicon-o-phone'),
+                                        TextEntry::make('monthly_rent')
+                                            ->label('الإيجار الشهري')
+                                            ->formatStateUsing(fn ($state) => number_format($state, 2).' ر.س')
+                                            ->color('warning'),
+                                        TextEntry::make('remaining_days')
+                                            ->label('الأيام المتبقية')
+                                            ->formatStateUsing(fn ($state) => $state > 0 ? $state.' يوم' : 'منتهي')
+                                            ->badge()
+                                            ->color(fn ($state) => match (true) {
+                                                $state <= 0 => 'danger',
+                                                $state <= 30 => 'warning',
+                                                default => 'success',
+                                            }),
+                                    ]),
+                            ])
+                            ->columns(1),
+                    ])
+                    ->columnSpanFull()
+                    ->visible(count($reportData['tenantsReport']) > 0)
+                    ->collapsed(),
+            ]);
+    }
 
     protected function getHeaderActions(): array
     {
@@ -32,7 +253,8 @@ class ViewOwner extends ViewRecord
                 ->color('gray')
                 ->modalHeading('طباعة تقرير المالك')
                 ->modalContent(function () {
-                    $data = $this->getViewData();
+                    $data = $this->getReportData();
+                    $data['owner'] = $this->record;
 
                     return view('filament.resources.owner-resource.pages.print-owner', $data);
                 })
@@ -62,16 +284,15 @@ class ViewOwner extends ViewRecord
         ];
     }
 
-    protected function getViewData(): array
+    protected function getReportData(): array
     {
         $owner = $this->record;
 
-        // جلب عقارات المالك مع العلاقات باستخدام eager loading
+        // جلب عقارات المالك مع العلاقات
         $properties = Property::where('owner_id', $owner->id)
             ->with([
                 'location',
                 'propertyType',
-                'propertyStatus',
                 'units' => function ($query) {
                     $query->with([
                         'unitType',
@@ -85,47 +306,39 @@ class ViewOwner extends ViewRecord
 
         // حساب الإحصائيات العامة
         $totalProperties = $properties->count();
-        $totalUnits = $properties->sum(function ($property) {
-            return $property->units->count();
-        });
-        $occupiedUnits = $properties->sum(function ($property) {
-            return $property->units->filter(function ($unit) {
-                return $unit->activeContract !== null;
-            })->count();
-        });
+        $totalUnits = $properties->sum(fn ($property) => $property->units->count());
+        $occupiedUnits = $properties->sum(fn ($property) => $property->units->filter(fn ($unit) => $unit->activeContract !== null)->count());
         $vacantUnits = $totalUnits - $occupiedUnits;
         $occupancyRate = $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100, 1) : 0;
 
-        // بيانات الجدول الأول - تقرير العقارات
+        // بيانات تقرير العقارات
         $propertiesReport = [];
+        $ownerDetailedReport = [];
         $totalIncome = 0;
         $totalAdminFee = 0;
         $totalPaid = 0;
         $totalOverdue = 0;
+        $totalMaintenance = 0;
 
         foreach ($properties as $property) {
-            // حساب إجمالي الدخل من التحصيل المحصل
             $propertyIncome = CollectionPayment::where('property_id', $property->id)
                 ->collectedPayments()
                 ->sum('total_amount');
 
-            // حساب المدفوع والمتأخر
-            $propertyPaid = CollectionPayment::where('property_id', $property->id)
-                ->collectedPayments()
-                ->sum('total_amount');
+            $propertyPaid = $propertyIncome;
 
             $propertyOverdue = CollectionPayment::where('property_id', $property->id)
                 ->overduePayments()
                 ->sum('total_amount');
 
-            // نسبة الإدارة من عقد العقار
-            $propertyContract = \App\Models\PropertyContract::where('property_id', $property->id)
+            $propertyContract = PropertyContract::where('property_id', $property->id)
                 ->where('contract_status', 'active')
                 ->first();
 
-            $adminPercentage = $propertyContract ? $propertyContract->commission_rate : 0;
+            $adminPercentage = $propertyContract?->commission_rate ?? 0;
             $adminFee = $propertyIncome * ($adminPercentage / 100);
 
+            // تقرير العقارات (للعرض والطباعة)
             $propertiesReport[] = [
                 'property_name' => $property->name,
                 'location' => $property->location?->name ?? 'غير محدد',
@@ -136,102 +349,12 @@ class ViewOwner extends ViewRecord
                 'total_income' => $propertyIncome,
                 'admin_percentage' => $adminPercentage,
                 'admin_fee' => $adminFee,
-                'paid_amount' => $propertyPaid,
-                'overdue_amount' => $propertyOverdue,
-                'units_count' => $property->units->count(),
-                'occupied_units' => $property->units->filter(function ($unit) {
-                    return $unit->activeContract !== null;
-                })->count(),
             ];
 
-            $totalIncome += $propertyIncome;
-            $totalAdminFee += $adminFee;
-            $totalPaid += $propertyPaid;
-            $totalOverdue += $propertyOverdue;
-        }
-
-        // بيانات الجدول الثالث - معلومات المستأجرين والعقود النشطة
-        $tenantsReport = [];
-        foreach ($properties as $property) {
-            foreach ($property->units as $unit) {
-                if ($unit->activeContract) {
-                    $contract = $unit->activeContract;
-                    $remainingDays = $contract->getRemainingDays();
-
-                    // حساب المدفوع والمتأخر للعقد
-                    $contractPaid = $contract->payments()
-                        ->collectedPayments()
-                        ->sum('total_amount');
-                    $contractOverdue = $contract->payments()
-                        ->overduePayments()
-                        ->sum('total_amount');
-
-                    $tenantsReport[] = [
-                        'property_name' => $property->name,
-                        'unit_name' => $unit->name,
-                        'tenant_name' => $contract->tenant->name,
-                        'tenant_phone' => $contract->tenant->phone,
-                        'monthly_rent' => $contract->monthly_rent,
-                        'contract_start' => $contract->start_date,
-                        'contract_end' => $contract->end_date,
-                        'remaining_days' => $remainingDays,
-                        'contract_status' => $contract->getStatusLabel(),
-                        'contract_status_color' => $contract->getStatusColor(),
-                        'paid_amount' => $contractPaid,
-                        'overdue_amount' => $contractOverdue,
-                    ];
-                }
-            }
-        }
-
-        // حساب الإيرادات الشهرية والسنوية
-        $monthlyRevenue = $properties->sum(function ($property) {
-            return $property->units->sum(function ($unit) {
-                return $unit->activeContract ? $unit->activeContract->monthly_rent : 0;
-            });
-        });
-        $annualRevenue = $monthlyRevenue * 12;
-
-        // بيانات الجدول الثاني - تقرير مالك العقار التفصيلي
-        $ownerDetailedReport = [];
-        $detailedTotals = [
-            'payment_amount' => 0,
-            'admin_fee' => 0,
-            'maintenance_special' => 0,
-            'government_obligations' => 0,
-            'general_maintenance' => 0,
-            'general_obligations' => 0,
-            'net_income' => 0,
-            'grand_total' => 0,
-        ];
-
-        foreach ($properties as $property) {
-            // حساب مصاريف الصيانة الخاصة بالعقار
-            $maintenanceExpenses = PropertyRepair::where('property_id', $property->id)
-                ->whereYear('maintenance_date', date('Y'))
-                ->sum('total_cost');
-
-            // حساب الإيرادات والمصاريف للعقار
-            $propertyIncome = CollectionPayment::where('property_id', $property->id)
-                ->collectedPayments()
-                ->sum('total_amount');
-
-            // نسبة الإدارة من عقد العقار
-            $propertyContract = \App\Models\PropertyContract::where('property_id', $property->id)
-                ->where('contract_status', 'active')
-                ->first();
-
-            $adminPercentage = $propertyContract ? $propertyContract->commission_rate : 0;
-            $adminFee = $propertyIncome * ($adminPercentage / 100);
-
-            // حساب صافي المبلغ للمالك
-            $netIncome = $propertyIncome - $adminFee - $maintenanceExpenses;
-
-            // معلومات الوحدات
+            // تقرير تفصيلي للطباعة
             $unitsCount = $property->units->count();
-            $unitTypes = $property->units->pluck('unitType.name')->unique()->implode(', ');
+            $unitTypes = $property->units->pluck('unitType.name')->unique()->filter()->implode(', ') ?: '-';
 
-            // تواريخ الدفع من أول وآخر دفعة
             $firstPayment = CollectionPayment::where('property_id', $property->id)
                 ->collectedPayments()
                 ->orderBy('due_date_start', 'asc')
@@ -245,30 +368,59 @@ class ViewOwner extends ViewRecord
             $ownerDetailedReport[] = [
                 'property_name' => $property->name,
                 'units_count' => $unitsCount,
-                'unit_type' => $unitTypes ?: '-',
-                'payment_date_from' => $firstPayment?->due_date_start ?? '-',
-                'payment_date_to' => $lastPayment?->due_date_end ?? '-',
+                'unit_type' => $unitTypes,
+                'payment_date_from' => $firstPayment?->due_date_start,
+                'payment_date_to' => $lastPayment?->due_date_end,
                 'payment_amount' => $propertyIncome,
                 'admin_fee' => $adminFee,
-                'maintenance_special' => $maintenanceExpenses,
-                'government_obligations' => 0, // يمكن إضافة الحساب الفعلي لاحقاً
-                'net_income' => $netIncome,
+                'maintenance_special' => 0,
+                'government_obligations' => 0,
+                'net_income' => $propertyIncome - $adminFee,
             ];
 
-            // تحديث الإجماليات
-            $detailedTotals['payment_amount'] += $propertyIncome;
-            $detailedTotals['admin_fee'] += $adminFee;
-            $detailedTotals['maintenance_special'] += $maintenanceExpenses;
-            $detailedTotals['net_income'] += $netIncome;
+            $totalIncome += $propertyIncome;
+            $totalAdminFee += $adminFee;
+            $totalPaid += $propertyPaid;
+            $totalOverdue += $propertyOverdue;
         }
 
-        // حساب الإجمالي الكلي
-        $detailedTotals['grand_total'] = $detailedTotals['net_income'] -
-            $detailedTotals['general_maintenance'] -
-            $detailedTotals['general_obligations'];
+        // بيانات المستأجرين والعقود النشطة
+        $tenantsReport = [];
+        foreach ($properties as $property) {
+            foreach ($property->units as $unit) {
+                if ($unit->activeContract) {
+                    $contract = $unit->activeContract;
+                    $remainingDays = $contract->getRemainingDays();
+
+                    $tenantsReport[] = [
+                        'property_name' => $property->name,
+                        'unit_name' => $unit->name,
+                        'tenant_name' => $contract->tenant->name,
+                        'tenant_phone' => $contract->tenant->phone,
+                        'monthly_rent' => $contract->monthly_rent,
+                        'remaining_days' => $remainingDays,
+                    ];
+                }
+            }
+        }
+
+        // حساب الإيرادات
+        $monthlyRevenue = $properties->sum(fn ($property) => $property->units->sum(fn ($unit) => $unit->activeContract?->monthly_rent ?? 0));
+        $annualRevenue = $monthlyRevenue * 12;
+
+        // إجماليات التقرير التفصيلي
+        $detailedTotals = [
+            'payment_amount' => $totalIncome,
+            'admin_fee' => $totalAdminFee,
+            'maintenance_special' => $totalMaintenance,
+            'government_obligations' => 0,
+            'general_maintenance' => 0,
+            'general_obligations' => 0,
+            'net_income' => $totalIncome - $totalAdminFee,
+            'grand_total' => $totalIncome - $totalAdminFee - $totalMaintenance,
+        ];
 
         return [
-            'owner' => $owner,
             'summary' => [
                 'total_properties' => $totalProperties,
                 'total_units' => $totalUnits,
