@@ -20,20 +20,11 @@ class ContractFormSchema
                 ->required()
                 ->minValue(1)
                 ->suffix('شهر')
-                ->live()
+                ->live(onBlur: true)
                 ->afterStateUpdated(function ($state, $get, $set) use ($record) {
                     $frequency = $get($record ? 'new_frequency' : 'payment_frequency') ?? 'monthly';
                     $count = PropertyContractService::calculatePaymentsCount($state ?? 0, $frequency);
                     $set($record ? 'new_payments_count' : 'payments_count', $count);
-
-                    // إظهار تنبيه عند إدخال قيمة غير صالحة
-                    if (($state ?? 0) < 1) {
-                        \Filament\Notifications\Notification::make()
-                            ->title('خطأ في المدة')
-                            ->body('يجب أن تكون المدة شهر واحد على الأقل')
-                            ->danger()
-                            ->send();
-                    }
                 })
                 ->rules([
                     fn ($get): Closure => function (string $attribute, $value, Closure $fail) use ($get, $type, $record) {
@@ -95,7 +86,7 @@ class ContractFormSchema
                     'annually' => 'سنة',
                 ])
                 ->default('monthly')
-                ->live()
+                ->live(onBlur: true)
                 ->afterStateUpdated(function ($state, $get, $set) use ($record) {
                     $duration = $get($record ? 'additional_months' : 'duration_months') ?? 0;
                     $count = PropertyContractService::calculatePaymentsCount($duration, $state ?? 'monthly');

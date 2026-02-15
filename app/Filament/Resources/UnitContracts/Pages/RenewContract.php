@@ -75,16 +75,6 @@ class RenewContract extends Page implements HasForms
                                 ->minValue(0.01)
                                 ->step(0.01)
                                 ->postfix('ريال')
-                                ->live()
-                                ->afterStateUpdated(function ($state) {
-                                    if (($state ?? 0) <= 0) {
-                                        Notification::make()
-                                            ->title('خطأ في قيمة الإيجار')
-                                            ->body('يجب أن تكون قيمة الإيجار أكبر من صفر')
-                                            ->danger()
-                                            ->send();
-                                    }
-                                })
                                 ->validationMessages([
                                     'required' => 'يجب إدخال قيمة الإيجار',
                                     'min' => 'يجب أن تكون قيمة الإيجار أكبر من صفر',
@@ -97,19 +87,11 @@ class RenewContract extends Page implements HasForms
                                 ->required()
                                 ->minValue(1)
                                 ->suffix('شهر')
-                                ->live()
+                                ->live(onBlur: true)
                                 ->afterStateUpdated(function ($state, $get, $set) {
                                     $frequency = $get('new_frequency') ?? 'monthly';
                                     $count = PropertyContractService::calculatePaymentsCount($state ?? 0, $frequency);
                                     $set('new_payments_count', $count);
-
-                                    if (($state ?? 0) < 1) {
-                                        Notification::make()
-                                            ->title('خطأ في المدة')
-                                            ->body('يجب أن تكون مدة التجديد شهر واحد على الأقل')
-                                            ->danger()
-                                            ->send();
-                                    }
                                 })
                                 ->rules([
                                     fn ($get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
@@ -164,7 +146,7 @@ class RenewContract extends Page implements HasForms
                                     'annually' => 'سنة',
                                 ])
                                 ->default('monthly')
-                                ->live()
+                                ->live(onBlur: true)
                                 ->afterStateUpdated(function ($state, $get, $set) {
                                     $duration = $get('extension_months') ?? 0;
                                     $count = PropertyContractService::calculatePaymentsCount($duration, $state ?? 'monthly');
