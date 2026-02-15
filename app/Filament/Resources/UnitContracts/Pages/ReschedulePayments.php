@@ -66,6 +66,7 @@ class ReschedulePayments extends Page implements HasForms
         $this->form->fill([
             'new_monthly_rent' => $record->monthly_rent,
             'new_frequency' => $record->payment_frequency ?? 'monthly',
+            'additional_months' => $record->getRemainingMonths(),
         ]);
     }
 

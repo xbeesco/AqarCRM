@@ -57,6 +57,7 @@ class ReschedulePayments extends Page implements HasForms
         $this->form->fill([
             'new_commission_rate' => $this->record->commission_rate,
             'new_frequency' => $this->record->payment_frequency ?? 'monthly',
+            'additional_months' => $this->record->getRemainingMonths(),
         ]);
     }
 
