@@ -170,7 +170,6 @@ class UnitContractForm
 
                         FileUpload::make('file')
                             ->label('ملف العقد')
-                            ->required()
                             ->directory('unit-contract--file')
                             ->columnSpan(6),
 

@@ -51,13 +51,11 @@ class PropertyContractResource extends Resource
     }
 
     /**
-     * Only super_admin can edit contracts
+     * Editing contracts is disabled
      */
     public static function canEdit(Model $record): bool
     {
-        $user = auth()->user();
-
-        return $user && $user->type === 'super_admin';
+        return false;
     }
 
     /**
