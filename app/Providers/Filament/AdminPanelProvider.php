@@ -114,8 +114,8 @@ class AdminPanelProvider extends PanelProvider
                                     fn ($item) => $item->icon('heroicon-o-key'),
                                     OwnerResource::getNavigationItems()
                                 ),
-                                // عرض الموظفين للمدير والمدير العام والموظفين (لرؤية ملفهم الشخصي)
-                                ...(in_array(auth()->user()?->type, ['super_admin', 'admin', 'employee'])
+                                // عرض الموظفين للمدير والمدير العام فقط
+                                ...(in_array(auth()->user()?->type, ['super_admin', 'admin'])
                                     ? array_map(
                                         fn ($item) => $item->icon('heroicon-o-briefcase'),
                                         EmployeeResource::getNavigationItems()
