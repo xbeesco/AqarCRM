@@ -142,20 +142,32 @@ class CollectionPayment extends Model
             return PaymentStatus::COLLECTED;
         }
 
+        $today = Carbon::now()->startOfDay();
+
+        // التحقق من التأجيل - لازم نتأكد إن فترة التأجيل لسه سارية
         if ($this->delay_duration && $this->delay_duration > 0) {
-            return PaymentStatus::POSTPONED;
+            $postponedUntil = Carbon::parse($this->due_date_start)->addDays($this->delay_duration);
+            if ($today <= $postponedUntil) {
+                return PaymentStatus::POSTPONED;
+            }
+            // فترة التأجيل انتهت - نكمل للحالات التانية
         }
 
-        $today = Carbon::now()->startOfDay();
+        // حساب تاريخ الاستحقاق الفعلي (بعد التأجيل لو موجود)
+        $effectiveDueDate = $this->due_date_start;
+        if ($this->delay_duration && $this->delay_duration > 0) {
+            $effectiveDueDate = Carbon::parse($this->due_date_start)->addDays($this->delay_duration);
+        }
+
         $totalGraceDays = $this->getTotalGraceThreshold();
-        $overdueDate = $today->copy()->subDays($totalGraceDays);
+        $overdueDate = Carbon::parse($effectiveDueDate)->addDays($totalGraceDays);
 
         // إذا كانت متأخرة (تجاوزت مدة السماح الكلية)
-        if ($this->due_date_start < $overdueDate) {
+        if ($today > $overdueDate) {
             return PaymentStatus::OVERDUE;
         }
 
-        if ($this->due_date_start <= $today) {
+        if ($effectiveDueDate <= $today) {
             return PaymentStatus::DUE;
         }
 
@@ -250,47 +262,68 @@ class CollectionPayment extends Model
     }
 
     /**
-     * Scope for payments due for collection.
+     * Scope for payments due for collection (including expired postponements).
      */
     public function scopeDueForCollection($query)
     {
-        $today = Carbon::now()->startOfDay();
+        $today = Carbon::now()->startOfDay()->toDateString();
+        $totalGraceDays = (new self)->getTotalGraceThreshold();
 
-        return $query->where('due_date_start', '<=', $today)
-            ->whereNull('collection_date')
-            ->where(function ($q) {
-                $q->whereNull('delay_duration')
-                    ->orWhere('delay_duration', 0);
+        return $query->whereNull('collection_date')
+            ->where(function ($q) use ($today, $totalGraceDays) {
+                // دفعات بدون تأجيل ومستحقة (لم تتجاوز مدة السماح)
+                $q->where(function ($sub) use ($today, $totalGraceDays) {
+                    $sub->where(function ($s) {
+                        $s->whereNull('delay_duration')->orWhere('delay_duration', 0);
+                    })
+                    ->where('due_date_start', '<=', $today)
+                    ->whereRaw("DATE_ADD(due_date_start, INTERVAL ? DAY) >= ?", [$totalGraceDays, $today]);
+                })
+                // أو دفعات انتهى تأجيلها ومستحقة (لم تتجاوز مدة السماح)
+                ->orWhere(function ($sub) use ($today, $totalGraceDays) {
+                    $sub->whereNotNull('delay_duration')
+                        ->where('delay_duration', '>', 0)
+                        ->whereRaw("DATE_ADD(due_date_start, INTERVAL delay_duration DAY) <= ?", [$today])
+                        ->whereRaw("DATE_ADD(DATE_ADD(due_date_start, INTERVAL delay_duration DAY), INTERVAL ? DAY) >= ?", [$totalGraceDays, $today]);
+                });
             });
     }
 
     /**
-     * Scope for postponed payments.
+     * Scope for postponed payments (still within postponement period).
      */
     public function scopePostponedPayments($query)
     {
-        $today = Carbon::now()->startOfDay();
+        $today = Carbon::now()->startOfDay()->toDateString();
 
-        return $query->where('due_date_start', '<=', $today)
-            ->whereNull('collection_date')
+        return $query->whereNull('collection_date')
             ->whereNotNull('delay_duration')
-            ->where('delay_duration', '>', 0);
+            ->where('delay_duration', '>', 0)
+            ->whereRaw("DATE_ADD(due_date_start, INTERVAL delay_duration DAY) >= ?", [$today]);
     }
 
     /**
-     * Scope for overdue payments.
+     * Scope for overdue payments (including expired postponements).
      */
     public function scopeOverduePayments($query)
     {
-        $today = Carbon::now()->startOfDay();
+        $today = Carbon::now()->startOfDay()->toDateString();
         $totalGraceDays = (new self)->getTotalGraceThreshold();
-        $overdueDate = $today->copy()->subDays($totalGraceDays);
 
-        return $query->where('due_date_start', '<', $overdueDate)
-            ->whereNull('collection_date')
-            ->where(function ($q) {
-                $q->whereNull('delay_duration')
-                    ->orWhere('delay_duration', 0);
+        return $query->whereNull('collection_date')
+            ->where(function ($q) use ($today, $totalGraceDays) {
+                // دفعات بدون تأجيل ومتأخرة
+                $q->where(function ($sub) use ($today, $totalGraceDays) {
+                    $sub->where(function ($s) {
+                        $s->whereNull('delay_duration')->orWhere('delay_duration', 0);
+                    })->whereRaw("DATE_ADD(due_date_start, INTERVAL ? DAY) < ?", [$totalGraceDays, $today]);
+                })
+                // أو دفعات منتهية التأجيل ومتأخرة
+                ->orWhere(function ($sub) use ($today, $totalGraceDays) {
+                    $sub->whereNotNull('delay_duration')
+                        ->where('delay_duration', '>', 0)
+                        ->whereRaw("DATE_ADD(DATE_ADD(due_date_start, INTERVAL delay_duration DAY), INTERVAL ? DAY) < ?", [$totalGraceDays, $today]);
+                });
             });
     }
 
