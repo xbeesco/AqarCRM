@@ -420,7 +420,7 @@ class PropertyContractReschedulePageTest extends TestCase
 
         $contract = $this->createContractWithPayments(12, 'monthly', 3);
 
-        $unpaidBefore = $contract->supplyPayments()->where('supply_status', 'pending')->count();
+        $unpaidBefore = $contract->supplyPayments()->whereNull('paid_date')->count();
 
         // 12 months total, 3 paid = 9 unpaid months/payments
         // Reschedule: add 6 months monthly

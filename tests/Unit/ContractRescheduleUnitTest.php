@@ -20,8 +20,9 @@ class ContractRescheduleUnitTest extends TestCase
         $this->seedLookupData();
     }
 
-    /** @test */
-    //  التاكد من صحه حساب عددالشهور علي عدد الدفعات
+    /**
+     * التاكد من صحه حساب عددالشهور علي عدد الدفعات
+     */
     public function test_calculates_correct_payment_counts()
     {
         // Monthly

@@ -10,6 +10,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class ReschedulePaymentsUiTest extends TestCase
@@ -55,7 +56,7 @@ class ReschedulePaymentsUiTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function it_can_render_reschedule_page()
     {
         $this->actingAs($this->superAdmin);
@@ -65,7 +66,7 @@ class ReschedulePaymentsUiTest extends TestCase
         ])->assertSuccessful();
     }
 
-    /** @test */
+    #[Test]
     public function it_updates_summary_when_duration_changes()
     {
         $this->actingAs($this->superAdmin);
@@ -80,7 +81,7 @@ class ReschedulePaymentsUiTest extends TestCase
             ->assertSee('إجمالي مدة العقد الجديدة: 6 شهر'); // Since 0 are paid in this test setup
     }
 
-    /** @test */
+    #[Test]
     public function it_calculates_new_payments_count_reactively()
     {
         $this->actingAs($this->superAdmin);

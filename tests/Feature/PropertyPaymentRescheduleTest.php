@@ -2,22 +2,24 @@
 
 namespace Tests\Feature;
 
-use Tests\TestCase;
-use App\Models\User;
 use App\Models\Property;
 use App\Models\PropertyContract;
-use App\Models\SupplyPayment;
+use App\Models\User;
 use App\Services\PaymentGeneratorService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
 class PropertyPaymentRescheduleTest extends TestCase
 {
     use RefreshDatabase;
 
     protected PaymentGeneratorService $service;
+
     protected User $superAdmin;
+
     protected Property $property;
+
     protected User $owner;
 
     protected function setUp(): void
@@ -40,7 +42,7 @@ class PropertyPaymentRescheduleTest extends TestCase
         float $commissionRate = 5.0
     ): PropertyContract {
         $contract = PropertyContract::create([
-            'contract_number' => 'PC-TEST-' . rand(1000, 9999),
+            'contract_number' => 'PC-TEST-'.rand(1000, 9999),
             'owner_id' => $this->owner->id,
             'property_id' => $this->property->id,
             'commission_rate' => $commissionRate,
@@ -58,7 +60,6 @@ class PropertyPaymentRescheduleTest extends TestCase
         for ($i = 0; $i < $paidCount && $i < count($payments); $i++) {
             $payments[$i]->update([
                 'paid_date' => Carbon::now(),
-                'supply_status' => 'paid'
             ]);
         }
 

@@ -444,7 +444,7 @@ class OwnerResource extends Resource
         $dateTo = now();
 
         // إجمالي التحصيل من عقارات المالك
-        $totalCollection = CollectionPayment::where('property_id', function ($query) use ($owner) {
+        $totalCollection = CollectionPayment::whereIn('property_id', function ($query) use ($owner) {
             $query->select('id')
                 ->from('properties')
                 ->where('owner_id', $owner->id);

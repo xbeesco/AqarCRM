@@ -154,7 +154,7 @@ class PaymentGeneratorService
      */
     private function calculatePaymentCount($startDate, $endDate, $frequency): int
     {
-        $months = $startDate->diffInMonths($endDate) + 1;
+        $months = (int) floor($startDate->diffInMonths($endDate)) + 1;
         $monthsPerPayment = PropertyContractService::getMonthsPerPayment($frequency);
 
         if ($monthsPerPayment === 0) {
@@ -633,7 +633,7 @@ class PaymentGeneratorService
             $newEndDate = $newStartDate->copy()->addMonths($additionalMonths)->subDay();
 
             $originalStart = Carbon::parse($contract->start_date);
-            $totalMonths = $originalStart->diffInMonths($newEndDate) + 1;
+            $totalMonths = (int) floor($originalStart->diffInMonths($newEndDate)) + 1;
 
             $contract->update([
                 'end_date' => $newEndDate,
