@@ -71,13 +71,13 @@ class PropertyContractResource extends Resource
     }
 
     /**
-     * Only admins can create contracts
+     * Admins and employees can create contracts
      */
     public static function canCreate(): bool
     {
         $user = auth()->user();
 
-        return $user && in_array($user->type, ['super_admin', 'admin']);
+        return $user && in_array($user->type, ['super_admin', 'admin', 'employee']);
     }
 
     /**
