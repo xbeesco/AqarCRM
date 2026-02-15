@@ -1,45 +1,71 @@
+@php
+    use App\Models\CollectionPayment;
+    use App\Models\UnitContract;
+
+    $activeContract = UnitContract::where('tenant_id', $tenant->id)
+        ->where('contract_status', 'active')
+        ->with(['unit.property'])
+        ->first();
+
+    $totalPaid = CollectionPayment::where('tenant_id', $tenant->id)
+        ->collectedPayments()
+        ->sum('total_amount');
+
+    $pendingPayments = CollectionPayment::where('tenant_id', $tenant->id)
+        ->dueForCollection()
+        ->sum('total_amount');
+
+    $overduePayments = CollectionPayment::where('tenant_id', $tenant->id)
+        ->overduePayments()
+        ->sum('total_amount');
+
+    $paymentCount = CollectionPayment::where('tenant_id', $tenant->id)->count();
+
+    $remainingDays = $activeContract ? now()->diffInDays($activeContract->end_date, false) : 0;
+@endphp
+
 <style>
     @media print {
         @page {
-            size: A4;
-            margin: 20mm 15mm;
+            size: A4 landscape;
+            margin: 15mm 10mm;
         }
-        
+
         body {
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
         }
-        
+
         * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
             color-adjust: exact !important;
         }
-        
+
         .print-content {
             background: white !important;
         }
-        
+
         .print-header {
             text-align: center;
-            padding: 20px 0;
+            padding: 15px 0;
             border-bottom: 2px solid #333;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
-        
+
         .print-header h2 {
             margin: 0;
-            font-size: 18pt;
+            font-size: 16pt;
             color: #333;
         }
-        
+
         .print-header p {
             margin: 5px 0 0 0;
-            font-size: 12pt;
+            font-size: 11pt;
             color: #666;
         }
-        
+
         .print-footer {
             position: fixed;
             bottom: 0;
@@ -48,20 +74,42 @@
             text-align: center;
             padding: 10px;
             border-top: 1px solid #ccc;
-            font-size: 10pt;
+            font-size: 9pt;
             color: #666;
         }
+
+        .section {
+            page-break-inside: avoid;
+        }
     }
-    
-    /* إخفاء العناصر في العرض العادي */
+
     .print-only {
         display: none;
     }
-    
+
     @media print {
         .print-only {
             display: block !important;
         }
+    }
+
+    .stat-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 4px;
+    }
+
+    .stat-label {
+        font-size: 12px;
+        color: #6b7280;
     }
 </style>
 
@@ -72,80 +120,104 @@
         <p>تقرير المستأجر</p>
         <p style="font-size: 10pt;">التاريخ: {{ \Carbon\Carbon::now()->format('Y-m-d') }} | الوقت: {{ \Carbon\Carbon::now()->format('H:i') }}</p>
     </div>
-    
-    {{-- اسم المستأجر والعنوان --}}
-    <div style="background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb; text-align: center;">
-        <h1 style="font-size: 28px; font-weight: bold; color: #111827; margin: 0;">
-            {{ $tenant->name }}
-        </h1>
-        <p style="font-size: 16px; color: #6b7280; margin-top: 8px;">
-            تقرير المستأجر
-        </p>
-    </div>
-    
-    {{-- جدول تقرير المستأجر --}}
-    <div style="background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb; overflow: hidden;">
-        <div style="background: #f9fafb; padding: 16px 24px; border-bottom: 1px solid #e5e7eb;">
-            <h3 style="font-size: 16px; font-weight: 600; color: #111827;">بيانات المستأجر</h3>
+
+    {{-- معلومات المستأجر --}}
+    <div class="section" style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb;">
+        <h3 style="font-size: 16px; font-weight: 600; color: #374151; margin: 0 0 16px 0; border-bottom: 2px solid #f59e0b; padding-bottom: 8px;">معلومات المستأجر</h3>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+            <div>
+                <span style="font-size: 12px; color: #6b7280;">اسم المستأجر</span>
+                <p style="font-size: 18px; font-weight: bold; color: #111827; margin: 4px 0 0 0;">{{ $tenant->name }}</p>
+            </div>
+            <div>
+                <span style="font-size: 12px; color: #6b7280;">رقم الهاتف</span>
+                <p style="font-size: 16px; color: #2563eb; margin: 4px 0 0 0;">{{ $tenant->phone }}</p>
+            </div>
+            <div>
+                <span style="font-size: 12px; color: #6b7280;">البريد الإلكتروني</span>
+                <p style="font-size: 16px; color: #111827; margin: 4px 0 0 0;">{{ $tenant->email ?? 'غير محدد' }}</p>
+            </div>
+            <div>
+                <span style="font-size: 12px; color: #6b7280;">رقم الهوية</span>
+                <p style="font-size: 16px; color: #111827; margin: 4px 0 0 0;">{{ $tenant->national_id ?? 'غير محدد' }}</p>
+            </div>
+            <div>
+                <span style="font-size: 12px; color: #6b7280;">المهنة</span>
+                <p style="font-size: 16px; color: #111827; margin: 4px 0 0 0;">{{ $tenant->occupation ?? 'غير محددة' }}</p>
+            </div>
+            <div>
+                <span style="font-size: 12px; color: #6b7280;">جهة العمل</span>
+                <p style="font-size: 16px; color: #111827; margin: 4px 0 0 0;">{{ $tenant->employer ?? 'غير محددة' }}</p>
+            </div>
         </div>
-        <table style="width: 100%;">
-            <thead>
-                <tr style="background: #f9fafb;">
-                    <th style="padding: 12px 16px; text-align: right; font-size: 12px; font-weight: 600; color: #6b7280; border-bottom: 1px solid #e5e7eb;">اسم المستأجر</th>
-                    <th style="padding: 12px 16px; text-align: right; font-size: 12px; font-weight: 600; color: #6b7280; border-bottom: 1px solid #e5e7eb;">رقم التواصل</th>
-                    <th style="padding: 12px 16px; text-align: right; font-size: 12px; font-weight: 600; color: #6b7280; border-bottom: 1px solid #e5e7eb;">اسم العقار المستأجر</th>
-                    <th style="padding: 12px 16px; text-align: right; font-size: 12px; font-weight: 600; color: #6b7280; border-bottom: 1px solid #e5e7eb;">رقم الوحدة</th>
-                    <th style="padding: 12px 16px; text-align: right; font-size: 12px; font-weight: 600; color: #6b7280; border-bottom: 1px solid #e5e7eb;">نوع الوحدة</th>
-                    <th style="padding: 12px 16px; text-align: right; font-size: 12px; font-weight: 600; color: #6b7280; border-bottom: 1px solid #e5e7eb;">التأمين</th>
-                    <th style="padding: 12px 16px; text-align: right; font-size: 12px; font-weight: 600; color: #6b7280; border-bottom: 1px solid #e5e7eb;">عدد الدفعات</th>
-                    <th style="padding: 12px 16px; text-align: right; font-size: 12px; font-weight: 600; color: #6b7280; border-bottom: 1px solid #e5e7eb;">تاريخ بداية العقد</th>
-                    <th style="padding: 12px 16px; text-align: right; font-size: 12px; font-weight: 600; color: #6b7280; border-bottom: 1px solid #e5e7eb;">الملاحظات</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td style="padding: 16px; font-size: 14px; color: #111827; border-bottom: 1px solid #e5e7eb;">
-                        <span style="background: #dbeafe; color: #1e40af; padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600;">
-                            {{ $reportData['tenant_name'] }}
-                        </span>
-                    </td>
-                    <td style="padding: 16px; font-size: 14px; color: #111827; border-bottom: 1px solid #e5e7eb;">
-                        {{ $reportData['phone'] }}
-                    </td>
-                    <td style="padding: 16px; font-size: 14px; color: #111827; border-bottom: 1px solid #e5e7eb;">
-                        {{ $reportData['property_name'] }}
-                    </td>
-                    <td style="padding: 16px; font-size: 14px; color: #111827; border-bottom: 1px solid #e5e7eb; text-align: center;">
-                        <span style="background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600;">
-                            {{ $reportData['unit_number'] }}
-                        </span>
-                    </td>
-                    <td style="padding: 16px; font-size: 14px; color: #111827; border-bottom: 1px solid #e5e7eb;">
-                        {{ $reportData['unit_type'] }}
-                    </td>
-                    <td style="padding: 16px; font-size: 14px; font-weight: 600; color: #10b981; border-bottom: 1px solid #e5e7eb;">
-                        {{ number_format($reportData['security_deposit']) }} ر.س
-                    </td>
-                    <td style="padding: 16px; font-size: 14px; color: #111827; border-bottom: 1px solid #e5e7eb; text-align: center;">
-                        <span style="background: #fef3c7; color: #92400e; padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600;">
-                            {{ $reportData['payment_count'] }}
-                        </span>
-                    </td>
-                    <td style="padding: 16px; font-size: 14px; color: #111827; border-bottom: 1px solid #e5e7eb;">
-                        @if($reportData['contract_start'] && $reportData['contract_start'] != '-')
-                            {{ \Carbon\Carbon::parse($reportData['contract_start'])->format('Y-m-d') }}
-                        @else
-                            -
-                        @endif
-                    </td>
-                    <td style="padding: 16px; font-size: 14px; color: #6b7280; border-bottom: 1px solid #e5e7eb;">
-                        {{ $reportData['notes'] }}
-                    </td>
-                </tr>
-            </tbody>
-        </table>
     </div>
-    
+
+    {{-- معلومات العقد الحالي --}}
+    @if($activeContract)
+    <div class="section" style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb;">
+        <h3 style="font-size: 16px; font-weight: 600; color: #374151; margin: 0 0 16px 0; border-bottom: 2px solid #f59e0b; padding-bottom: 8px;">معلومات العقد الحالي</h3>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+            <div>
+                <span style="font-size: 12px; color: #6b7280;">العقار الحالي</span>
+                <p style="font-size: 16px; color: #111827; margin: 4px 0 0 0;">
+                    <span style="background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 6px; font-size: 13px;">{{ $activeContract->unit->property->name }}</span>
+                </p>
+            </div>
+            <div>
+                <span style="font-size: 12px; color: #6b7280;">الوحدة</span>
+                <p style="font-size: 16px; color: #111827; margin: 4px 0 0 0;">{{ $activeContract->unit->name }}</p>
+            </div>
+            <div>
+                <span style="font-size: 12px; color: #6b7280;">الإيجار الشهري</span>
+                <p style="font-size: 16px; font-weight: bold; color: #ca8a04; margin: 4px 0 0 0;">{{ number_format($activeContract->monthly_rent, 2) }} ر.س</p>
+            </div>
+            <div>
+                <span style="font-size: 12px; color: #6b7280;">بداية العقد</span>
+                <p style="font-size: 16px; color: #111827; margin: 4px 0 0 0;">{{ $activeContract->start_date?->format('Y-m-d') ?? '-' }}</p>
+            </div>
+            <div>
+                <span style="font-size: 12px; color: #6b7280;">نهاية العقد</span>
+                <p style="font-size: 16px; color: #111827; margin: 4px 0 0 0;">{{ $activeContract->end_date?->format('Y-m-d') ?? '-' }}</p>
+            </div>
+            <div>
+                <span style="font-size: 12px; color: #6b7280;">الأيام المتبقية</span>
+                <p style="font-size: 16px; color: #111827; margin: 4px 0 0 0;">
+                    @php
+                        $daysColor = $remainingDays <= 0 ? '#dc2626' : ($remainingDays <= 30 ? '#ca8a04' : '#16a34a');
+                        $daysBg = $remainingDays <= 0 ? '#fef2f2' : ($remainingDays <= 30 ? '#fefce8' : '#f0fdf4');
+                    @endphp
+                    <span style="background: {{ $daysBg }}; color: {{ $daysColor }}; padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600;">
+                        {{ $remainingDays > 0 ? $remainingDays . ' يوم' : 'منتهي' }}
+                    </span>
+                </p>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- الإحصائيات المالية --}}
+    <div class="section" style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb;">
+        <h3 style="font-size: 16px; font-weight: 600; color: #374151; margin: 0 0 16px 0; border-bottom: 2px solid #f59e0b; padding-bottom: 8px;">الإحصائيات المالية</h3>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+            <div class="stat-card">
+                <div class="stat-value" style="color: #16a34a;">{{ number_format($totalPaid, 2) }}</div>
+                <div class="stat-label">إجمالي المدفوع (ر.س)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #ca8a04;">{{ number_format($pendingPayments, 2) }}</div>
+                <div class="stat-label">مدفوعات مستحقة (ر.س)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #dc2626;">{{ number_format($overduePayments, 2) }}</div>
+                <div class="stat-label">مدفوعات متأخرة (ر.س)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #2563eb;">{{ $paymentCount }}</div>
+                <div class="stat-label">عدد الدفعات</div>
+            </div>
+        </div>
+    </div>
+
     {{-- Footer للطباعة فقط --}}
     <div class="print-only print-footer">
         <p>نظام إدارة العقارات © {{ date('Y') }} - جميع الحقوق محفوظة</p>
