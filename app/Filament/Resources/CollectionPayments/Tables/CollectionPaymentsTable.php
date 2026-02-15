@@ -365,9 +365,21 @@ class CollectionPaymentsTable
                         ->modalSubmitActionLabel('تأكيد الاستلام')
                         ->modalIcon('heroicon-o-check-circle')
                         ->modalIconColor('success')
-                        ->visible(
-                            fn (CollectionPayment $record) => ! $record->collection_date
-                        )
+                        ->visible(function (CollectionPayment $record) {
+                            // لو متحصلة أصلاً، إخفاء الزرار
+                            if ($record->collection_date) {
+                                return false;
+                            }
+
+                            // التحقق من وجود دفعة سابقة غير متحصلة في نفس العقد
+                            $hasPriorUnpaid = CollectionPayment::where('unit_contract_id', $record->unit_contract_id)
+                                ->whereNull('collection_date')
+                                ->where('due_date_start', '<', $record->due_date_start)
+                                ->exists();
+
+                            // يظهر الزرار فقط لو مفيش دفعة قبلها لسه مش متحصلة
+                            return ! $hasPriorUnpaid;
+                        })
                         ->action(function (CollectionPayment $record) {
                             app(CollectionPaymentService::class)->markAsCollected($record, auth()->id());
 

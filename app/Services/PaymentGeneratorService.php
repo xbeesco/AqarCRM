@@ -40,9 +40,11 @@ class PaymentGeneratorService
             $baseAmount = $this->calculatePaymentAmount($contract->monthly_rent, $frequency);
 
             $currentDate = $startDate->copy();
-            $paymentNumber = 1;
+            // استخدام MAX بدلاً من البدء من 1 لتجنب التكرار
+            $paymentNumber = $this->getMaxPaymentSequence($contract) + 1;
+            $generatedCount = 0;
 
-            while ($currentDate <= $endDate && $paymentNumber <= $paymentCount) {
+            while ($currentDate <= $endDate && $generatedCount < $paymentCount) {
                 // حساب تاريخ نهاية الفترة
                 $periodEnd = $this->calculatePeriodEnd($currentDate, $frequency);
 
@@ -76,6 +78,7 @@ class PaymentGeneratorService
                 // الانتقال للفترة التالية
                 $currentDate = $this->getNextPeriodStart($currentDate, $frequency);
                 $paymentNumber++;
+                $generatedCount++;
             }
 
             DB::commit();
@@ -212,6 +215,23 @@ class PaymentGeneratorService
     private function generatePaymentNumber($contract, int $sequence): string
     {
         return sprintf('PAY-%s-%04d', $contract->contract_number, $sequence);
+    }
+
+    /**
+     * الحصول على أعلى رقم تسلسلي موجود للدفعات
+     * يستخدم MAX بدلاً من COUNT لتجنب التكرار بعد حذف دفعات
+     */
+    private function getMaxPaymentSequence(UnitContract $contract): int
+    {
+        $pattern = 'PAY-'.$contract->contract_number.'-%';
+
+        $result = DB::table('collection_payments')
+            ->where('unit_contract_id', $contract->id)
+            ->where('payment_number', 'like', $pattern)
+            ->selectRaw('MAX(CAST(SUBSTRING_INDEX(payment_number, "-", -1) AS UNSIGNED)) as max_seq')
+            ->first();
+
+        return $result->max_seq ?? 0;
     }
 
     /**
@@ -524,8 +544,8 @@ class PaymentGeneratorService
         // حساب عدد الدفعات
         $paymentCount = PropertyContractService::calculatePaymentsCount($durationMonths, $frequency);
 
-        // الحصول على آخر رقم دفعة موجود
-        $lastPaymentNumber = $contract->payments()->count();
+        // الحصول على آخر رقم تسلسلي موجود (باستخدام MAX بدلاً من COUNT)
+        $lastPaymentNumber = $this->getMaxPaymentSequence($contract);
 
         for ($i = 1; $i <= $paymentCount; $i++) {
             // حساب نهاية الفترة
