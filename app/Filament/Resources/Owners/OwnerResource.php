@@ -78,38 +78,7 @@ class OwnerResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema
-            ->schema([
-                Section::make('معلومات عامة')
-                    ->schema([
-                        TextInput::make('name')
-                            ->required()
-                            ->label('الاسم الكامل')
-                            ->maxLength(255)
-                            ->columnSpan('full'),
-
-                        TextInput::make('phone')
-                            ->numeric()
-                            ->required()
-                            ->label('الهاتف الأول')
-                            ->maxLength(20)
-                            ->columnSpan(6),
-
-                        TextInput::make('secondary_phone')
-                            ->numeric()
-                            ->label('الهاتف الثاني')
-                            ->maxLength(20)
-                            ->columnSpan(6),
-
-                        FileUpload::make('identity_file')
-                            ->label('ملف الهوية')
-                            ->directory('owner--identity-file')
-                            ->columnSpan('full'),
-                    ])
-                    ->columns(12)
-                    ->columnSpan('full'),
-
-            ]);
+        return Schemas\OwnerForm::configure($schema);
     }
 
     public static function table(Table $table): Table
