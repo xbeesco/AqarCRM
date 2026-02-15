@@ -9,13 +9,13 @@ use App\Filament\Resources\PropertyContracts\PropertyContractResource;
 use App\Filament\Resources\SupplyPayments\SupplyPaymentResource;
 use App\Filament\Resources\UnitContracts\UnitContractResource;
 use App\Filament\Resources\Units\UnitResource;
-use Filament\Actions\BulkAction;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Collection;
 
 class OwnersTable
 {
@@ -63,59 +63,42 @@ class OwnersTable
                 EditAction::make()
                     ->label('تعديل')
                     ->icon('heroicon-o-pencil-square'),
+                ActionGroup::make([
+                    Action::make('view_properties')
+                        ->label('العقارات')
+                        ->icon('heroicon-o-building-office-2')
+                        ->url(fn ($record) => PropertyResource::getUrl('index').'?owner_id='.$record->id),
+                    Action::make('view_units')
+                        ->label('الوحدات')
+                        ->icon('heroicon-o-home')
+                        ->url(fn ($record) => UnitResource::getUrl('index').'?owner_id='.$record->id),
+                    Action::make('view_property_contracts')
+                        ->label('عقود العقارات')
+                        ->icon('heroicon-o-document-duplicate')
+                        ->url(fn ($record) => PropertyContractResource::getUrl('index').'?owner_id='.$record->id),
+                    Action::make('view_unit_contracts')
+                        ->label('عقود الوحدات')
+                        ->icon('heroicon-o-document-text')
+                        ->url(fn ($record) => UnitContractResource::getUrl('index').'?owner_id='.$record->id),
+                    Action::make('view_supply_payments')
+                        ->label('دفعات المالك')
+                        ->icon('heroicon-o-banknotes')
+                        ->url(fn ($record) => SupplyPaymentResource::getUrl('index').'?owner_id='.$record->id),
+                    Action::make('view_collection_payments')
+                        ->label('دفعات المستأجرين')
+                        ->icon('heroicon-o-currency-dollar')
+                        ->url(fn ($record) => CollectionPaymentResource::getUrl('index').'?owner_id='.$record->id),
+                    Action::make('view_expenses')
+                        ->label('النفقات')
+                        ->icon('heroicon-o-receipt-percent')
+                        ->url(fn ($record) => ExpenseResource::getUrl('index').'?owner_id='.$record->id),
+                ])
+                    ->label('المزيد')
+                    ->icon('heroicon-o-ellipsis-horizontal')
+                    ->color('primary')
+                    ->button(),
             ])
-            ->maxSelectableRecords(1)
-            ->bulkActions([
-                BulkAction::make('view_properties')
-                    ->label('العقارات')
-                    ->action(function (Collection $records) {
-                        $ids = $records->pluck('id')->implode(',');
-
-                        return redirect(PropertyResource::getUrl('index').'?owner_ids='.$ids);
-                    }),
-                BulkAction::make('view_units')
-                    ->label('الوحدات')
-                    ->action(function (Collection $records) {
-                        $ids = $records->pluck('id')->implode(',');
-
-                        return redirect(UnitResource::getUrl('index').'?owner_ids='.$ids);
-                    }),
-                BulkAction::make('view_property_contracts')
-                    ->label('عقود العقارات')
-                    ->action(function (Collection $records) {
-                        $ids = $records->pluck('id')->implode(',');
-
-                        return redirect(PropertyContractResource::getUrl('index').'?owner_ids='.$ids);
-                    }),
-                BulkAction::make('view_unit_contracts')
-                    ->label('عقود الوحدات')
-                    ->action(function (Collection $records) {
-                        $ids = $records->pluck('id')->implode(',');
-
-                        return redirect(UnitContractResource::getUrl('index').'?owner_ids='.$ids);
-                    }),
-                BulkAction::make('view_supply_payments')
-                    ->label('دفعات المالك')
-                    ->action(function (Collection $records) {
-                        $ids = $records->pluck('id')->implode(',');
-
-                        return redirect(SupplyPaymentResource::getUrl('index').'?owner_ids='.$ids);
-                    }),
-                BulkAction::make('view_collection_payments')
-                    ->label('دفعات المستأجرين')
-                    ->action(function (Collection $records) {
-                        $ids = $records->pluck('id')->implode(',');
-
-                        return redirect(CollectionPaymentResource::getUrl('index').'?owner_ids='.$ids);
-                    }),
-                BulkAction::make('view_expenses')
-                    ->label('النفقات')
-                    ->action(function (Collection $records) {
-                        $ids = $records->pluck('id')->implode(',');
-
-                        return redirect(ExpenseResource::getUrl('index').'?owner_ids='.$ids);
-                    }),
-            ])
+            ->bulkActions([])
             ->defaultSort('created_at', 'desc');
     }
 }

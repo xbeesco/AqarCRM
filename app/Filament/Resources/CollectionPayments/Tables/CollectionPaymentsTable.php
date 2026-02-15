@@ -389,9 +389,8 @@ class CollectionPaymentsTable
                                 ->success()
                                 ->send();
                         }),
-                ])->label('More actions')
-                    ->icon('heroicon-m-ellipsis-vertical')
-                    ->size(Size::Small)
+                ])->label('المزيد')
+                    ->icon('heroicon-o-ellipsis-horizontal')
                     ->color('primary')
                     ->button(),
 
