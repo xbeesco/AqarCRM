@@ -339,7 +339,7 @@ class ReschedulePaymentsPageTest extends TestCase
         $contract = $this->createContractWithPayments();
 
         // Verify the contract can be rescheduled
-        $this->assertTrue($contract->canReschedule());
+        $this->assertTrue($contract->canBeRescheduled());
 
         // Test the page loads
         Livewire::test(ReschedulePayments::class, ['record' => $contract])

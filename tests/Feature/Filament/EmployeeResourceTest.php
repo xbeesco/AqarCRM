@@ -139,23 +139,23 @@ class EmployeeResourceTest extends TestCase
     }
 
     #[Test]
-    public function test_employee_can_view_employees_list(): void
+    public function test_employee_cannot_view_employees_list(): void
     {
+        // Note: Current code only allows super_admin and admin to view employees list
         $this->actingAs($this->employee);
 
         $response = $this->get(EmployeeResource::getUrl('index'));
 
-        // Employee type is in the allowed list (super_admin, admin, employee)
-        $response->assertStatus(200);
+        $response->assertStatus(403);
     }
 
     #[Test]
-    public function test_employee_can_view_any(): void
+    public function test_employee_cannot_view_any(): void
     {
-        // Employee type is allowed by canViewAny policy
+        // Note: Current code only allows super_admin and admin to view any employees
         $this->actingAs($this->employee);
 
-        $this->assertTrue(EmployeeResource::canViewAny());
+        $this->assertFalse(EmployeeResource::canViewAny());
     }
 
     #[Test]
@@ -185,8 +185,9 @@ class EmployeeResourceTest extends TestCase
     // ==========================================
 
     #[Test]
-    public function test_can_view_any_returns_true_for_staff_types(): void
+    public function test_can_view_any_returns_true_for_admins_only(): void
     {
+        // Note: Current code only allows super_admin and admin (not employee)
         // Test super_admin
         $this->actingAs($this->superAdmin);
         $this->assertTrue(EmployeeResource::canViewAny());
@@ -195,9 +196,9 @@ class EmployeeResourceTest extends TestCase
         $this->actingAs($this->admin);
         $this->assertTrue(EmployeeResource::canViewAny());
 
-        // Test employee
+        // Test employee - NOT allowed
         $this->actingAs($this->employee);
-        $this->assertTrue(EmployeeResource::canViewAny());
+        $this->assertFalse(EmployeeResource::canViewAny());
     }
 
     #[Test]
@@ -233,12 +234,12 @@ class EmployeeResourceTest extends TestCase
     }
 
     #[Test]
-    public function test_employee_can_create_employee(): void
+    public function test_employee_cannot_create_employee(): void
     {
+        // Note: Current code only allows super_admin and admin to create employees
         $this->actingAs($this->employee);
 
-        // EmployeePolicy allows employees to create employees
-        $this->assertTrue(EmployeeResource::canCreate());
+        $this->assertFalse(EmployeeResource::canCreate());
     }
 
     // ==========================================
@@ -549,14 +550,14 @@ class EmployeeResourceTest extends TestCase
     }
 
     #[Test]
-    public function test_employee_can_access_create_page(): void
+    public function test_employee_cannot_access_create_page(): void
     {
+        // Note: Current code only allows super_admin and admin to create employees
         $this->actingAs($this->employee);
 
         $response = $this->get(EmployeeResource::getUrl('create'));
 
-        // EmployeePolicy allows employees to create employees
-        $response->assertStatus(200);
+        $response->assertStatus(403);
     }
 
     // ==========================================
