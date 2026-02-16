@@ -6,11 +6,10 @@ use App\Enums\UserType;
 use App\Services\TenantService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Tenant extends User
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected $table = 'users';
 
@@ -70,6 +69,16 @@ class Tenant extends User
     {
         // return $this->hasMany(UnitContract::class, 'tenant_id');
         return $this->hasMany(UnitContract::class, 'tenant_id');
+    }
+
+    /**
+     * Get the active (current) unit contract for this tenant.
+     */
+    public function activeContract()
+    {
+        return $this->hasOne(UnitContract::class, 'tenant_id')
+            ->where('contract_status', 'active')
+            ->latest('start_date');
     }
 
     /**

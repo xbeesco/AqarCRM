@@ -100,6 +100,15 @@ class SupplyPaymentsTable
                             ->orderBy('name')
                             ->pluck('name', 'id');
                     })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (! empty($data['value'])) {
+                            $owner = User::find($data['value']);
+
+                            return $owner ? 'المالك: '.$owner->name : null;
+                        }
+
+                        return null;
+                    })
                     ->searchable()
                     ->preload(),
 
@@ -120,6 +129,15 @@ class SupplyPaymentsTable
                         }
 
                         return $query;
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (! empty($data['value'])) {
+                            $property = Property::find($data['value']);
+
+                            return $property ? 'العقار: '.$property->name : null;
+                        }
+
+                        return null;
                     }),
             ])
             ->deferFilters();

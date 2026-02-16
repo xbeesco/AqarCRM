@@ -1,72 +1,79 @@
 <?php
 
-namespace App\Services;
+namespace App\Filament\Resources\PropertyResource\Pages;
 
+use App\Filament\Resources\PropertyResource;
 use App\Models\CollectionPayment;
-use App\Models\Property;
 use App\Models\PropertyRepair;
 use App\Models\SupplyPayment;
 use App\Models\UnitContract;
+use Filament\Actions\Action;
+use Filament\Actions\EditAction;
+use Filament\Resources\Pages\ViewRecord;
 
-class PropertyReportService
+class ViewProperty extends ViewRecord
 {
-    /**
-     * Get view data for property report
-     */
-    public function getReportData(Property $property): array
+    protected static string $resource = PropertyResource::class;
+
+    protected static ?string $title = 'عرض العقار';
+
+    protected string $view = 'filament.resources.property-resource.pages.view-property';
+
+    protected function getHeaderActions(): array
     {
-        $collectionTotal = CollectionPayment::where('property_id', $property->id)
+        return [
+            Action::make('back')
+                ->label('العقارات')
+                ->icon('heroicon-o-arrow-right')
+                ->color('gray')
+                ->url(PropertyResource::getUrl('index')),
+            Action::make('print')
+                ->label('طباعة التقرير')
+                ->icon('heroicon-o-printer')
+                ->color('gray')
+                ->url(fn () => route('property.print', $this->record))
+                ->openUrlInNewTab(),
+            EditAction::make()->label('تعديل'),
+        ];
+    }
+
+    protected function getViewData(): array
+    {
+        // حساب الإجماليات
+        $collectionTotal = CollectionPayment::where('property_id', $this->record->id)
             ->collectedPayments()
             ->sum('total_amount');
 
-        $supplyTotal = SupplyPayment::whereHas('propertyContract', function ($query) use ($property) {
-            $query->where('property_id', $property->id);
+        $supplyTotal = SupplyPayment::whereHas('propertyContract', function ($query) {
+            $query->where('property_id', $this->record->id);
         })
             ->collected()
             ->sum('net_amount');
 
-        $nextPayment = CollectionPayment::where('property_id', $property->id)
+        // بيانات الجدول الأول
+        $nextPayment = CollectionPayment::where('property_id', $this->record->id)
             ->dueForCollection()
             ->orderBy('due_date_start')
             ->first();
 
-        return [
-            'collectionTotal' => $collectionTotal,
-            'supplyTotal' => $supplyTotal,
-            'generalReport' => $this->getGeneralReport($property, $nextPayment),
-            'operationsReport' => $this->getOperationsReport($property),
-            'operationsTotal' => $this->getOperationsTotal($property),
-            'detailedReport' => $this->getDetailedReport($property),
-        ];
-    }
-
-    /**
-     * Get general report data
-     */
-    private function getGeneralReport(Property $property, ?CollectionPayment $nextPayment): array
-    {
-        return [
-            'property_name' => $property->name,
-            'owner_name' => $property->owner?->name ?? '-',
-            'units_count' => $property->units()->count(),
-            'property_status' => $property->status ?? 'متاح',
-            'collected_rent' => CollectionPayment::where('property_id', $property->id)
+        $generalReport = [
+            'property_name' => $this->record->name,
+            'owner_name' => $this->record->owner?->name ?? '-',
+            'units_count' => $this->record->units()->count(),
+            'property_status' => $this->record->status ?? 'متاح',
+            'collected_rent' => CollectionPayment::where('property_id', $this->record->id)
                 ->collectedPayments()
                 ->whereMonth('collection_date', now()->month)
                 ->sum('total_amount'),
             'next_collection' => $nextPayment?->total_amount ?? 0,
             'next_collection_date' => $nextPayment?->due_date_start ?? null,
         ];
-    }
 
-    /**
-     * Get operations report data
-     */
-    private function getOperationsReport(Property $property): array
-    {
+        // بيانات الجدول الثاني
         $operationsReport = [];
 
-        $collectionOperations = CollectionPayment::where('property_id', $property->id)
+        // إضافة عمليات التحصيل
+        $collectionOperations = CollectionPayment::where('property_id', $this->record->id)
             ->collectedPayments()
             ->get();
 
@@ -78,7 +85,8 @@ class PropertyReportService
             ];
         }
 
-        $maintenanceOperations = PropertyRepair::where('property_id', $property->id)
+        // إضافة عمليات الصيانة
+        $maintenanceOperations = PropertyRepair::where('property_id', $this->record->id)
             ->where('status', 'completed')
             ->get();
 
@@ -90,23 +98,11 @@ class PropertyReportService
             ];
         }
 
-        return $operationsReport;
-    }
+        // حساب الإجمالي
+        $operationsTotal = collect($operationsReport)->sum('amount');
 
-    /**
-     * Get operations total
-     */
-    private function getOperationsTotal(Property $property): float
-    {
-        return collect($this->getOperationsReport($property))->sum('amount');
-    }
-
-    /**
-     * Get detailed report data
-     */
-    private function getDetailedReport(Property $property): array
-    {
-        $contracts = UnitContract::where('property_id', $property->id)
+        // بيانات الجدول الثالث
+        $contracts = UnitContract::where('property_id', $this->record->id)
             ->where('contract_status', 'active')
             ->with(['unit', 'tenant'])
             ->get();
@@ -145,12 +141,19 @@ class PropertyReportService
         }
 
         return [
-            'data' => $detailedReport,
-            'totals' => [
-                'amount' => $totalAmount,
-                'admin_fee' => $totalAdminFee,
-                'maintenance' => $totalMaintenance,
-                'net' => $totalNet,
+            'collectionTotal' => $collectionTotal,
+            'supplyTotal' => $supplyTotal,
+            'generalReport' => $generalReport,
+            'operationsReport' => $operationsReport,
+            'operationsTotal' => $operationsTotal,
+            'detailedReport' => [
+                'data' => $detailedReport,
+                'totals' => [
+                    'amount' => $totalAmount,
+                    'admin_fee' => $totalAdminFee,
+                    'maintenance' => $totalMaintenance,
+                    'net' => $totalNet,
+                ],
             ],
         ];
     }

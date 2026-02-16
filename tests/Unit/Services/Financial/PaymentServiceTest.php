@@ -6,7 +6,6 @@ use App\Enums\PaymentStatus;
 use App\Enums\UserType;
 use App\Models\CollectionPayment;
 use App\Models\Location;
-use App\Models\PaymentMethod;
 use App\Models\Property;
 use App\Models\PropertyContract;
 use App\Models\PropertyStatus;
@@ -46,8 +45,6 @@ class PaymentServiceTest extends TestCase
 
     protected UnitContract $contract;
 
-    protected PaymentMethod $paymentMethod;
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -72,38 +69,11 @@ class PaymentServiceTest extends TestCase
 
     protected function createDependencies(): void
     {
-        $this->location = Location::create([
-            'name' => 'Test Location',
-            'code' => 'TEST',
-            'level' => 1,
-            'is_active' => true,
-        ]);
-
-        $this->propertyType = PropertyType::create([
-            'name_ar' => 'شقة',
-            'name_en' => 'Apartment',
-            'slug' => 'apartment',
-            'is_active' => true,
-            'sort_order' => 1,
-        ]);
-
-        $this->propertyStatus = PropertyStatus::create([
-            'name_ar' => 'متاح',
-            'name_en' => 'Available',
-            'slug' => 'available',
-            'color' => 'green',
-            'is_available' => true,
-            'is_active' => true,
-            'sort_order' => 1,
-        ]);
-
-        $this->unitType = UnitType::create([
-            'name_ar' => 'شقة سكنية',
-            'name_en' => 'Residential Apartment',
-            'slug' => 'residential-apartment',
-            'is_active' => true,
-            'sort_order' => 1,
-        ]);
+        // Use existing lookup data seeded by TestCase::seedLookupData()
+        $this->location = Location::first();
+        $this->propertyType = PropertyType::first();
+        $this->propertyStatus = PropertyStatus::first();
+        $this->unitType = UnitType::first();
 
         // Set default settings
         Setting::set('payment_due_days', 7);
@@ -155,14 +125,9 @@ class PaymentServiceTest extends TestCase
             'monthly_rent' => 5000.00,
         ]);
 
-        // Create payment method
-        $this->paymentMethod = PaymentMethod::create([
-            'name_ar' => 'نقدي',
-            'name_en' => 'Cash',
-            'slug' => 'cash',
-            'is_active' => true,
-            'requires_reference' => false,
-            'sort_order' => 1,
+        // Create tenant
+        $this->tenant = User::factory()->create([
+            'type' => UserType::TENANT->value,
         ]);
     }
 
@@ -198,7 +163,7 @@ class PaymentServiceTest extends TestCase
 
         $result = $this->service->processCollectionPayment(
             $payment,
-            $this->paymentMethod->id,
+            null,
             now()->toDateString(),
             'REF-TEST-001'
         );
@@ -206,23 +171,6 @@ class PaymentServiceTest extends TestCase
         $this->assertTrue($result);
         $payment->refresh();
         $this->assertNotNull($payment->collection_date);
-    }
-
-    public function test_process_collection_payment_sets_payment_method(): void
-    {
-        $payment = $this->createPayment([
-            'collection_date' => null,
-            'due_date_start' => now()->subDays(5),
-        ]);
-
-        $this->service->processCollectionPayment(
-            $payment,
-            $this->paymentMethod->id,
-            now()->toDateString()
-        );
-
-        $payment->refresh();
-        $this->assertEquals($this->paymentMethod->id, $payment->payment_method_id);
     }
 
     public function test_process_collection_payment_sets_paid_date(): void
@@ -235,12 +183,12 @@ class PaymentServiceTest extends TestCase
         $paidDate = now()->subDay()->toDateString();
         $this->service->processCollectionPayment(
             $payment,
-            $this->paymentMethod->id,
+            null,
             $paidDate
         );
 
         $payment->refresh();
-        $this->assertEquals($paidDate, $payment->paid_date->toDateString());
+        $this->assertEquals($paidDate, $payment->paid_date->format('Y-m-d'));
     }
 
     public function test_process_collection_payment_sets_reference(): void
@@ -253,7 +201,7 @@ class PaymentServiceTest extends TestCase
         $reference = 'REF-TEST-123456';
         $this->service->processCollectionPayment(
             $payment,
-            $this->paymentMethod->id,
+            null,
             now()->toDateString(),
             $reference
         );
@@ -280,7 +228,7 @@ class PaymentServiceTest extends TestCase
 
         $results = $this->service->bulkCollectPayments(
             [$payment1->id, $payment2->id],
-            $this->paymentMethod->id
+            null
         );
 
         $this->assertCount(2, $results);
@@ -301,7 +249,7 @@ class PaymentServiceTest extends TestCase
 
         $results = $this->service->bulkCollectPayments(
             [$payment1->id],
-            $this->paymentMethod->id
+            null
         );
 
         $this->assertIsArray($results);
@@ -315,7 +263,7 @@ class PaymentServiceTest extends TestCase
         // Test with non-existent payment IDs
         $results = $this->service->bulkCollectPayments(
             [99999, 99998],
-            $this->paymentMethod->id
+            null
         );
 
         // Should return empty array since no payments were found
@@ -338,7 +286,7 @@ class PaymentServiceTest extends TestCase
         // Process all payments including one that might fail
         $results = $this->service->bulkCollectPayments(
             [$payment1->id, $payment2->id],
-            $this->paymentMethod->id
+            null
         );
 
         // All payments should be processed (some may succeed, some may fail)

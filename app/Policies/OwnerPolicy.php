@@ -29,12 +29,12 @@ class OwnerPolicy extends BasePolicy
         if (in_array($user->type, ['super_admin', 'admin', 'employee'])) {
             return true;
         }
-        
+
         // Owner can view their own profile
         if ($user->id === $model->id) {
             return true;
         }
-        
+
         $this->logUnauthorizedAccess($user, 'view', $model);
         return false;
     }
@@ -44,12 +44,8 @@ class OwnerPolicy extends BasePolicy
      */
     public function create(User $user): bool
     {
-        // Only admins can create owners
-        if (!$this->isAdmin($user)) {
-            $this->logUnauthorizedAccess($user, 'create', Owner::class);
-            return false;
-        }
-        return true;
+        // Admins and employees can create owners
+        return in_array($user->type, ['super_admin', 'admin', 'employee']);
     }
 
     /**
@@ -57,17 +53,11 @@ class OwnerPolicy extends BasePolicy
      */
     public function update(User $user, Owner $model): bool
     {
-        // Admins can update any owner
-        if ($this->isAdmin($user)) {
+        // Admins and employees can update owners
+        if (in_array($user->type, ['super_admin', 'admin', 'employee'])) {
             return true;
         }
-        
-        // Employees cannot update owners
-        if ($user->type === 'employee') {
-            $this->logUnauthorizedAccess($user, 'update', $model);
-            return false;
-        }
-        
+
         // Owner can update limited fields of their own profile
         if ($user->id === $model->id) {
             return true;

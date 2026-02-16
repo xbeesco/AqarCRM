@@ -49,7 +49,7 @@ class OwnerService
     public function getActivePropertiesCount(Owner $owner): int
     {
         return Property::where('owner_id', $owner->id)
-            ->whereHas('propertyStatus', fn ($q) => $q->where('slug', 'available')->orWhere('is_active', true))
+            ->whereHas('propertyStatus', fn($q) => $q->where('slug', 'available'))
             ->count();
     }
 
@@ -59,7 +59,7 @@ class OwnerService
     public function getVacantProperties(Owner $owner): Collection
     {
         return Property::where('owner_id', $owner->id)
-            ->whereHas('propertyStatus', fn ($q) => $q->where('slug', 'available'))
+            ->whereHas('propertyStatus', fn($q) => $q->where('slug', 'available'))
             ->get();
     }
 
@@ -179,8 +179,8 @@ class OwnerService
         }
 
         $supplyPayments = $supplyPaymentsQuery->get();
-        $collectedPayments = $supplyPayments->filter(fn ($p) => $p->paid_date !== null);
-        $pendingPayments = $supplyPayments->filter(fn ($p) => $p->paid_date === null);
+        $collectedPayments = $supplyPayments->filter(fn($p) => $p->paid_date !== null);
+        $pendingPayments = $supplyPayments->filter(fn($p) => $p->paid_date === null);
 
         return [
             'total_gross_amount' => $collectedPayments->sum('gross_amount'),
@@ -220,7 +220,7 @@ class OwnerService
 
         return [
             'total_properties' => $properties->count(),
-            'active_properties' => $properties->filter(fn ($p) => $p->propertyStatus?->is_active)->count(),
+            'active_properties' => $properties->filter(fn($p) => $p->propertyStatus?->slug === 'available')->count(),
             'total_units' => $totalUnits,
             'occupied_units' => $occupiedUnits,
             'vacant_units' => $totalUnits - $occupiedUnits,
@@ -230,7 +230,7 @@ class OwnerService
                 return [
                     'id' => $property->id,
                     'name' => $property->name,
-                    'status' => $property->propertyStatus?->name_ar ?? 'غير محدد',
+                    'status' => $property->propertyStatus?->name ?? 'غير محدد',
                     'units_count' => $property->units_count,
                 ];
             }),
@@ -249,8 +249,8 @@ class OwnerService
             ->with(['unit', 'property', 'tenant'])
             ->get();
 
-        $collected = $collectionPayments->filter(fn ($p) => $p->collection_date !== null);
-        $pending = $collectionPayments->filter(fn ($p) => $p->collection_date === null);
+        $collected = $collectionPayments->filter(fn($p) => $p->collection_date !== null);
+        $pending = $collectionPayments->filter(fn($p) => $p->collection_date === null);
 
         return [
             'month_year' => $monthYear,
@@ -293,16 +293,16 @@ class OwnerService
         $query = Owner::query();
 
         if (isset($criteria['name'])) {
-            $query->where('name', 'like', '%'.$criteria['name'].'%');
+            $query->where('name', 'like', '%' . $criteria['name'] . '%');
         }
 
         if (isset($criteria['phone'])) {
-            $query->where('phone', 'like', '%'.$criteria['phone'].'%');
+            $query->where('phone', 'like', '%' . $criteria['phone'] . '%');
         }
 
         if (isset($criteria['has_active_properties']) && $criteria['has_active_properties']) {
             $query->whereHas('properties', function ($q) {
-                $q->whereHas('propertyStatus', fn ($sq) => $sq->where('is_active', true));
+                $q->whereHas('propertyStatus', fn($sq) => $sq->where('slug', 'available'));
             });
         }
 

@@ -2,9 +2,17 @@
 
 namespace App\Filament\Resources\Units\Tables;
 
+use App\Filament\Resources\CollectionPayments\CollectionPaymentResource;
+use App\Filament\Resources\Expenses\ExpenseResource;
+use App\Filament\Resources\UnitContracts\UnitContractResource;
+use App\Models\Property;
+use App\Models\User;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -18,6 +26,7 @@ class UnitsTable
                     'property.location.parent.parent.parent',
                     'unitType',
                     'unitCategory',
+                    'activeContract',
                 ]);
             })
             ->columns([
@@ -46,12 +55,12 @@ class UnitsTable
                         return 'الموقع: '.implode(' > ', $path);
                     }),
 
-                TextColumn::make('unitType.name_ar')
+                TextColumn::make('unitType.name')
                     ->label('نوع الوحدة')
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('unitCategory.name_ar')
+                TextColumn::make('unitCategory.name')
                     ->label('تصنيف الوحدة')
                     ->searchable()
                     ->sortable(),
@@ -92,8 +101,79 @@ class UnitsTable
                     })
                     ->sortable()
                     ->alignEnd(),
+
+                TextColumn::make('occupancy_status')
+                    ->label('حالة الإشغال')
+                    ->getStateUsing(fn ($record) => $record->occupancy_status->label())
+                    ->badge()
+                    ->color(fn ($record) => $record->occupancy_status->color())
+                    ->alignCenter(),
             ])
-            ->filters([])
+            ->filters([
+                SelectFilter::make('owner_id')
+                    ->label('المالك')
+                    ->options(function () {
+                        return User::where('type', 'owner')
+                            ->orderBy('name')
+                            ->pluck('name', 'id');
+                    })
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (! empty($data['value'])) {
+                            return $query->whereHas('property', function ($q) use ($data) {
+                                $q->where('owner_id', $data['value']);
+                            });
+                        }
+
+                        return $query;
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (! empty($data['value'])) {
+                            $owner = User::find($data['value']);
+
+                            return $owner ? 'المالك: '.$owner->name : null;
+                        }
+
+                        return null;
+                    })
+                    ->searchable()
+                    ->preload(),
+
+                SelectFilter::make('property_id')
+                    ->label('العقار')
+                    ->options(function () {
+                        return Property::orderBy('name')->pluck('name', 'id');
+                    })
+                    ->searchable()
+                    ->preload(),
+
+                SelectFilter::make('tenant_id')
+                    ->label('المستأجر')
+                    ->options(function () {
+                        return User::where('type', 'tenant')
+                            ->orderBy('name')
+                            ->pluck('name', 'id');
+                    })
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (! empty($data['value'])) {
+                            return $query->whereHas('contracts', function ($q) use ($data) {
+                                $q->where('tenant_id', $data['value']);
+                            });
+                        }
+
+                        return $query;
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (! empty($data['value'])) {
+                            $tenant = User::find($data['value']);
+
+                            return $tenant ? 'المستأجر: '.$tenant->name : null;
+                        }
+
+                        return null;
+                    })
+                    ->searchable()
+                    ->preload(),
+            ])
             ->recordActions([
                 ViewAction::make()
                     ->label('تقرير')
@@ -101,8 +181,26 @@ class UnitsTable
                 EditAction::make()
                     ->label('تعديل')
                     ->icon('heroicon-o-pencil-square'),
+                ActionGroup::make([
+                    Action::make('view_unit_contracts')
+                        ->label('عقود الوحدة')
+                        ->icon('heroicon-o-document-text')
+                        ->url(fn ($record) => UnitContractResource::getUrl('index').'?unit_id='.$record->id),
+                    Action::make('view_collection_payments')
+                        ->label('دفعات المستأجرين')
+                        ->icon('heroicon-o-currency-dollar')
+                        ->url(fn ($record) => CollectionPaymentResource::getUrl('index').'?unit_id='.$record->id),
+                    Action::make('view_expenses')
+                        ->label('النفقات')
+                        ->icon('heroicon-o-receipt-percent')
+                        ->url(fn ($record) => ExpenseResource::getUrl('index').'?unit_id='.$record->id),
+                ])
+                    ->label('المزيد')
+                    ->icon('heroicon-o-ellipsis-horizontal')
+                    ->color('primary')
+                    ->button(),
             ])
-            ->toolbarActions([])
+            ->bulkActions([])
             ->paginated([25, 50, 100, 'all'])
             ->defaultPaginationPageOption(25);
     }

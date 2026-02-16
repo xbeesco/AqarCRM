@@ -13,6 +13,30 @@ class ListSupplyPayments extends ListRecords
 {
     protected static string $resource = SupplyPaymentResource::class;
 
+    protected ?int $contractId = null;
+
+    protected ?int $propertyId = null;
+
+    protected ?int $ownerId = null;
+
+    public function mount(): void
+    {
+        parent::mount();
+
+        // Get filter parameters from URL (support both simple and Filament formats)
+        $this->contractId = request()->integer('property_contract_id') ?: null;
+        $this->propertyId = request()->integer('property_id') ?: request()->input('tableFilters.property.value') ?: null;
+        $this->ownerId = request()->integer('owner_id') ?: request()->input('tableFilters.owner_id.value') ?: null;
+
+        if ($this->propertyId) {
+            $this->tableFilters['property']['value'] = $this->propertyId;
+        }
+
+        if ($this->ownerId) {
+            $this->tableFilters['owner_id']['value'] = $this->ownerId;
+        }
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -32,10 +56,9 @@ class ListSupplyPayments extends ListRecords
     {
         $query = parent::getTableQuery();
 
-        $contractId = request()->get('property_contract_id');
-
-        if ($contractId) {
-            $query->where('property_contract_id', $contractId);
+        // Check if property_contract_id is in the request (legacy support)
+        if ($this->contractId) {
+            $query->where('property_contract_id', $this->contractId);
         }
 
         return $query;

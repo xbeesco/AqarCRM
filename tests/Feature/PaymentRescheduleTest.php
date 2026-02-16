@@ -3,13 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\CollectionPayment;
-use App\Models\Location;
 use App\Models\Property;
-use App\Models\PropertyStatus;
-use App\Models\PropertyType;
 use App\Models\Unit;
 use App\Models\UnitContract;
-use App\Models\UnitType;
 use App\Models\User;
 use App\Services\PaymentGeneratorService;
 use App\Services\UnitContractService;
@@ -57,53 +53,11 @@ class PaymentRescheduleTest extends TestCase
 
     /**
      * Create required reference data (lookup tables) for tests.
+     * Note: TestCase::seedLookupData() already seeds this data, so this method is now empty.
      */
     private function createReferenceData(): void
     {
-        // Create PropertyStatus if not exists
-        if (! PropertyStatus::where('id', 1)->exists()) {
-            PropertyStatus::create([
-                'id' => 1,
-                'name_ar' => 'متاح',
-                'name_en' => 'Available',
-                'slug' => 'available',
-                'is_active' => true,
-                'is_available' => true,
-            ]);
-        }
-
-        // Create PropertyType if not exists
-        if (! PropertyType::where('id', 1)->exists()) {
-            PropertyType::create([
-                'id' => 1,
-                'name_ar' => 'فيلا',
-                'name_en' => 'Villa',
-                'slug' => 'villa',
-                'is_active' => true,
-            ]);
-        }
-
-        // Create Location if not exists
-        if (! Location::where('id', 1)->exists()) {
-            Location::create([
-                'id' => 1,
-                'name' => 'الرياض',
-                'code' => 'RYD',
-                'level' => 1,
-                'is_active' => true,
-            ]);
-        }
-
-        // Create UnitType if not exists
-        if (! UnitType::where('id', 1)->exists()) {
-            UnitType::create([
-                'id' => 1,
-                'name_ar' => 'شقة',
-                'name_en' => 'Apartment',
-                'slug' => 'apartment',
-                'is_active' => true,
-            ]);
-        }
+        // Lookup data is already seeded by TestCase::seedLookupData()
     }
 
     /**
@@ -504,7 +458,7 @@ class PaymentRescheduleTest extends TestCase
         $contract = $this->createContractWithPayments(12, 'monthly', 3);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Additional duration is incompatible with the selected payment frequency');
+        $this->expectExceptionMessage('المدة الإضافية لا تتوافق مع تكرار الدفع المختار');
 
         // Attempt to add 7 months quarterly (7 is not divisible by 3)
         $this->service->rescheduleContractPayments(
@@ -521,7 +475,7 @@ class PaymentRescheduleTest extends TestCase
 
         // Negative amount
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Rent amount must be greater than zero');
+        $this->expectExceptionMessage('قيمة الإيجار يجب أن تكون أكبر من صفر');
 
         $this->service->rescheduleContractPayments(
             $contract,
@@ -536,7 +490,7 @@ class PaymentRescheduleTest extends TestCase
         $contract = $this->createContractWithPayments(12, 'monthly', 3);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Rent amount must be greater than zero');
+        $this->expectExceptionMessage('قيمة الإيجار يجب أن تكون أكبر من صفر');
 
         $this->service->rescheduleContractPayments(
             $contract,
@@ -551,7 +505,7 @@ class PaymentRescheduleTest extends TestCase
         $contract = $this->createContractWithPayments(12, 'monthly', 3);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Additional months must be greater than zero');
+        $this->expectExceptionMessage('عدد الأشهر الإضافية يجب أن يكون أكبر من صفر');
 
         $this->service->rescheduleContractPayments(
             $contract,

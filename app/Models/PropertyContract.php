@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
-use Carbon\Carbon;
 use App\Services\PropertyContractService;
-use Exception;
 use App\Services\PropertyContractValidationService;
+use Carbon\Carbon;
+use Exception;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -13,36 +13,19 @@ class PropertyContract extends Model
 {
     use HasFactory;
 
-    /**
-     * Default attribute values - contracts are active upon creation.
-     */
-    protected $attributes = [
-        'contract_status' => 'active',
-    ];
-
     protected $fillable = [
         'contract_number',
         'owner_id',
         'property_id',
+        'contract_status',
         'commission_rate',
         'duration_months',
         'start_date',
         'end_date',
-        'contract_status',
-        'notary_number',
-        'payment_day',
-        'auto_renew',
-        'notice_period_days',
         'payment_frequency',
         'payments_count',
-        'terms_and_conditions',
         'notes',
         'file',
-        'created_by',
-        'approved_by',
-        'approved_at',
-        'terminated_reason',
-        'terminated_at',
     ];
 
     protected $casts = [
@@ -50,11 +33,6 @@ class PropertyContract extends Model
         'end_date' => 'date',
         'commission_rate' => 'decimal:2',
         'duration_months' => 'integer',
-        'payment_day' => 'integer',
-        'auto_renew' => 'boolean',
-        'notice_period_days' => 'integer',
-        'approved_at' => 'datetime',
-        'terminated_at' => 'datetime',
     ];
 
     protected static function boot()
@@ -94,10 +72,10 @@ class PropertyContract extends Model
                 $contract->end_date = $startDate->copy()->addMonths($contract->duration_months)->subDay();
             }
 
-            // Validate duration matches frequency
+            // منع الحفظ إذا كانت المدة لا تتوافق مع التكرار
             $contract->validateDurationFrequency();
 
-            // Validate no overlap with other contracts
+            // منع الحفظ إذا كان هناك تداخل مع عقود أخرى
             $contract->validateNoOverlap();
         });
 
@@ -108,12 +86,12 @@ class PropertyContract extends Model
                 $contract->end_date = $startDate->copy()->addMonths($contract->duration_months)->subDay();
             }
 
-            // Validate duration matches frequency
+            // منع التحديث إذا كانت المدة لا تتوافق مع التكرار
             if ($contract->isDirty(['duration_months', 'payment_frequency'])) {
                 $contract->validateDurationFrequency();
             }
 
-            // Validate no overlap with other contracts
+            // منع التحديث إذا كان هناك تداخل مع عقود أخرى
             if ($contract->isDirty(['start_date', 'duration_months', 'property_id'])) {
                 $contract->validateNoOverlap();
             }
@@ -178,12 +156,12 @@ class PropertyContract extends Model
             return false;
         }
 
-        // Check payments count is valid
+        // التحقق من أن عدد الدفعات صحيح ورقمي
         if (! is_numeric($this->payments_count) || $this->payments_count <= 0) {
             return false;
         }
 
-        // Check duration is divisible by frequency
+        // التحقق من أن المدة تقبل القسمة على التكرار
         return $this->isValidDurationForFrequency();
     }
 
@@ -200,7 +178,7 @@ class PropertyContract extends Model
             default => 1,
         };
 
-        // Check duration is divisible without remainder
+        // التحقق من أن المدة تقبل القسمة بدون باقي
         return ($this->duration_months % $monthsPerPayment) === 0;
     }
 
@@ -213,15 +191,15 @@ class PropertyContract extends Model
     {
         if (! $this->isValidDurationForFrequency()) {
             $frequencyLabel = match ($this->payment_frequency) {
-                'monthly' => 'monthly',
-                'quarterly' => 'quarterly (3 months)',
-                'semi_annually' => 'semi-annually (6 months)',
-                'annually' => 'annually (12 months)',
+                'monthly' => 'شهري',
+                'quarterly' => 'ربع سنوي (3 أشهر)',
+                'semi_annually' => 'نصف سنوي (6 أشهر)',
+                'annually' => 'سنوي (12 شهر)',
                 default => $this->payment_frequency,
             };
 
             throw new Exception(
-                "Contract duration ({$this->duration_months} months) is not compatible with frequency ({$frequencyLabel})"
+                "مدة العقد ({$this->duration_months} شهر) لا تتوافق مع التكرار المحدد ({$frequencyLabel})"
             );
         }
     }
@@ -257,26 +235,166 @@ class PropertyContract extends Model
      */
     public function canRenew(): bool
     {
-        return in_array($this->contract_status, ['active', 'expired'])
-            && $this->end_date !== null;
+        return $this->contract_status === 'active' && $this->end_date !== null;
     }
 
     /**
-     * Check if contract can be rescheduled.
+     * Check if contract is currently active.
      */
-    public function canReschedule(): bool
+    public function isActive(): bool
     {
-        // Contract must be active or draft
-        if (!in_array($this->contract_status, ['active', 'draft'])) {
+        return $this->contract_status === 'active'
+            && $this->start_date <= now()
+            && $this->end_date >= now();
+    }
+
+    /**
+     * Check if contract has expired.
+     */
+    public function hasExpired(): bool
+    {
+        return $this->contract_status === 'expired'
+            || ($this->contract_status === 'active' && $this->end_date < now());
+    }
+
+    /**
+     * Check if contract is draft.
+     */
+    public function isDraft(): bool
+    {
+        return $this->contract_status === 'draft';
+    }
+
+    /**
+     * Check if contract was terminated.
+     */
+    public function isTerminated(): bool
+    {
+        return $this->contract_status === 'terminated';
+    }
+
+    /**
+     * Check if contract was renewed.
+     */
+    public function isRenewed(): bool
+    {
+        return $this->contract_status === 'renewed';
+    }
+
+    /**
+     * Get status badge color for UI.
+     */
+    public function getStatusColorAttribute(): string
+    {
+        return match ($this->contract_status) {
+            'draft' => 'gray',
+            'active' => $this->end_date < now()->addDays(30) ? 'warning' : 'success',
+            'expired' => 'danger',
+            'terminated' => 'danger',
+            'renewed' => 'info',
+            default => 'secondary'
+        };
+    }
+
+    /**
+     * Get status label in Arabic.
+     */
+    public function getStatusLabelAttribute(): string
+    {
+        return match ($this->contract_status) {
+            'draft' => 'مسودة',
+            'active' => 'نشط',
+            'expired' => 'منتهي',
+            'terminated' => 'ملغي',
+            'renewed' => 'مُجدد',
+            default => $this->contract_status
+        };
+    }
+
+    /**
+     * Get paid supply payments.
+     */
+    public function getPaidPayments()
+    {
+        return $this->supplyPayments()->whereNotNull('paid_date')->get();
+    }
+
+    /**
+     * Get unpaid supply payments.
+     */
+    public function getUnpaidPayments()
+    {
+        return $this->supplyPayments()->whereNull('paid_date')->get();
+    }
+
+    /**
+     * Get the last paid date (due date of the last paid payment) or start date if none.
+     */
+    public function getLastPaidDate()
+    {
+        $lastPaid = $this->supplyPayments()
+            ->whereNotNull('paid_date')
+            ->orderBy('due_date', 'desc')
+            ->first();
+
+        return $lastPaid ? Carbon::parse($lastPaid->due_date) : Carbon::parse($this->start_date);
+    }
+
+    /**
+     * Check if the contract can be rescheduled.
+     * Only for active/draft contracts that have supply payments.
+     */
+    public function canBeRescheduled(): bool
+    {
+        $validStatuses = ['active', 'draft'];
+        if (! in_array($this->contract_status, $validStatuses)) {
             return false;
         }
 
-        // Must have existing payments
-        if (!$this->supplyPayments()->exists()) {
+        if (! $this->supplyPayments()->exists()) {
             return false;
         }
 
         return true;
+    }
+
+    /**
+     * Check if contract can be rescheduled (alias).
+     */
+    public function canReschedule(): bool
+    {
+        return $this->canBeRescheduled();
+    }
+
+    /**
+     * Get count of paid months (approximate).
+     */
+    public function getPaidMonthsCount(): int
+    {
+        $count = 0;
+        foreach ($this->getPaidPayments() as $payment) {
+            $monthsPerPayment = match ($this->payment_frequency) {
+                'monthly' => 1,
+                'quarterly' => 3,
+                'semi_annually' => 6,
+                'annually' => 12,
+                default => 1,
+            };
+            $count += $monthsPerPayment;
+        }
+
+        return $count;
+    }
+
+    /**
+     * Get remaining months count.
+     */
+    public function getRemainingMonths(): int
+    {
+        $totalMonths = $this->duration_months ?? 0;
+        $paidMonths = $this->getPaidMonthsCount();
+
+        return max(0, $totalMonths - $paidMonths);
     }
 
     /**

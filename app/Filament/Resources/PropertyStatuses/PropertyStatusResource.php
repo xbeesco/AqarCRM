@@ -19,21 +19,17 @@ use Illuminate\Support\Collection;
 class PropertyStatusResource extends Resource
 {
     protected static ?string $model = PropertyStatus::class;
-    
+
     protected static ?string $label = 'حالة عقار';
-    
+
     protected static ?string $pluralLabel = 'حالات العقارات';
 
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-                TextInput::make('name_ar')
-                    ->label('الاسم بالعربية')
-                    ->required()
-                    ->maxLength(255),
-                TextInput::make('name_en')
-                    ->label('الاسم بالإنجليزية')
+                TextInput::make('name')
+                    ->label('الاسم')
                     ->required()
                     ->maxLength(255),
             ]);
@@ -43,11 +39,8 @@ class PropertyStatusResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('name_ar')
-                    ->label('الاسم بالعربية')
-                    ->searchable(),
-                TextColumn::make('name_en')
-                    ->label('الاسم بالإنجليزية')
+                TextColumn::make('name')
+                    ->label('الاسم')
                     ->searchable(),
             ])
             ->searchable(false)
@@ -67,17 +60,17 @@ class PropertyStatusResource extends Resource
             'index' => ManagePropertyStatuses::route('/'),
         ];
     }
-    
+
     public static function getGloballySearchableAttributes(): array
     {
         return [
-            'name_ar', 'name_en', 'slug', 'color', 'icon',
-            'description_ar', 'description_en', 'sort_order',
-            'properties_count', 'is_available', 'is_active',
-            'created_at', 'updated_at'
+            'name',
+            'slug',
+            'created_at',
+            'updated_at'
         ];
     }
-    
+
     public static function getGlobalSearchResults(string $search): Collection
     {
         $normalizedSearch = str_replace(
@@ -85,129 +78,22 @@ class PropertyStatusResource extends Resource
             ['ا', 'ا', 'ا', '', 'و', 'ي'],
             $search
         );
-        
-        $searchWithoutSpaces = str_replace(' ', '', $normalizedSearch);
-        
+
         return static::getModel()::query()
-            ->where(function ($query) use ($search, $normalizedSearch, $searchWithoutSpaces) {
-                // البحث في الأسماء
-                $query->where('name_ar', 'LIKE', "%{$search}%")
-                      ->orWhere('name_en', 'LIKE', "%{$search}%")
-                      
-                      // البحث في slug
-                      ->orWhere('slug', 'LIKE', "%{$search}%")
-                      
-                      // البحث في اللون
-                      ->orWhere('color', 'LIKE', "%{$search}%")
-                      
-                      // البحث في الأيقونة
-                      ->orWhere('icon', 'LIKE', "%{$search}%")
-                      
-                      // البحث في الوصف
-                      ->orWhere('description_ar', 'LIKE', "%{$search}%")
-                      ->orWhere('description_en', 'LIKE', "%{$search}%")
-                      
-                      // البحث في الأرقام
-                      ->orWhere('sort_order', 'LIKE', "%{$search}%")
-                      ->orWhere('properties_count', 'LIKE', "%{$search}%")
-                      
-                      // البحث بدون همزات
-                      ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(name_ar, 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا'), 'ء', ''), 'ؤ', 'و'), 'ئ', 'ي') LIKE ?", ["%{$normalizedSearch}%"])
-                      ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(description_ar, 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا'), 'ء', ''), 'ؤ', 'و'), 'ئ', 'ي') LIKE ?", ["%{$normalizedSearch}%"])
-                      
-                      // البحث بدون مسافات
-                      ->orWhereRaw("REPLACE(name_ar, ' ', '') LIKE ?", ["%{$searchWithoutSpaces}%"])
-                      ->orWhereRaw("REPLACE(name_en, ' ', '') LIKE ?", ["%{$searchWithoutSpaces}%"])
-                      ->orWhereRaw("REPLACE(description_ar, ' ', '') LIKE ?", ["%{$searchWithoutSpaces}%"])
-                      ->orWhereRaw("REPLACE(description_en, ' ', '') LIKE ?", ["%{$searchWithoutSpaces}%"])
-                      
-                      // البحث في التواريخ
-                      ->orWhereRaw("DATE_FORMAT(created_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
-                      ->orWhereRaw("DATE_FORMAT(created_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
-                      ->orWhereRaw("DATE_FORMAT(created_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
-                      ->orWhereRaw("DATE_FORMAT(created_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"])
-                      ->orWhereRaw("DATE_FORMAT(updated_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"])
-                      ->orWhereRaw("DATE_FORMAT(updated_at, '%d-%m-%Y') LIKE ?", ["%{$search}%"])
-                      ->orWhereRaw("DATE_FORMAT(updated_at, '%Y/%m/%d') LIKE ?", ["%{$search}%"])
-                      ->orWhereRaw("DATE_FORMAT(updated_at, '%d/%m/%Y') LIKE ?", ["%{$search}%"])
-                      
-                      // البحث في حالة النشاط
-                      ->orWhere(function($q) use ($search) {
-                          $searchLower = strtolower($search);
-                          if (strpos('نشط', $search) !== false || strpos('active', $searchLower) !== false) {
-                              $q->where('is_active', 1);
-                          } elseif (strpos('غير نشط', $search) !== false || strpos('inactive', $searchLower) !== false || strpos('معطل', $search) !== false) {
-                              $q->where('is_active', 0);
-                          }
-                      })
-                      
-                      // البحث في حالة التوفر
-                      ->orWhere(function($q) use ($search) {
-                          $searchLower = strtolower($search);
-                          if (strpos('متاح', $search) !== false || strpos('available', $searchLower) !== false) {
-                              $q->where('is_available', 1);
-                          } elseif (strpos('غير متاح', $search) !== false || strpos('unavailable', $searchLower) !== false || strpos('محجوز', $search) !== false) {
-                              $q->where('is_available', 0);
-                          }
-                      })
-                      
-                      // البحث في الألوان بالعربي
-                      ->orWhere(function($q) use ($search) {
-                          $colorMap = [
-                              'أخضر' => 'green',
-                              'أحمر' => 'red',
-                              'أزرق' => 'blue',
-                              'أصفر' => 'yellow',
-                              'برتقالي' => 'orange',
-                              'رمادي' => 'gray',
-                              'أسود' => 'black',
-                              'أبيض' => 'white',
-                              'بنفسجي' => 'purple',
-                              'وردي' => 'pink',
-                          ];
-                          
-                          foreach ($colorMap as $arabicColor => $englishColor) {
-                              if (strpos($search, $arabicColor) !== false) {
-                                  $q->orWhere('color', $englishColor);
-                              }
-                          }
-                      });
+            ->where(function ($query) use ($search, $normalizedSearch) {
+                $query->where('name', 'LIKE', "%{$search}%")
+                    ->orWhere('slug', 'LIKE', "%{$search}%")
+                    ->orWhereRaw("REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(name, 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا'), 'ء', ''), 'ؤ', 'و'), 'ئ', 'ي') LIKE ?", ["%{$normalizedSearch}%"]);
             })
             ->limit(50)
             ->get()
             ->map(function ($record) {
-                $colorNames = [
-                    'green' => 'أخضر',
-                    'red' => 'أحمر',
-                    'blue' => 'أزرق',
-                    'yellow' => 'أصفر',
-                    'orange' => 'برتقالي',
-                    'gray' => 'رمادي',
-                    'black' => 'أسود',
-                    'white' => 'أبيض',
-                    'purple' => 'بنفسجي',
-                    'pink' => 'وردي',
-                ];
-                
-                $details = [
-                    'الاسم بالإنجليزية' => $record->name_en ?? 'غير محدد',
-                    'اللون' => $colorNames[$record->color] ?? $record->color,
-                    'متاح' => $record->is_available ? 'نعم' : 'لا',
-                    'نشط' => $record->is_active ? 'نعم' : 'لا',
-                ];
-                
-                if ($record->properties_count > 0) {
-                    $details['عدد العقارات'] = $record->properties_count;
-                }
-                
-                if ($record->description_ar) {
-                    $details['الوصف'] = Str::limit($record->description_ar, 50);
-                }
-                
                 return new GlobalSearchResult(
-                    title: $record->name_ar,
+                    title: $record->name,
                     url: static::getUrl('index'),
-                    details: $details,
+                    details: [
+                        //
+                    ],
                     actions: []
                 );
             });

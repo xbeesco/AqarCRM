@@ -83,19 +83,24 @@ class CollectionPaymentService
      */
     public function processPayment(
         CollectionPayment $payment,
-        int $paymentMethodId,
+        ?int $paymentMethodId = null,
         ?string $paidDate = null,
         ?string $paymentReference = null
     ): bool {
         $currentDate = Carbon::now();
 
-        $payment->update([
-            'payment_method_id' => $paymentMethodId,
+        $updateData = [
             'paid_date' => $paidDate ?: $currentDate->toDateString(),
             'collection_date' => $currentDate,
             'payment_reference' => $paymentReference,
             'receipt_number' => $this->generateReceiptNumber(),
-        ]);
+        ];
+
+        if ($paymentMethodId !== null) {
+            $updateData['payment_method_id'] = $paymentMethodId;
+        }
+
+        $payment->update($updateData);
 
         return true;
     }
@@ -105,7 +110,7 @@ class CollectionPaymentService
      */
     public function bulkCollectPayments(
         array $paymentIds,
-        int $paymentMethodId,
+        ?int $paymentMethodId = null,
         ?string $paidDate = null
     ): array {
         $results = [];

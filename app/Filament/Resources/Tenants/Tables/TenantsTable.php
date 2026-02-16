@@ -2,6 +2,11 @@
 
 namespace App\Filament\Resources\Tenants\Tables;
 
+use App\Filament\Resources\CollectionPayments\CollectionPaymentResource;
+use App\Filament\Resources\UnitContracts\UnitContractResource;
+use App\Filament\Resources\Units\UnitResource;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
@@ -48,8 +53,26 @@ class TenantsTable
                 EditAction::make()
                     ->label('تعديل')
                     ->icon('heroicon-o-pencil-square'),
+                ActionGroup::make([
+                    Action::make('view_units')
+                        ->label('الوحدات')
+                        ->icon('heroicon-o-home')
+                        ->url(fn ($record) => UnitResource::getUrl('index').'?tenant_id='.$record->id),
+                    Action::make('view_unit_contracts')
+                        ->label('عقود الوحدات')
+                        ->icon('heroicon-o-document-text')
+                        ->url(fn ($record) => UnitContractResource::getUrl('index').'?tenant_id='.$record->id),
+                    Action::make('view_collection_payments')
+                        ->label('دفعات المستأجر')
+                        ->icon('heroicon-o-currency-dollar')
+                        ->url(fn ($record) => CollectionPaymentResource::getUrl('index').'?tenant_id='.$record->id),
+                ])
+                    ->label('المزيد')
+                    ->icon('heroicon-o-ellipsis-horizontal')
+                    ->color('primary')
+                    ->button(),
             ])
-            ->toolbarActions([])
+            ->bulkActions([])
             ->defaultSort('created_at', 'desc');
     }
 }

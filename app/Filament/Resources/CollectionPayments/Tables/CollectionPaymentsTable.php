@@ -6,6 +6,7 @@ use App\Enums\PaymentStatus;
 use App\Models\CollectionPayment;
 use App\Models\Property;
 use App\Models\Unit;
+use App\Models\User;
 use App\Services\CollectionPaymentService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -89,6 +90,34 @@ class CollectionPaymentsTable
             ])
             ->defaultPaginationPageOption(25)
             ->filters([
+                SelectFilter::make('owner_id')
+                    ->label('المالك')
+                    ->options(function () {
+                        return User::where('type', 'owner')
+                            ->orderBy('name')
+                            ->pluck('name', 'id');
+                    })
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (! empty($data['value'])) {
+                            return $query->whereHas('property', function ($q) use ($data) {
+                                $q->where('owner_id', $data['value']);
+                            });
+                        }
+
+                        return $query;
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (! empty($data['value'])) {
+                            $owner = User::find($data['value']);
+
+                            return $owner ? 'المالك: '.$owner->name : null;
+                        }
+
+                        return null;
+                    })
+                    ->searchable()
+                    ->preload(),
+
                 Filter::make('property_and_unit')
                     ->label('العقار والوحدة')
                     ->schema([
@@ -125,13 +154,40 @@ class CollectionPaymentsTable
                         }
 
                         return $query;
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if (! empty($data['property_id'])) {
+                            $property = Property::find($data['property_id']);
+                            if ($property) {
+                                if (! empty($data['unit_id'])) {
+                                    $unit = Unit::find($data['unit_id']);
+                                    if ($unit) {
+                                        $indicators['filter'] = 'العقار: '.$property->name.' - الوحدة: '.$unit->name;
+                                    }
+                                } else {
+                                    $indicators['filter'] = 'العقار: '.$property->name;
+                                }
+                            }
+                        }
+
+                        return $indicators;
                     }),
 
                 SelectFilter::make('tenant_id')
                     ->label('المستأجر')
                     ->relationship('tenant', 'name', fn ($query) => $query->where('type', 'tenant'))
                     ->searchable()
-                    ->preload(),
+                    ->preload()
+                    ->indicateUsing(function (array $data): ?string {
+                        if (! empty($data['value'])) {
+                            $tenant = User::find($data['value']);
+
+                            return $tenant ? 'المستأجر: '.$tenant->name : null;
+                        }
+
+                        return null;
+                    }),
 
                 SelectFilter::make('payment_status')
                     ->label('حالة الدفعة')
@@ -309,9 +365,21 @@ class CollectionPaymentsTable
                         ->modalSubmitActionLabel('تأكيد الاستلام')
                         ->modalIcon('heroicon-o-check-circle')
                         ->modalIconColor('success')
-                        ->visible(
-                            fn (CollectionPayment $record) => ! $record->collection_date
-                        )
+                        ->visible(function (CollectionPayment $record) {
+                            // لو متحصلة أصلاً، إخفاء الزرار
+                            if ($record->collection_date) {
+                                return false;
+                            }
+
+                            // التحقق من وجود دفعة سابقة غير متحصلة في نفس العقد
+                            $hasPriorUnpaid = CollectionPayment::where('unit_contract_id', $record->unit_contract_id)
+                                ->whereNull('collection_date')
+                                ->where('due_date_start', '<', $record->due_date_start)
+                                ->exists();
+
+                            // يظهر الزرار فقط لو مفيش دفعة قبلها لسه مش متحصلة
+                            return ! $hasPriorUnpaid;
+                        })
                         ->action(function (CollectionPayment $record) {
                             app(CollectionPaymentService::class)->markAsCollected($record, auth()->id());
 
@@ -321,9 +389,8 @@ class CollectionPaymentsTable
                                 ->success()
                                 ->send();
                         }),
-                ])->label('More actions')
-                    ->icon('heroicon-m-ellipsis-vertical')
-                    ->size(Size::Small)
+                ])->label('المزيد')
+                    ->icon('heroicon-o-ellipsis-horizontal')
                     ->color('primary')
                     ->button(),
 

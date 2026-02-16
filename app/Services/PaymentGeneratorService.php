@@ -2,8 +2,6 @@
 
 namespace App\Services;
 
-use InvalidArgumentException;
-use Exception;
 use App\Models\CollectionPayment;
 use App\Models\PropertyContract;
 use App\Models\Setting;
@@ -15,12 +13,12 @@ use Illuminate\Support\Facades\DB;
 class PaymentGeneratorService
 {
     /**
-     * Generate tenant collection payments.
+     * توليد دفعات التحصيل للمستأجرين
      */
     public function generateTenantPayments(UnitContract $contract): array
     {
         if (! $contract->monthly_rent || $contract->monthly_rent <= 0) {
-            throw new InvalidArgumentException('Monthly rent amount is invalid');
+            throw new \InvalidArgumentException('مبلغ الإيجار الشهري غير صحيح');
         }
 
         DB::beginTransaction();
@@ -31,40 +29,42 @@ class PaymentGeneratorService
             $endDate = Carbon::parse($contract->end_date);
             $frequency = $contract->payment_frequency ?? 'monthly';
 
-            // Calculate payment count
+            // حساب عدد الدفعات
             $paymentCount = $this->calculatePaymentCount($startDate, $endDate, $frequency);
 
             if ($paymentCount <= 0) {
-                throw new InvalidArgumentException('Invalid payment count for the specified period');
+                throw new \InvalidArgumentException('عدد الدفعات غير صحيح للفترة المحددة');
             }
 
-            // Base payment amount
+            // المبلغ الأساسي للدفعة
             $baseAmount = $this->calculatePaymentAmount($contract->monthly_rent, $frequency);
 
             $currentDate = $startDate->copy();
-            $paymentNumber = 1;
+            // استخدام MAX بدلاً من البدء من 1 لتجنب التكرار
+            $paymentNumber = $this->getMaxPaymentSequence($contract) + 1;
+            $generatedCount = 0;
 
-            while ($currentDate <= $endDate && $paymentNumber <= $paymentCount) {
-                // Calculate period end date
+            while ($currentDate <= $endDate && $generatedCount < $paymentCount) {
+                // حساب تاريخ نهاية الفترة
                 $periodEnd = $this->calculatePeriodEnd($currentDate, $frequency);
 
-                // Ensure we don't exceed contract end date
+                // التأكد من عدم تجاوز تاريخ انتهاء العقد
                 if ($periodEnd > $endDate) {
                     $periodEnd = $endDate;
-                    // Calculate prorated amount for the last period
+                    // حساب المبلغ بالتناسب للفترة الأخيرة
                     $daysInPeriod = $currentDate->diffInDays($periodEnd) + 1;
                     $fullPeriodDays = $this->getFullPeriodDays($frequency);
                     $baseAmount = ($contract->monthly_rent * ($daysInPeriod / 30));
                 }
 
-                // Create the payment
-                // Note: payment_status is computed dynamically from collection_date and due_date_start
-                // Note: payment_number is auto-generated via HasPaymentNumber trait
+                // إنشاء الدفعة
                 $payment = CollectionPayment::create([
+                    'payment_number' => $this->generatePaymentNumber($contract, $paymentNumber),
                     'unit_contract_id' => $contract->id,
                     'unit_id' => $contract->unit_id,
                     'property_id' => $contract->property_id,
                     'tenant_id' => $contract->tenant_id,
+                    'payment_status_id' => 2,  // Due - تستحق التحصيل
                     'amount' => $baseAmount,
                     'late_fee' => 0,
                     'total_amount' => $baseAmount,
@@ -75,26 +75,89 @@ class PaymentGeneratorService
 
                 $payments[] = $payment;
 
-                // Move to next period
+                // الانتقال للفترة التالية
                 $currentDate = $this->getNextPeriodStart($currentDate, $frequency);
                 $paymentNumber++;
+                $generatedCount++;
             }
 
             DB::commit();
 
             return $payments;
-        } catch (Exception $e) {
+
+        } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
         }
     }
 
     /**
-     * Calculate payment count based on frequency.
+     * توليد دفعة توريد واحدة للمالك بناءً على المبالغ المحصلة الفعلية
+     * تستخدم هذه الدالة لحساب دفعة التوريد الشهرية بناءً على ما تم تحصيله فعلياً
+     */
+    public function generateOwnerPayments(PropertyContract $contract, $month = null): ?SupplyPayment
+    {
+        DB::beginTransaction();
+
+        try {
+            $targetMonth = $month ? Carbon::parse($month) : Carbon::now();
+
+            // جمع كل دفعات التحصيل المدفوعة لهذا الشهر
+            $collectedPayments = CollectionPayment::where('property_id', $contract->property_id)
+                ->where('payment_status_id', 3) // paid
+                ->whereYear('paid_date', $targetMonth->year)
+                ->whereMonth('paid_date', $targetMonth->month)
+                ->get();
+
+            if ($collectedPayments->isEmpty()) {
+                DB::rollBack();
+
+                return null;
+            }
+
+            // حساب المجموع
+            $totalCollected = $collectedPayments->sum('total_amount');
+
+            // حساب العمولة
+            $commissionAmount = $totalCollected * ($contract->commission_rate / 100);
+
+            // حساب المصروفات للشهر
+            $expenses = $this->calculateMonthlyExpenses($contract->property_id, $targetMonth);
+
+            // المبلغ الصافي للمالك
+            $netAmount = $totalCollected - $commissionAmount - $expenses;
+
+            // إنشاء دفعة التوريد
+            $payment = SupplyPayment::create([
+                'payment_number' => $this->generateSupplyPaymentNumber($contract, $targetMonth),
+                'property_contract_id' => $contract->id,
+                'property_id' => $contract->property_id,
+                'owner_id' => $contract->owner_id,
+                'payment_status_id' => 1, // pending
+                'gross_amount' => $totalCollected,
+                'commission_amount' => $commissionAmount,
+                'expenses_amount' => $expenses,
+                'net_amount' => $netAmount,
+                'payment_month' => $targetMonth->format('Y-m'),
+                'due_date' => $targetMonth->copy()->day($contract->payment_day ?? 5)->format('Y-m-d'),
+            ]);
+
+            DB::commit();
+
+            return $payment;
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * حساب عدد الدفعات حسب التكرار
      */
     private function calculatePaymentCount($startDate, $endDate, $frequency): int
     {
-        $months = $startDate->diffInMonths($endDate) + 1;
+        $months = (int) floor($startDate->diffInMonths($endDate)) + 1;
         $monthsPerPayment = PropertyContractService::getMonthsPerPayment($frequency);
 
         if ($monthsPerPayment === 0) {
@@ -105,7 +168,7 @@ class PaymentGeneratorService
     }
 
     /**
-     * Calculate payment amount based on frequency.
+     * حساب مبلغ الدفعة حسب التكرار
      */
     private function calculatePaymentAmount($monthlyRent, $frequency): float
     {
@@ -115,7 +178,7 @@ class PaymentGeneratorService
     }
 
     /**
-     * Calculate period end date.
+     * حساب نهاية الفترة
      */
     private function calculatePeriodEnd($startDate, $frequency): Carbon
     {
@@ -126,7 +189,7 @@ class PaymentGeneratorService
     }
 
     /**
-     * Get next period start date.
+     * الحصول على بداية الفترة التالية
      */
     private function getNextPeriodStart($currentDate, $frequency): Carbon
     {
@@ -137,44 +200,111 @@ class PaymentGeneratorService
     }
 
     /**
-     * Get number of days in a full period.
+     * عدد الأيام في الفترة الكاملة
      */
     private function getFullPeriodDays($frequency): int
     {
         $monthsPerPayment = PropertyContractService::getMonthsPerPayment($frequency);
 
-        return $monthsPerPayment * 30; // Approximately 30 days per month
+        return $monthsPerPayment * 30; // تقريبياً 30 يوم للشهر
     }
 
     /**
-     * Generate expected supply payment schedule for owner contract (for advance planning).
-     * This function is used when creating a contract to generate all expected payments upfront.
+     * توليد رقم الدفعة للمستأجر
+     */
+    private function generatePaymentNumber($contract, int $sequence): string
+    {
+        return sprintf('PAY-%s-%04d', $contract->contract_number, $sequence);
+    }
+
+    /**
+     * الحصول على أعلى رقم تسلسلي موجود للدفعات
+     * يستخدم MAX بدلاً من COUNT لتجنب التكرار بعد حذف دفعات
+     */
+    private function getMaxPaymentSequence(UnitContract $contract): int
+    {
+        $pattern = 'PAY-'.$contract->contract_number.'-%';
+
+        $result = DB::table('collection_payments')
+            ->where('unit_contract_id', $contract->id)
+            ->where('payment_number', 'like', $pattern)
+            ->selectRaw('MAX(CAST(SUBSTRING_INDEX(payment_number, "-", -1) AS UNSIGNED)) as max_seq')
+            ->first();
+
+        return $result->max_seq ?? 0;
+    }
+
+    /**
+     * توليد رقم دفعة التوريد للمالك
+     */
+    private function generateSupplyPaymentNumber($contract, Carbon $month): string
+    {
+        return sprintf('SUP-%s-%s', $contract->contract_number, $month->format('Ym'));
+    }
+
+    /**
+     * حساب المصروفات الشهرية للعقار
+     */
+    private function calculateMonthlyExpenses(int $propertyId, Carbon $month): float
+    {
+        // حساب مصروفات العقار نفسه
+        $propertyExpenses = \App\Models\Expense::where('subject_type', 'App\Models\Property')
+            ->where('subject_id', $propertyId)
+            ->whereYear('date', $month->year)
+            ->whereMonth('date', $month->month)
+            ->sum('cost');
+
+        // حساب مصروفات الوحدات التابعة للعقار
+        $property = \App\Models\Property::find($propertyId);
+        $unitsExpenses = 0;
+
+        if ($property) {
+            $unitIds = $property->units->pluck('id');
+            $unitsExpenses = \App\Models\Expense::where('subject_type', 'App\Models\Unit')
+                ->whereIn('subject_id', $unitIds)
+                ->whereYear('date', $month->year)
+                ->whereMonth('date', $month->month)
+                ->sum('cost');
+        }
+
+        // حساب مصروفات الصيانة من جدول property_repairs
+        $maintenanceExpenses = \App\Models\PropertyRepair::where('property_id', $propertyId)
+            ->whereYear('maintenance_date', $month->year)
+            ->whereMonth('maintenance_date', $month->month)
+            ->sum('total_cost');
+
+        return $propertyExpenses + $unitsExpenses + $maintenanceExpenses;
+    }
+
+    /**
+     * توليد جدول دفعات التوريد المتوقعة لعقد المالك (للتخطيط المسبق)
+     * تستخدم هذه الدالة عند إنشاء العقد لتوليد جميع الدفعات المتوقعة مقدماً
      */
     public function generateSupplyPaymentsForContract(PropertyContract $contract): int
     {
-        // Check if payments have already been generated
+        // التحقق من وجود دفعات مولدة مسبقاً
         if ($contract->supplyPayments()->exists()) {
             $count = $contract->supplyPayments()->count();
-            throw new Exception("لا يمكن إنشاء دفعات جديدة - يوجد بالفعل {$count} دفعة لهذا العقد");
+            throw new \Exception("لا يمكن توليد دفعات جديدة - يوجد {$count} دفعة مولدة مسبقاً لهذا العقد");
         }
 
-        // Comprehensive validation for payment generation eligibility
+        // التحقق الشامل من صلاحية توليد الدفعات
         if (! $contract->canGeneratePayments()) {
-            // Identify the specific issue
+            // تحديد سبب المشكلة بدقة
             if (! is_numeric($contract->payments_count) || $contract->payments_count <= 0) {
-                throw new Exception('عدد الدفعات غير صحيح - يرجى التحقق من بيانات العقد');
+                throw new \Exception('عدد الدفعات غير صحيح - تحقق من بيانات العقد');
             }
 
             if (! $contract->isValidDurationForFrequency()) {
-                throw new Exception('مدة العقد لا تتطابق مع تكرار الدفع المحدد');
+                throw new \Exception('مدة العقد لا تتوافق مع تكرار الدفع المحدد');
             }
 
-            throw new Exception('لا يمكن إنشاء دفعات لهذا العقد - يرجى التحقق من صحة البيانات');
+            throw new \Exception('لا يمكن توليد دفعات لهذا العقد - تحقق من صحة البيانات');
         }
 
-        // Additional validation of duration and frequency compatibility
+        // تحقق إضافي من صحة المدة والتكرار
         if (! $contract->isValidDurationForFrequency()) {
-            throw new Exception('Contract duration does not match the specified payment frequency');
+            throw new \Exception('مدة العقد لا تتوافق مع تكرار الدفع المحدد');
         }
 
         $paymentsToGenerate = $contract->payments_count;
@@ -187,20 +317,20 @@ class PaymentGeneratorService
             $endDate = Carbon::parse($contract->end_date);
 
             for ($i = 1; $i <= $paymentsToGenerate; $i++) {
-                // Calculate period end date
+                // حساب نهاية الفترة
                 $periodEnd = $this->calculatePeriodEnd($currentDate, $contract->payment_frequency);
 
-                // Ensure we don't exceed contract end date
+                // التأكد من عدم تجاوز تاريخ انتهاء العقد
                 if ($periodEnd > $endDate) {
                     $periodEnd = $endDate->copy();
                 }
 
                 $payments[] = $this->createSupplyPayment($contract, $i, $currentDate, $periodEnd);
 
-                // Move to next period
+                // الانتقال للفترة التالية
                 $currentDate = $this->getNextPeriodStart($currentDate, $contract->payment_frequency);
 
-                // Stop generation if we exceed end date
+                // إيقاف التوليد إذا تجاوزنا تاريخ النهاية
                 if ($currentDate > $endDate) {
                     break;
                 }
@@ -209,15 +339,15 @@ class PaymentGeneratorService
             DB::commit();
 
             return count($payments);
-        } catch (Exception $e) {
+
+        } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
         }
     }
 
     /**
-     * Create a single supply payment.
-     * Note: payment_number is auto-generated via HasPaymentNumber trait.
+     * إنشاء دفعة توريد واحدة
      */
     private function createSupplyPayment(
         PropertyContract $contract,
@@ -226,6 +356,7 @@ class PaymentGeneratorService
         Carbon $periodEnd
     ): SupplyPayment {
         return SupplyPayment::create([
+            'payment_number' => sprintf('SUP-%s-%03d', $contract->contract_number, $paymentNumber),
             'property_contract_id' => $contract->id,
             'owner_id' => $contract->owner_id,
             'gross_amount' => 0,
@@ -239,7 +370,7 @@ class PaymentGeneratorService
             'approval_status' => 'pending',
             'month_year' => $periodStart->format('Y-m'),
             'notes' => sprintf(
-                'Payment %d of %d - %s',
+                'دفعة رقم %d من %d - %s',
                 $paymentNumber,
                 $contract->payments_count,
                 $this->getFrequencyLabel($contract->payment_frequency)
@@ -255,7 +386,7 @@ class PaymentGeneratorService
     }
 
     /**
-     * Get frequency label.
+     * الحصول على تسمية التكرار بالعربية
      */
     private function getFrequencyLabel(string $frequency): string
     {
@@ -269,7 +400,7 @@ class PaymentGeneratorService
     }
 
     /**
-     * Get payment due days from settings.
+     * الحصول على عدد أيام الاستحقاق من الإعدادات
      */
     private function getPaymentDueDays(): int
     {
@@ -277,8 +408,8 @@ class PaymentGeneratorService
     }
 
     /**
-     * Reschedule contract payments with full flexibility.
-     * Paid payments remain unchanged, unpaid portion can be freely modified.
+     * إعادة جدولة دفعات العقد مع مرونة كاملة
+     * الدفعات المدفوعة تبقى كما هي، والجزء غير المدفوع يمكن تغييره بحرية
      */
     public function rescheduleContractPayments(
         UnitContract $contract,
@@ -286,33 +417,33 @@ class PaymentGeneratorService
         int $additionalMonths,
         string $newFrequency
     ): array {
-        // Validate input data
+        // التحقق من صحة البيانات
         if ($additionalMonths <= 0) {
-            throw new InvalidArgumentException('يجب أن تكون الأشهر الإضافية أكبر من صفر');
+            throw new \InvalidArgumentException('عدد الأشهر الإضافية يجب أن يكون أكبر من صفر');
         }
 
         if ($newMonthlyRent <= 0) {
-            throw new InvalidArgumentException('يجب أن يكون مبلغ الإيجار أكبر من صفر');
+            throw new \InvalidArgumentException('قيمة الإيجار يجب أن تكون أكبر من صفر');
         }
 
-        // Validate duration compatibility with frequency
+        // التحقق من توافق المدة مع التكرار
         if (! PropertyContractService::isValidDuration($additionalMonths, $newFrequency)) {
-            throw new InvalidArgumentException('المدة الإضافية غير متوافقة مع تكرار التحصيل المحدد');
+            throw new \InvalidArgumentException('المدة الإضافية لا تتوافق مع تكرار الدفع المختار');
         }
 
         DB::beginTransaction();
 
         try {
-            // 1. Get last paid period end date
+            // 1. الحصول على آخر تاريخ مدفوع
             $lastPaidDate = $this->getLastPaidPeriodEnd($contract);
 
-            // 2. Start date for new payments
+            // 2. تاريخ البداية للدفعات الجديدة
             $newStartDate = $lastPaidDate ? $lastPaidDate->copy()->addDay() : Carbon::parse($contract->start_date);
 
-            // 3. Delete all unpaid payments
+            // 3. حذف جميع الدفعات غير المدفوعة
             $deletedCount = $this->deleteUnpaidPayments($contract);
 
-            // 4. Generate new payments
+            // 4. توليد الدفعات الجديدة
             $newPayments = $this->generatePaymentsFromDate(
                 $contract,
                 $newStartDate,
@@ -321,19 +452,20 @@ class PaymentGeneratorService
                 $newMonthlyRent
             );
 
-            // 5. Calculate new contract end date
+            // 5. حساب التاريخ الجديد لنهاية العقد
             $newEndDate = $newStartDate->copy()->addMonths($additionalMonths)->subDay();
 
-            // 6. Calculate total new months
+            // 6. حساب إجمالي الأشهر الجديد
             $paidMonths = $this->calculatePaidMonths($contract);
             $totalMonths = $paidMonths + $additionalMonths;
 
-            // 7. Update contract
+            // 7. تحديث العقد
             $contract->update([
                 'end_date' => $newEndDate,
                 'duration_months' => $totalMonths,
                 'monthly_rent' => $newMonthlyRent,
-                'notes' => $contract->notes . "\n[" . now()->format('Y-m-d H:i') . "] تمت إعادة جدولة الدفعات - حذف {$deletedCount} دفعة وإضافة " . count($newPayments) . ' دفعة جديدة',
+                'payments_count' => $contract->getPaidPaymentsCount() + \count($newPayments),
+                'notes' => $contract->notes."\n[".now()->format('Y-m-d H:i')."] تمت إعادة جدولة الدفعات - حذف {$deletedCount} دفعة وإضافة ".\count($newPayments).' دفعة جديدة',
             ]);
 
             DB::commit();
@@ -345,19 +477,20 @@ class PaymentGeneratorService
                 'total_months' => $totalMonths,
                 'new_end_date' => $newEndDate,
             ];
-        } catch (Exception $e) {
+
+        } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
         }
     }
 
     /**
-     * Get last paid period end date.
+     * الحصول على آخر تاريخ فترة مدفوعة
      */
     public function getLastPaidPeriodEnd(UnitContract $contract): ?Carbon
     {
-        $lastPaidPayment = $contract->collectionPayments()
-            ->paid()  // Use new scope based on collection_date
+        $lastPaidPayment = $contract->payments()
+            ->paid()  // استخدام الـ scope الجديد بناءً على collection_date
             ->orderBy('due_date_end', 'desc')
             ->first();
 
@@ -365,22 +498,22 @@ class PaymentGeneratorService
     }
 
     /**
-     * Delete all unpaid payments.
+     * حذف جميع الدفعات غير المدفوعة
      */
     private function deleteUnpaidPayments(UnitContract $contract): int
     {
-        return $contract->collectionPayments()
-            ->unpaid()  // Use new scope based on collection_date
+        return $contract->payments()
+            ->unpaid()  // استخدام الـ scope الجديد بناءً على collection_date
             ->delete();
     }
 
     /**
-     * Calculate number of paid months.
+     * حساب عدد الأشهر المدفوعة
      */
     private function calculatePaidMonths(UnitContract $contract): int
     {
-        $paidPayments = $contract->collectionPayments()
-            ->paid()  // Use new scope based on collection_date
+        $paidPayments = $contract->payments()
+            ->paid()  // استخدام الـ scope الجديد بناءً على collection_date
             ->get();
 
         $totalDays = 0;
@@ -390,12 +523,12 @@ class PaymentGeneratorService
             $totalDays += $start->diffInDays($end) + 1;
         }
 
-        // Convert days to months (approximately 30 days per month)
+        // تحويل الأيام إلى أشهر (تقريبياً 30 يوم للشهر)
         return intval($totalDays / 30);
     }
 
     /**
-     * Generate payments from a specific date.
+     * توليد دفعات من تاريخ محدد
      */
     private function generatePaymentsFromDate(
         UnitContract $contract,
@@ -408,35 +541,38 @@ class PaymentGeneratorService
         $currentDate = $startDate->copy();
         $endDate = $startDate->copy()->addMonths($durationMonths)->subDay();
 
-        // Calculate payment count
+        // حساب عدد الدفعات
         $paymentCount = PropertyContractService::calculatePaymentsCount($durationMonths, $frequency);
 
+        // الحصول على آخر رقم تسلسلي موجود (باستخدام MAX بدلاً من COUNT)
+        $lastPaymentNumber = $this->getMaxPaymentSequence($contract);
+
         for ($i = 1; $i <= $paymentCount; $i++) {
-            // Calculate period end date
+            // حساب نهاية الفترة
             $periodEnd = $this->calculatePeriodEnd($currentDate, $frequency);
 
-            // Ensure we don't exceed end date
+            // التأكد من عدم تجاوز تاريخ النهاية
             if ($periodEnd > $endDate) {
                 $periodEnd = $endDate->copy();
 
-                // Calculate prorated amount for the last period if needed
+                // حساب المبلغ بالتناسب للفترة الأخيرة إذا لزم الأمر
                 $daysInPeriod = $currentDate->diffInDays($periodEnd) + 1;
                 $monthsInPeriod = $daysInPeriod / 30;
                 $paymentAmount = $monthlyRent * $monthsInPeriod;
             } else {
-                // Full amount for the period
+                // المبلغ الكامل للفترة
                 $monthsPerPayment = PropertyContractService::getMonthsPerPayment($frequency);
                 $paymentAmount = $monthlyRent * $monthsPerPayment;
             }
 
-            // Create payment
-            // Note: payment_number is auto-generated via HasPaymentNumber trait
+            // إنشاء الدفعة
             $payment = CollectionPayment::create([
+                'payment_number' => $this->generatePaymentNumber($contract, $lastPaymentNumber + $i),
                 'unit_contract_id' => $contract->id,
                 'unit_id' => $contract->unit_id,
                 'property_id' => $contract->property_id,
                 'tenant_id' => $contract->tenant_id,
-                // Removed collection_status - status is computed dynamically
+                // تم إزالة collection_status - الحالة تُحسب ديناميكياً
                 'amount' => $paymentAmount,
                 'late_fee' => 0,
                 'total_amount' => $paymentAmount,
@@ -447,10 +583,10 @@ class PaymentGeneratorService
 
             $payments[] = $payment;
 
-            // Move to next period
+            // الانتقال للفترة التالية
             $currentDate = $this->getNextPeriodStart($currentDate, $frequency);
 
-            // Stop generation if we exceed end date
+            // إيقاف التوليد إذا تجاوزنا تاريخ النهاية
             if ($currentDate > $endDate) {
                 break;
             }
@@ -460,8 +596,7 @@ class PaymentGeneratorService
     }
 
     /**
-     * Reschedule property contract payments with full flexibility.
-     * Paid payments remain unchanged, unpaid portion can be freely modified.
+     * Reschedule Property Contract Payments
      */
     public function reschedulePropertyContractPayments(
         PropertyContract $contract,
@@ -469,60 +604,64 @@ class PaymentGeneratorService
         int $additionalMonths,
         string $newFrequency
     ): array {
-        // Validate input data
         if ($additionalMonths <= 0) {
-            throw new InvalidArgumentException('يجب أن تكون الأشهر الإضافية أكبر من صفر');
+            throw new \InvalidArgumentException('عدد الأشهر الإضافية يجب أن يكون أكبر من صفر');
         }
 
         if ($newCommissionRate < 0 || $newCommissionRate > 100) {
-            throw new InvalidArgumentException('يجب أن تكون نسبة العمولة بين 0 و 100');
+            throw new \InvalidArgumentException('نسبة العمولة يجب أن تكون بين 0 و 100');
         }
 
-        // Validate duration compatibility with frequency
-        if (!PropertyContractService::isValidDuration($additionalMonths, $newFrequency)) {
-            throw new InvalidArgumentException('المدة الإضافية غير متوافقة مع تكرار التحصيل المحدد');
+        if (! PropertyContractService::isValidDuration($additionalMonths, $newFrequency)) {
+            throw new \InvalidArgumentException('المدة الإضافية لا تتوافق مع تكرار الدفع المختار');
         }
 
         DB::beginTransaction();
 
         try {
-            // 1. Get last paid period end date
-            $lastPaidDate = $this->getLastPaidSupplyDate($contract);
+            // 1. Get Last Paid Date
+            $lastPaidDate = $contract->getLastPaidDate();
 
-            // 2. Start date for new payments
-            $newStartDate = $lastPaidDate ? $lastPaidDate->copy()->addDay() : Carbon::parse($contract->start_date);
+            // 2. Determine Start Date for New Payments
+            $lastPaidPayment = $contract->supplyPayments()->whereNotNull('paid_date')->orderBy('due_date', 'desc')->first();
 
-            // 3. Delete all unpaid payments
-            $deletedCount = $this->deleteUnpaidSupplyPayments($contract);
+            if ($lastPaidPayment) {
+                $invoiceDetails = $lastPaidPayment->invoice_details;
+                if (is_array($invoiceDetails) && isset($invoiceDetails['period_end'])) {
+                    $newStartDate = Carbon::parse($invoiceDetails['period_end'])->addDay();
+                } else {
+                    $newStartDate = Carbon::parse($lastPaidPayment->due_date)->addDay();
+                }
+            } else {
+                $newStartDate = Carbon::parse($contract->start_date);
+            }
 
-            // 4. Calculate new payments count
-            $newPaymentsCount = PropertyContractService::calculatePaymentsCount($additionalMonths, $newFrequency);
+            // 3. Delete Unpaid Payments
+            $deletedCount = $contract->supplyPayments()->whereNull('paid_date')->delete();
 
-            // 5. Generate new payments
-            $newPayments = $this->generateSupplyPaymentsFromDate(
+            // 4. Generate New Payments
+            $newPayments = $this->generatePropertyPaymentsFromDate(
                 $contract,
                 $newStartDate,
                 $additionalMonths,
                 $newFrequency,
-                $newCommissionRate,
-                $newPaymentsCount
+                $newCommissionRate
             );
 
-            // 6. Calculate new contract end date
+            // 5. Update Contract Terms
+            // New End Date is purely based on the new flow
             $newEndDate = $newStartDate->copy()->addMonths($additionalMonths)->subDay();
 
-            // 7. Calculate total new months
-            $paidMonths = $this->calculatePaidSupplyMonths($contract);
-            $totalMonths = $paidMonths + $additionalMonths;
+            $originalStart = Carbon::parse($contract->start_date);
+            $totalMonths = (int) floor($originalStart->diffInMonths($newEndDate)) + 1;
 
-            // 8. Update contract
             $contract->update([
                 'end_date' => $newEndDate,
                 'duration_months' => $totalMonths,
                 'commission_rate' => $newCommissionRate,
                 'payment_frequency' => $newFrequency,
-                'payments_count' => PropertyContractService::calculatePaymentsCount($totalMonths, $newFrequency),
-                'notes' => $contract->notes . "\n[" . now()->format('Y-m-d H:i') . "] تمت إعادة جدولة الدفعات - حذف {$deletedCount} دفعة وإضافة " . count($newPayments) . ' دفعة جديدة',
+                'payments_count' => ($contract->getPaidPayments()->count() + count($newPayments)),
+                'notes' => $contract->notes."\n[".now()->format('Y-m-d H:i')."] تمت إعادة جدولة الدفعات - حذف {$deletedCount} دفعة وإضافة ".count($newPayments).' دفعة جديدة',
             ]);
 
             DB::commit();
@@ -530,107 +669,205 @@ class PaymentGeneratorService
             return [
                 'deleted_count' => $deletedCount,
                 'new_payments' => $newPayments,
-                'paid_months' => $paidMonths,
+                'paid_months' => $contract->getPaidMonthsCount(),
                 'total_months' => $totalMonths,
                 'new_end_date' => $newEndDate,
             ];
-        } catch (Exception $e) {
+
+        } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
         }
     }
 
     /**
-     * Get last paid supply period end date.
+     * تجديد عقد الوحدة - إضافة شهور جديدة في نهاية العقد
+     * لا يمسح الدفعات الحالية، فقط يضيف دفعات جديدة للفترة الإضافية
      */
-    private function getLastPaidSupplyDate(PropertyContract $contract): ?Carbon
-    {
-        $lastPaidPayment = $contract->supplyPayments()
-            ->collected()
-            ->orderBy('due_date', 'desc')
-            ->first();
-
-        return $lastPaidPayment ? Carbon::parse($lastPaidPayment->due_date) : null;
-    }
-
-    /**
-     * Delete all unpaid supply payments.
-     */
-    private function deleteUnpaidSupplyPayments(PropertyContract $contract): int
-    {
-        return $contract->supplyPayments()
-            ->whereNull('paid_date')
-            ->delete();
-    }
-
-    /**
-     * Calculate number of paid months for supply payments.
-     */
-    private function calculatePaidSupplyMonths(PropertyContract $contract): int
-    {
-        $paidPayments = $contract->supplyPayments()
-            ->collected()
-            ->get();
-
-        if ($paidPayments->isEmpty()) {
-            return 0;
+    public function renewUnitContract(
+        UnitContract $contract,
+        float $newMonthlyRent,
+        int $extensionMonths,
+        string $newFrequency
+    ): array {
+        if ($extensionMonths <= 0) {
+            throw new \InvalidArgumentException('عدد أشهر التجديد يجب أن يكون أكبر من صفر');
         }
 
-        // For supply payments, calculate based on payment frequency
-        $monthsPerPayment = PropertyContractService::getMonthsPerPayment($contract->payment_frequency ?? 'monthly');
+        if ($newMonthlyRent <= 0) {
+            throw new \InvalidArgumentException('قيمة الإيجار يجب أن تكون أكبر من صفر');
+        }
 
-        return $paidPayments->count() * $monthsPerPayment;
+        if (! PropertyContractService::isValidDuration($extensionMonths, $newFrequency)) {
+            throw new \InvalidArgumentException('مدة التجديد لا تتوافق مع تكرار الدفع المختار');
+        }
+
+        DB::beginTransaction();
+
+        try {
+            // 1. تاريخ البداية للتجديد = يوم بعد نهاية العقد الحالي
+            $currentEndDate = Carbon::parse($contract->end_date);
+            $renewalStartDate = $currentEndDate->copy()->addDay();
+
+            // 2. تاريخ النهاية الجديد
+            $newEndDate = $renewalStartDate->copy()->addMonths($extensionMonths)->subDay();
+
+            // 3. حساب عدد الدفعات الحالية قبل إنشاء الجديدة
+            $currentPaymentsCount = $contract->payments()->count();
+
+            // 4. توليد الدفعات الجديدة للفترة الإضافية فقط
+            $newPayments = $this->generatePaymentsFromDate(
+                $contract,
+                $renewalStartDate,
+                $extensionMonths,
+                $newFrequency,
+                $newMonthlyRent
+            );
+
+            // 5. تحديث العقد
+            $newTotalMonths = $contract->duration_months + $extensionMonths;
+
+            $contract->update([
+                'end_date' => $newEndDate,
+                'duration_months' => $newTotalMonths,
+                'monthly_rent' => $newMonthlyRent,
+                'payment_frequency' => $newFrequency,
+                'payments_count' => $currentPaymentsCount + \count($newPayments),
+                'notes' => $contract->notes."\n[".now()->format('Y-m-d H:i')."] تم تجديد العقد - إضافة {$extensionMonths} شهر (".\count($newPayments).' دفعة جديدة)',
+            ]);
+
+            DB::commit();
+
+            return [
+                'new_payments' => $newPayments,
+                'extension_months' => $extensionMonths,
+                'new_total_months' => $newTotalMonths,
+                'new_end_date' => $newEndDate,
+                'renewal_start_date' => $renewalStartDate,
+            ];
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
     }
 
     /**
-     * Generate supply payments from a specific date.
+     * تجديد عقد العقار - إضافة شهور جديدة في نهاية العقد
+     * لا يمسح الدفعات الحالية، فقط يضيف دفعات جديدة للفترة الإضافية
      */
-    private function generateSupplyPaymentsFromDate(
+    public function renewPropertyContract(
+        PropertyContract $contract,
+        float $newCommissionRate,
+        int $extensionMonths,
+        string $newFrequency
+    ): array {
+        if ($extensionMonths <= 0) {
+            throw new \InvalidArgumentException('عدد أشهر التجديد يجب أن يكون أكبر من صفر');
+        }
+
+        if ($newCommissionRate < 0 || $newCommissionRate > 100) {
+            throw new \InvalidArgumentException('نسبة العمولة يجب أن تكون بين 0 و 100');
+        }
+
+        if (! PropertyContractService::isValidDuration($extensionMonths, $newFrequency)) {
+            throw new \InvalidArgumentException('مدة التجديد لا تتوافق مع تكرار الدفع المختار');
+        }
+
+        DB::beginTransaction();
+
+        try {
+            // 1. تاريخ البداية للتجديد = يوم بعد نهاية العقد الحالي
+            $currentEndDate = Carbon::parse($contract->end_date);
+            $renewalStartDate = $currentEndDate->copy()->addDay();
+
+            // 2. تاريخ النهاية الجديد
+            $newEndDate = $renewalStartDate->copy()->addMonths($extensionMonths)->subDay();
+
+            // 3. حساب عدد الدفعات الحالية قبل إنشاء الجديدة
+            $currentPaymentsCount = $contract->supplyPayments()->count();
+
+            // 4. توليد الدفعات الجديدة للفترة الإضافية فقط
+            $newPayments = $this->generatePropertyPaymentsFromDate(
+                $contract,
+                $renewalStartDate,
+                $extensionMonths,
+                $newFrequency,
+                $newCommissionRate
+            );
+
+            // 5. تحديث العقد
+            $newTotalMonths = $contract->duration_months + $extensionMonths;
+
+            $contract->update([
+                'end_date' => $newEndDate,
+                'duration_months' => $newTotalMonths,
+                'commission_rate' => $newCommissionRate,
+                'payment_frequency' => $newFrequency,
+                'payments_count' => $currentPaymentsCount + \count($newPayments),
+                'notes' => $contract->notes."\n[".now()->format('Y-m-d H:i')."] تم تجديد العقد - إضافة {$extensionMonths} شهر (".count($newPayments).' دفعة جديدة)',
+            ]);
+
+            DB::commit();
+
+            return [
+                'new_payments' => $newPayments,
+                'extension_months' => $extensionMonths,
+                'new_total_months' => $newTotalMonths,
+                'new_end_date' => $newEndDate,
+                'renewal_start_date' => $renewalStartDate,
+            ];
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Generate Property Payments From Date
+     */
+    public function generatePropertyPaymentsFromDate(
         PropertyContract $contract,
         Carbon $startDate,
         int $durationMonths,
         string $frequency,
-        float $commissionRate,
-        int $paymentsCount
+        float $commissionRate
     ): array {
         $payments = [];
         $currentDate = $startDate->copy();
-        $endDate = $startDate->copy()->addMonths($durationMonths)->subDay();
+        $targetEndDate = $startDate->copy()->addMonths($durationMonths)->subDay();
 
-        for ($i = 1; $i <= $paymentsCount; $i++) {
-            // Calculate period end date
+        $monthsPerPayment = PropertyContractService::getMonthsPerPayment($frequency);
+        $paymentCount = ceil($durationMonths / $monthsPerPayment);
+
+        $startNumber = $contract->supplyPayments()->count() + 1;
+
+        for ($i = 0; $i < $paymentCount; $i++) {
             $periodEnd = $this->calculatePeriodEnd($currentDate, $frequency);
 
-            // Ensure we don't exceed end date
-            if ($periodEnd > $endDate) {
-                $periodEnd = $endDate->copy();
+            if ($periodEnd > $targetEndDate) {
+                $periodEnd = $targetEndDate->copy();
             }
 
-            // Create payment
             $payment = SupplyPayment::create([
+                'payment_number' => sprintf('SUP-%s-%03d', $contract->contract_number, $startNumber + $i),
                 'property_contract_id' => $contract->id,
+                'property_id' => $contract->property_id,
                 'owner_id' => $contract->owner_id,
+                'payment_status_id' => 1,
                 'gross_amount' => 0,
                 'commission_amount' => 0,
                 'commission_rate' => $commissionRate,
-                'maintenance_deduction' => 0,
-                'other_deductions' => 0,
+                'expenses_amount' => 0,
                 'net_amount' => 0,
+                'payment_status' => 'pending',
                 'supply_status' => 'pending',
                 'due_date' => $periodEnd->copy()->addDays($this->getPaymentDueDays()),
-                'approval_status' => 'pending',
                 'month_year' => $currentDate->format('Y-m'),
-                'notes' => sprintf(
-                    'الدفعة %d من %d - %s (معاد جدولتها)',
-                    $i,
-                    $paymentsCount,
-                    $this->getFrequencyLabel($frequency)
-                ),
                 'invoice_details' => [
-                    'contract_number' => $contract->contract_number,
                     'period_start' => $currentDate->toDateString(),
                     'period_end' => $periodEnd->toDateString(),
-                    'payment_frequency' => $frequency,
                     'generated_at' => now()->toDateTimeString(),
                     'rescheduled' => true,
                 ],
@@ -638,11 +875,9 @@ class PaymentGeneratorService
 
             $payments[] = $payment;
 
-            // Move to next period
             $currentDate = $this->getNextPeriodStart($currentDate, $frequency);
 
-            // Stop generation if we exceed end date
-            if ($currentDate > $endDate) {
+            if ($currentDate > $targetEndDate) {
                 break;
             }
         }

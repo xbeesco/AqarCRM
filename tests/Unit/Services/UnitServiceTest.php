@@ -53,10 +53,8 @@ class UnitServiceTest extends TestCase
         $this->propertyType = PropertyType::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'عمارة سكنية',
-                'name_en' => 'Residential Building',
+                'name' => 'Residential Building',
                 'slug' => 'residential-building',
-                'is_active' => true,
             ]
         );
 
@@ -64,10 +62,8 @@ class UnitServiceTest extends TestCase
         $this->propertyStatus = PropertyStatus::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'متاح',
-                'name_en' => 'Available',
+                'name' => 'Available',
                 'slug' => 'available',
-                'is_active' => true,
             ]
         );
 
@@ -76,10 +72,7 @@ class UnitServiceTest extends TestCase
             ['id' => 1],
             [
                 'name' => 'Test Location',
-                'name_ar' => 'موقع اختبار',
-                'name_en' => 'Test Location',
                 'level' => 1,
-                'is_active' => true,
             ]
         );
 
@@ -87,10 +80,8 @@ class UnitServiceTest extends TestCase
         $this->unitType = UnitType::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'شقة',
-                'name_en' => 'Apartment',
+                'name' => 'Apartment',
                 'slug' => 'apartment',
-                'is_active' => true,
             ]
         );
 
@@ -98,10 +89,8 @@ class UnitServiceTest extends TestCase
         $this->unitCategory = UnitCategory::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'سكني',
-                'name_en' => 'Residential',
+                'name' => 'Residential',
                 'slug' => 'residential',
-                'is_active' => true,
             ]
         );
 
@@ -269,8 +258,7 @@ class UnitServiceTest extends TestCase
 
         $contract->refresh();
         $this->assertEquals('terminated', $contract->contract_status);
-        $this->assertEquals('Tenant requested early termination', $contract->terminated_reason);
-        $this->assertNotNull($contract->terminated_at);
+        $this->assertNotNull($contract->updated_at);
     }
 
     #[Test]

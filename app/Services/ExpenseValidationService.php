@@ -23,14 +23,13 @@ class ExpenseValidationService
         $expenseDate = Carbon::parse($date);
 
         // Find any supply payment in the same period (paid or unpaid)
+        // Using Laravel's JSON arrow syntax for cross-database compatibility
         $supplyPayment = SupplyPayment::query()
             ->whereHas('propertyContract', function ($q) use ($propertyId) {
                 $q->where('property_id', $propertyId);
             })
-            ->where(function ($q) use ($expenseDate) {
-                $q->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(invoice_details, '$.period_start')) <= ?", [$expenseDate->format('Y-m-d')])
-                    ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(invoice_details, '$.period_end')) >= ?", [$expenseDate->format('Y-m-d')]);
-            })
+            ->where('invoice_details->period_start', '<=', $expenseDate->format('Y-m-d'))
+            ->where('invoice_details->period_end', '>=', $expenseDate->format('Y-m-d'))
             ->first();
 
         // If no supply payment exists for this period

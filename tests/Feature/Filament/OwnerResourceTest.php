@@ -3,12 +3,10 @@
 namespace Tests\Feature\Filament;
 
 use App\Enums\UserType;
-use App\Filament\Resources\OwnerResource;
-use App\Filament\Resources\OwnerResource\Pages\CreateOwner;
-use App\Filament\Resources\OwnerResource\Pages\EditOwner;
-use App\Filament\Resources\OwnerResource\Pages\ListOwners;
-use App\Filament\Resources\OwnerResource\Pages\ViewOwner;
-use App\Models\CollectionPayment;
+use App\Filament\Resources\Owners\OwnerResource;
+use App\Filament\Resources\Owners\Pages\CreateOwner;
+use App\Filament\Resources\Owners\Pages\EditOwner;
+use App\Filament\Resources\Owners\Pages\ListOwners;
 use App\Models\Location;
 use App\Models\Owner;
 use App\Models\Property;
@@ -19,7 +17,6 @@ use App\Models\Setting;
 use App\Models\SupplyPayment;
 use App\Models\Tenant;
 use App\Models\Unit;
-use App\Models\UnitContract;
 use App\Models\UnitType;
 use App\Models\User;
 use Carbon\Carbon;
@@ -94,25 +91,25 @@ class OwnerResourceTest extends TestCase
         // Create default Location
         Location::firstOrCreate(
             ['id' => 1],
-            ['name' => 'Default Location', 'level' => 1, 'is_active' => true]
+            ['name' => 'Default Location', 'level' => 1]
         );
 
         // Create default PropertyType
         PropertyType::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'شقة', 'name_en' => 'Apartment', 'slug' => 'apartment', 'is_active' => true]
+            ['name' => 'Apartment', 'slug' => 'apartment']
         );
 
         // Create default PropertyStatus
         PropertyStatus::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'متاح', 'name_en' => 'Available', 'slug' => 'available', 'is_active' => true]
+            ['name' => 'Available', 'slug' => 'available']
         );
 
         // Create default UnitType
         UnitType::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'شقة', 'name_en' => 'Apartment', 'slug' => 'apartment', 'is_active' => true]
+            ['name' => 'Apartment', 'slug' => 'apartment']
         );
 
         // Create payment_due_days setting
@@ -336,24 +333,11 @@ class OwnerResourceTest extends TestCase
     }
 
     #[Test]
-    public function test_manager_can_create_owner(): void
-    {
-        $manager = User::factory()->create([
-            'type' => 'manager',
-            'email' => 'manager@test.com',
-        ]);
-
-        $this->actingAs($manager);
-
-        $this->assertTrue(OwnerResource::canCreate());
-    }
-
-    #[Test]
-    public function test_employee_cannot_create_owner(): void
+    public function test_employee_can_create_owner(): void
     {
         $this->actingAs($this->employee);
 
-        $this->assertFalse(OwnerResource::canCreate());
+        $this->assertTrue(OwnerResource::canCreate());
     }
 
     // ==========================================
@@ -381,13 +365,13 @@ class OwnerResourceTest extends TestCase
     }
 
     #[Test]
-    public function test_employee_cannot_edit_owner(): void
+    public function test_employee_can_edit_owner(): void
     {
         $owner = $this->createOwner();
 
         $this->actingAs($this->employee);
 
-        $this->assertFalse(OwnerResource::canEdit($owner));
+        $this->assertTrue(OwnerResource::canEdit($owner));
     }
 
     // ==========================================
@@ -678,10 +662,6 @@ class OwnerResourceTest extends TestCase
     #[Test]
     public function test_global_search_by_name(): void
     {
-        if ($this->isUsingSqlite) {
-            $this->markTestSkipped('This test requires MySQL-specific functions (DATE_FORMAT).');
-        }
-
         $this->actingAs($this->admin);
 
         $owner = $this->createOwner(['name' => 'Global Search Owner']);
@@ -697,10 +677,6 @@ class OwnerResourceTest extends TestCase
     #[Test]
     public function test_global_search_by_phone(): void
     {
-        if ($this->isUsingSqlite) {
-            $this->markTestSkipped('This test requires MySQL-specific functions (DATE_FORMAT).');
-        }
-
         $this->actingAs($this->admin);
 
         $owner = $this->createOwner([
@@ -719,10 +695,6 @@ class OwnerResourceTest extends TestCase
     #[Test]
     public function test_global_search_normalizes_arabic_hamza(): void
     {
-        if ($this->isUsingSqlite) {
-            $this->markTestSkipped('This test requires MySQL-specific functions (DATE_FORMAT).');
-        }
-
         $this->actingAs($this->admin);
 
         // Create owner with hamza in name

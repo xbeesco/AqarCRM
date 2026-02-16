@@ -22,6 +22,7 @@ use App\Filament\Resources\Units\UnitResource;
 use App\Filament\Resources\UnitTypes\UnitTypeResource;
 use App\Filament\Widgets\PostponedPaymentsWidget;
 use App\Filament\Widgets\StatsOverviewWidget;
+use App\Filament\Widgets\TenantsPaymentDueWidget;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -60,6 +61,7 @@ class AdminPanelProvider extends PanelProvider
             ->pages([])
             ->widgets([
                 StatsOverviewWidget::class,
+                TenantsPaymentDueWidget::class,
                 PostponedPaymentsWidget::class,
             ])
             ->navigation(function (NavigationBuilder $builder): NavigationBuilder {
@@ -112,7 +114,7 @@ class AdminPanelProvider extends PanelProvider
                                     fn ($item) => $item->icon('heroicon-o-key'),
                                     OwnerResource::getNavigationItems()
                                 ),
-                                // عرض الموظفين فقط للمدير والمدير العام
+                                // عرض الموظفين للمدير والمدير العام فقط
                                 ...(in_array(auth()->user()?->type, ['super_admin', 'admin'])
                                     ? array_map(
                                         fn ($item) => $item->icon('heroicon-o-briefcase'),
@@ -155,15 +157,11 @@ class AdminPanelProvider extends PanelProvider
                             ->collapsed(),
                         NavigationGroup::make('النظام')
                             ->items([
-                                // NavigationItem::make('Modules Manager')
-                                //     ->icon('heroicon-o-squares-plus')
-                                //     ->url(fn (): string => \App\Filament\Pages\ModulesManager::getUrl())
-                                //     ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.modules-manager')),
                                 NavigationItem::make('إدارة النظام')
                                     ->icon('heroicon-o-cog-6-tooth')
                                     ->url(fn (): string => SystemManagement::getUrl())
                                     ->isActiveWhen(fn (): bool => request()->routeIs('filament.admin.pages.system-management'))
-                                    ->visible(fn (): bool => auth()->user()?->type === 'super_admin'),
+                                    ->visible(fn (): bool => in_array(auth()->user()?->type, ['super_admin', 'admin'])),
                             ])
                             ->collapsed(),
                     ]);

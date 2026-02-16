@@ -23,19 +23,14 @@ class UnitContractForm
             ->components([
                 Section::make('بيانات العقد')
                     ->schema([
-
                         Select::make('property_id')
                             ->label('العقار')
                             ->required()
                             ->searchable()
                             ->relationship('property', 'name')
-                            ->preload()
                             ->live()
                             ->afterStateUpdated(function (callable $set, $state) {
-                                // Clear unit selection when property changes
                                 $set('unit_id', null);
-
-                                // Auto-select unit if only one unit exists
                                 if ($state) {
                                     $units = Unit::where('property_id', $state)->get();
                                     if ($units->count() === 1) {
@@ -50,20 +45,14 @@ class UnitContractForm
                         Select::make('unit_id')
                             ->label('الوحدة')
                             ->required()
-                            ->native(true)
-                            ->placeholder('اختر وحدة')
                             ->options(function (callable $get) {
                                 $propertyId = $get('property_id');
-
                                 if (! $propertyId) {
                                     return [];
                                 }
 
-                                // Get all units for the property immediately without search
-                                return Unit::where('property_id', $propertyId)
-                                    ->pluck('name', 'id');
+                                return Unit::where('property_id', $propertyId)->pluck('name', 'id');
                             })
-                            ->searchable(false) // Disable search to show all options immediately
                             ->disabled(fn (callable $get): bool => ! $get('property_id'))
                             ->live()
                             ->afterStateUpdated(function (callable $set, $state) {
@@ -77,7 +66,7 @@ class UnitContractForm
                             ->columnSpan(3),
 
                         TextInput::make('monthly_rent')
-                            ->label(label: 'قيمة الإيجار بالشهر')
+                            ->label('قيمة الإيجار بالشهر')
                             ->numeric()
                             ->required()
                             ->minValue(0.01)
@@ -89,9 +78,9 @@ class UnitContractForm
                             ->label('المستأجر')
                             ->required()
                             ->searchable()
-                            ->relationship('tenant', 'name')
-                            ->options(User::where('type', 'tenant')->pluck('name', 'id'))
+                            ->options(fn () => User::where('type', 'tenant')->pluck('name', 'id'))
                             ->columnSpan(3),
+
                         DatePicker::make('start_date')
                             ->label('تاريخ بداية العمل بالعقد')
                             ->required()
@@ -105,18 +94,13 @@ class UnitContractForm
                                     if (! $unitId || ! $value) {
                                         return;
                                     }
-
                                     $validationService = app(ContractValidationService::class);
-                                    $excludeId = $record ? $record->id : null;
-
-                                    // Validate start date only
-                                    $error = $validationService->validateStartDate($unitId, $value, $excludeId);
+                                    $error = $validationService->validateStartDate($unitId, $value, $record?->id);
                                     if ($error) {
                                         $fail($error);
                                     }
                                 },
                             ])
-                            ->validationAttribute('تاريخ البداية')
                             ->columnSpan(3),
 
                         TextInput::make('duration_months')
@@ -127,8 +111,7 @@ class UnitContractForm
                             ->suffix('شهر')
                             ->live(onBlur: true)
                             ->afterStateUpdated(function ($state, $get, $set) {
-                                $frequency = $get('payment_frequency') ?? 'monthly';
-                                $count = PropertyContractService::calculatePaymentsCount($state ?? 0, $frequency);
+                                $count = PropertyContractService::calculatePaymentsCount($state ?? 0, $get('payment_frequency') ?? 'monthly');
                                 $set('payments_count', $count);
                             })
                             ->rules([
@@ -136,38 +119,32 @@ class UnitContractForm
                                     $frequency = $get('payment_frequency') ?? 'monthly';
                                     if (! PropertyContractService::isValidDuration($value ?? 0, $frequency)) {
                                         $periodName = match ($frequency) {
+                                            'monthly' => 'شهر',
                                             'quarterly' => 'ربع سنة',
                                             'semi_annually' => 'نصف سنة',
                                             'annually' => 'سنة',
-                                            default => $frequency,
+                                            default => 'شهر',
                                         };
-
                                         $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
-                                    }
 
-                                    // Validate duration only
+                                        return;
+                                    }
                                     $unitId = $get('unit_id');
                                     $startDate = $get('start_date');
-
                                     if ($unitId && $startDate && $value) {
                                         $validationService = app(ContractValidationService::class);
-                                        $excludeId = $record ? $record->id : null;
-
-                                        // Validate duration and its effect on end date
-                                        $error = $validationService->validateDuration($unitId, $startDate, $value, $excludeId);
+                                        $error = $validationService->validateDuration($unitId, $startDate, $value, $record?->id);
                                         if ($error) {
                                             $fail($error);
                                         }
                                     }
                                 },
                             ])
-                            ->validationAttribute('مدة التعاقد')
                             ->columnSpan(3),
 
                         Select::make('payment_frequency')
                             ->label('التحصيل كل')
                             ->required()
-                            ->searchable()
                             ->options([
                                 'monthly' => 'شهر',
                                 'quarterly' => 'ربع سنة',
@@ -177,42 +154,22 @@ class UnitContractForm
                             ->default('monthly')
                             ->live()
                             ->afterStateUpdated(function ($state, $get, $set) {
-                                $duration = $get('duration_months') ?? 0;
-                                $count = PropertyContractService::calculatePaymentsCount($duration, $state ?? 'monthly');
+                                $count = PropertyContractService::calculatePaymentsCount($get('duration_months') ?? 0, $state ?? 'monthly');
                                 $set('payments_count', $count);
                             })
-                            ->rules([
-                                fn ($get): Closure => function (string $attribute, $value, Closure $fail) use ($get) {
-                                    $duration = $get('duration_months') ?? 0;
-                                    if (! PropertyContractService::isValidDuration($duration, $value ?? 'monthly')) {
-                                        $periodName = match ($value) {
-                                            'quarterly' => 'ربع سنة',
-                                            'semi_annually' => 'نصف سنة',
-                                            'annually' => 'سنة',
-                                            default => $value,
-                                        };
-                                        $fail("عدد الاشهر هذا لا يقبل القسمة علي {$periodName}");
-                                    }
-                                },
-                            ])
-                            ->validationAttribute('تكرار التحصيل')
                             ->columnSpan(3),
+
                         TextInput::make('payments_count')
                             ->label('عدد الدفعات')
                             ->disabled()
                             ->dehydrated(false)
                             ->default(function ($get) {
-                                $duration = $get('duration_months') ?? 0;
-                                $frequency = $get('payment_frequency') ?? 'monthly';
-                                $result = PropertyContractService::calculatePaymentsCount($duration, $frequency);
-
-                                return $result;
+                                return PropertyContractService::calculatePaymentsCount($get('duration_months') ?? 0, $get('payment_frequency') ?? 'monthly');
                             })
                             ->columnSpan(3),
 
                         FileUpload::make('file')
                             ->label('ملف العقد')
-                            ->required()
                             ->directory('unit-contract--file')
                             ->columnSpan(6),
 
