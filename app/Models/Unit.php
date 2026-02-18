@@ -20,29 +20,19 @@ class Unit extends Model
         'property_id',
         'unit_type_id',
         'unit_category_id',
-        'rooms_count',
-        'bathrooms_count',
-        'balconies_count',
-        'floor_number',
-        'has_laundry_room',
-        'electricity_account_number',
-        'water_expenses',
         'floor_plan_file',
-        'area_sqm',
         'rent_price',
         'notes',
+        'metadata',
     ];
 
-    protected $casts = [
-        'area_sqm' => 'decimal:2',
-        'rent_price' => 'decimal:2',
-        'water_expenses' => 'decimal:2',
-        'floor_number' => 'integer',
-        'rooms_count' => 'integer',
-        'bathrooms_count' => 'integer',
-        'balconies_count' => 'integer',
-        'has_laundry_room' => 'boolean',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'rent_price' => 'decimal:2',
+            'metadata' => 'array',
+        ];
+    }
 
     public function property(): BelongsTo
     {

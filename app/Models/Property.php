@@ -21,19 +21,16 @@ class Property extends Model
         'location_id',
         'address',
         'postal_code',
-        'parking_spots',
-        'elevators',
-        'build_year',
-        'floors_count',
         'notes',
+        'metadata',
     ];
 
-    protected $casts = [
-        'build_year' => 'integer',
-        'parking_spots' => 'integer',
-        'elevators' => 'integer',
-        'floors_count' => 'integer',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'metadata' => 'array',
+        ];
+    }
 
     protected static function boot()
     {
