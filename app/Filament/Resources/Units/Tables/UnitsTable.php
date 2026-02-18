@@ -7,6 +7,7 @@ use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\UnitContracts\UnitContractResource;
 use App\Models\Property;
 use App\Models\User;
+use App\Services\CustomFieldRenderer;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
@@ -64,28 +65,6 @@ class UnitsTable
                     ->label('تصنيف الوحدة')
                     ->searchable()
                     ->sortable(),
-
-                TextColumn::make('area_sqm')
-                    ->label('المساحة')
-                    ->suffix(' م²')
-                    ->searchable()
-                    ->sortable()
-                    ->default('-')
-                    ->alignCenter(),
-
-                TextColumn::make('rooms_count')
-                    ->label('عدد الغرف')
-                    ->searchable()
-                    ->sortable()
-                    ->default('-')
-                    ->alignCenter(),
-
-                TextColumn::make('bathrooms_count')
-                    ->label('دورات المياه')
-                    ->searchable()
-                    ->sortable()
-                    ->default('-')
-                    ->alignCenter(),
 
                 TextColumn::make('rent_price')
                     ->label('الإيجار الشهري')
@@ -173,6 +152,8 @@ class UnitsTable
                     })
                     ->searchable()
                     ->preload(),
+
+                ...CustomFieldRenderer::tableFilters('unit'),
             ])
             ->recordActions([
                 ViewAction::make()

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Units\Schemas;
 
+use App\Services\CustomFieldRenderer;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -49,74 +50,21 @@ class UnitForm
                         ->required()
                         ->native(false)
                         ->columnSpan(3),
+
+                    ...CustomFieldRenderer::formComponents('unit', 'basic_info'),
                 ]),
 
             Section::make('التفاصيل')
                 ->columnSpan(1)
                 ->schema([
-                    Grid::make(3)->schema([
-                        TextInput::make('rent_price')
-                            ->label('الايجار الشهري الاستدلالي')
-                            ->numeric()
-                            ->required()
-                            ->minValue(0)
-                            ->prefix('ريال'),
-                        TextInput::make('floor_number')
-                            ->label('رقم الطابق')
-                            ->numeric()
-                            ->minValue(0)
-                            ->maxValue(100)
-                            ->nullable(),
-                        TextInput::make('area_sqm')
-                            ->label('المساحة')
-                            ->numeric()
-                            ->minValue(0)
-                            ->suffix('م²')
-                            ->nullable(),
+                    TextInput::make('rent_price')
+                        ->label('الايجار الشهري الاستدلالي')
+                        ->numeric()
+                        ->required()
+                        ->minValue(0)
+                        ->prefix('ريال'),
 
-                        TextInput::make('rooms_count')
-                            ->label('عدد الغرف')
-                            ->numeric()
-                            ->minValue(0)
-                            ->maxValue(20)
-                            ->nullable(),
-
-                        TextInput::make('bathrooms_count')
-                            ->label('عدد دورات المياه')
-                            ->numeric()
-                            ->minValue(0)
-                            ->maxValue(10)
-                            ->nullable(),
-
-                        TextInput::make('balconies_count')
-                            ->label('عدد الشرفات')
-                            ->numeric()
-                            ->minValue(0)
-                            ->maxValue(10)
-                            ->nullable(),
-
-                        Select::make('has_laundry_room')
-                            ->label('غرفة غسيل')
-                            ->options([
-                                1 => 'نعم',
-                                0 => 'لا',
-                            ])
-                            ->required()
-                            ->default(0),
-
-                        TextInput::make('electricity_account_number')
-                            ->label('رقم حساب الكهرباء')
-                            ->maxLength(255)
-                            ->nullable(),
-
-                        TextInput::make('water_expenses')
-                            ->label('مصروف المياه')
-                            ->numeric()
-                            ->minValue(0)
-                            ->prefix('ريال')
-                            ->nullable(),
-
-                    ]),
+                    ...CustomFieldRenderer::formComponents('unit', 'details'),
                 ]),
 
             Section::make('المميزات')
@@ -143,6 +91,8 @@ class UnitForm
                             ->maxLength(65535)
                             ->rows(3),
                     ]),
+
+                    ...CustomFieldRenderer::formComponents('unit', 'plans_notes'),
                 ]),
         ]);
     }

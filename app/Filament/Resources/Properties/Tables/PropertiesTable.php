@@ -9,6 +9,7 @@ use App\Filament\Resources\SupplyPayments\SupplyPaymentResource;
 use App\Filament\Resources\UnitContracts\UnitContractResource;
 use App\Filament\Resources\Units\UnitResource;
 use App\Models\User;
+use App\Services\CustomFieldRenderer;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
@@ -111,6 +112,8 @@ class PropertiesTable
                     })
                     ->searchable()
                     ->preload(),
+
+                ...CustomFieldRenderer::tableFilters('property'),
             ])
             ->recordActions([
                 ViewAction::make()
