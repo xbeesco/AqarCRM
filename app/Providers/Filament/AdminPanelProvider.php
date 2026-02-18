@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\SystemManagement;
 use App\Filament\Resources\CollectionPayments\CollectionPaymentResource;
+use App\Filament\Resources\CustomFields\CustomFieldResource;
 use App\Filament\Resources\Employees\EmployeeResource;
 use App\Filament\Resources\Expenses\ExpenseResource;
 use App\Filament\Resources\Locations\LocationResource;
@@ -124,6 +125,10 @@ class AdminPanelProvider extends PanelProvider
                             ])),
                         NavigationGroup::make('التأسيس')
                             ->items([
+                                ...array_map(
+                                    fn ($item) => $item->icon('heroicon-o-adjustments-horizontal'),
+                                    CustomFieldResource::getNavigationItems()
+                                ),
                                 ...array_map(
                                     fn ($item) => $item->icon('heroicon-o-map-pin'),
                                     LocationResource::getNavigationItems()
