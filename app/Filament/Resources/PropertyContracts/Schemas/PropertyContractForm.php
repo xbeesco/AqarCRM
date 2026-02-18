@@ -147,7 +147,6 @@ class PropertyContractForm
 
                         FileUpload::make('file')
                             ->label('ملف العقد')
-                            ->required()
                             ->directory('property-contract--file')
                             ->columnSpan(6),
 

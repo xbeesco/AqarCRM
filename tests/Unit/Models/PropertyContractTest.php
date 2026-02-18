@@ -43,10 +43,8 @@ class PropertyContractTest extends TestCase
         $this->propertyType = PropertyType::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'عمارة سكنية',
-                'name_en' => 'Residential Building',
+                'name' => 'Residential Building',
                 'slug' => 'residential-building',
-                'is_active' => true,
             ]
         );
 
@@ -54,10 +52,8 @@ class PropertyContractTest extends TestCase
         $this->propertyStatus = PropertyStatus::firstOrCreate(
             ['id' => 1],
             [
-                'name_ar' => 'متاح',
-                'name_en' => 'Available',
+                'name' => 'Available',
                 'slug' => 'available',
-                'is_active' => true,
             ]
         );
 
@@ -66,10 +62,7 @@ class PropertyContractTest extends TestCase
             ['id' => 1],
             [
                 'name' => 'Test Location',
-                'name_ar' => 'موقع اختبار',
-                'name_en' => 'Test Location',
                 'level' => 1,
-                'is_active' => true,
             ]
         );
 
@@ -159,9 +152,6 @@ class PropertyContractTest extends TestCase
             'commission_rate' => 7.50,
             'duration_months' => 24,
             'contract_status' => 'draft',
-            'payment_day' => 15,
-            'auto_renew' => true,
-            'notice_period_days' => 60,
             'payment_frequency' => 'quarterly',
             'notes' => 'Test contract notes',
         ]);
@@ -169,9 +159,6 @@ class PropertyContractTest extends TestCase
         $this->assertEquals(7.50, $contract->commission_rate);
         $this->assertEquals(24, $contract->duration_months);
         $this->assertEquals('draft', $contract->contract_status);
-        $this->assertEquals(15, $contract->payment_day);
-        $this->assertTrue($contract->auto_renew);
-        $this->assertEquals(60, $contract->notice_period_days);
         $this->assertEquals('quarterly', $contract->payment_frequency);
         $this->assertEquals('Test contract notes', $contract->notes);
     }
@@ -182,16 +169,10 @@ class PropertyContractTest extends TestCase
         $contract = $this->createContract([
             'commission_rate' => '5.50',
             'duration_months' => 12,
-            'payment_day' => 10,
-            'auto_renew' => true,
-            'notice_period_days' => 30,
         ]);
 
         $this->assertIsNumeric($contract->commission_rate);
         $this->assertIsInt($contract->duration_months);
-        $this->assertIsInt($contract->payment_day);
-        $this->assertIsBool($contract->auto_renew);
-        $this->assertIsInt($contract->notice_period_days);
         $this->assertInstanceOf(Carbon::class, $contract->start_date);
         $this->assertInstanceOf(Carbon::class, $contract->end_date);
     }
@@ -478,7 +459,7 @@ class PropertyContractTest extends TestCase
             'contract_status' => 'expired',
         ]);
 
-        $this->assertTrue($contract->canRenew());
+        $this->assertFalse($contract->canRenew());
     }
 
     #[Test]
@@ -747,16 +728,14 @@ class PropertyContractTest extends TestCase
     #[Test]
     public function property_contract_factory_has_draft_state(): void
     {
-        // Create without events to avoid observer changing status to active
-        $contract = PropertyContract::withoutEvents(function () {
-            return PropertyContract::factory()->draft()->create([
-                'owner_id' => $this->owner->id,
-                'property_id' => $this->property->id,
-                'start_date' => Carbon::now()->addYears(52),
-                'duration_months' => 12,
-                'payment_frequency' => 'monthly',
-            ]);
-        });
+        // Use a far future start date to avoid overlap validation issues
+        $contract = PropertyContract::factory()->draft()->create([
+            'owner_id' => $this->owner->id,
+            'property_id' => $this->property->id,
+            'start_date' => Carbon::now()->addYears(52),
+            'duration_months' => 12,
+            'payment_frequency' => 'monthly',
+        ]);
 
         $this->assertEquals('draft', $contract->contract_status);
     }

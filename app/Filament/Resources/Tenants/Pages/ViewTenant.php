@@ -7,6 +7,7 @@ use App\Filament\Resources\Tenants\RelationManagers\PaymentsRelationManager;
 use App\Filament\Resources\Tenants\TenantResource;
 use App\Models\CollectionPayment;
 use App\Models\UnitContract;
+use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Pages\ViewRecord;
@@ -19,7 +20,7 @@ class ViewTenant extends ViewRecord
 {
     protected static string $resource = TenantResource::class;
 
-    protected static ?string $title = 'عرض المستأجر';
+    protected static ?string $title = 'تقرير المستأجر';
 
     public function infolist(Schema $schema): Schema
     {
@@ -167,6 +168,43 @@ class ViewTenant extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('back')
+                ->label('المستأجرين')
+                ->icon('heroicon-o-arrow-right')
+                ->color('gray')
+                ->url(TenantResource::getUrl('index')),
+            Action::make('print')
+                ->label('طباعة التقرير')
+                ->icon('heroicon-o-printer')
+                ->color('gray')
+                ->modalHeading('طباعة تقرير المستأجر')
+                ->modalContent(function () {
+                    return view('filament.resources.tenant-resource.pages.print-tenant', [
+                        'tenant' => $this->record,
+                    ]);
+                })
+                ->modalWidth('5xl')
+                ->modalFooterActions([
+                    Action::make('printReport')
+                        ->label('طباعة التقرير')
+                        ->icon('heroicon-o-printer')
+                        ->color('success')
+                        ->extraAttributes([
+                            'onclick' => "
+                                var printContent = document.querySelector('.print-content').innerHTML;
+                                var originalContent = document.body.innerHTML;
+                                document.body.innerHTML = printContent;
+                                window.print();
+                                document.body.innerHTML = originalContent;
+                                window.location.reload();
+                                return false;
+                            ",
+                        ]),
+                    Action::make('close')
+                        ->label('إلغاء')
+                        ->color('gray')
+                        ->close(),
+                ]),
             EditAction::make()->label('تعديل'),
         ];
     }

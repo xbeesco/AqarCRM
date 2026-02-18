@@ -3,8 +3,8 @@
 namespace Tests\Feature\Filament;
 
 use App\Enums\UserType;
-use App\Filament\Resources\SupplyPaymentResource;
-use App\Filament\Resources\SupplyPaymentResource\Pages\ListSupplyPayments;
+use App\Filament\Resources\SupplyPayments\SupplyPaymentResource;
+use App\Filament\Resources\SupplyPayments\Pages\ListSupplyPayments;
 use App\Models\Location;
 use App\Models\Property;
 use App\Models\PropertyContract;
@@ -71,19 +71,19 @@ class SupplyPaymentResourceTest extends TestCase
         // Create default Location
         Location::firstOrCreate(
             ['id' => 1],
-            ['name' => 'Default Location', 'level' => 1, 'is_active' => true]
+            ['name' => 'Default Location', 'level' => 1]
         );
 
         // Create default PropertyType
         PropertyType::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'شقة', 'name_en' => 'Apartment', 'slug' => 'apartment', 'is_active' => true]
+            ['name' => 'Apartment', 'slug' => 'apartment']
         );
 
         // Create default PropertyStatus
         PropertyStatus::firstOrCreate(
             ['id' => 1],
-            ['name_ar' => 'متاح', 'name_en' => 'Available', 'slug' => 'available', 'is_active' => true]
+            ['name' => 'Available', 'slug' => 'available']
         );
     }
 

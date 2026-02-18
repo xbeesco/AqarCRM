@@ -30,7 +30,7 @@ class EmployeeResource extends Resource
     {
         $userType = auth()->user()?->type;
 
-        return in_array($userType, ['super_admin', 'admin', 'manager']);
+        return in_array($userType, ['super_admin', 'admin']);
     }
 
     public static function canCreate(): bool

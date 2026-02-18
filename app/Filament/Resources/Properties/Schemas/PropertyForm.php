@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Properties\Schemas;
 use App\Models\Location;
 use App\Models\PropertyStatus;
 use App\Models\PropertyType;
+use App\Services\CustomFieldRenderer;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -32,22 +33,26 @@ class PropertyForm
                             ->searchable()
                             ->preload()
                             ->required()
+                            ->disabled(fn (string $operation): bool => $operation === 'edit')
+                            ->dehydrated()
                             ->columnSpan(1),
                     ]),
 
                     Grid::make(2)->schema([
                         Select::make('status_id')
                             ->label('حالة العقار')
-                            ->options(PropertyStatus::where('is_active', true)->orderBy('sort_order')->pluck('name_ar', 'id'))
+                            ->options(PropertyStatus::all()->pluck('name', 'id'))
                             ->searchable()
                             ->required(),
 
                         Select::make('type_id')
                             ->label('نوع العقار')
-                            ->options(PropertyType::all()->pluck('name_ar', 'id'))
+                            ->options(PropertyType::all()->pluck('name', 'id'))
                             ->searchable()
                             ->required(),
                     ]),
+
+                    ...CustomFieldRenderer::formComponents('property', 'basic_data'),
                 ]),
 
             Section::make('الموقع والعنوان')
@@ -70,39 +75,17 @@ class PropertyForm
                             ->numeric()
                             ->columnSpan(1),
                     ]),
+
+                    ...CustomFieldRenderer::formComponents('property', 'location_address'),
                 ]),
 
             Section::make('تفاصيل إضافية')
                 ->columnSpanFull()
                 ->schema([
-                    Grid::make(4)->schema([
-                        TextInput::make('parking_spots')
-                            ->label('عدد المواقف')
-                            ->numeric()
-                            ->nullable(),
-
-                        TextInput::make('elevators')
-                            ->label('عدد المصاعد')
-                            ->numeric()
-                            ->nullable(),
-
-                        TextInput::make('floors_count')
-                            ->label('عدد الطوابق')
-                            ->numeric()
-                            ->nullable(),
-
-                        TextInput::make('build_year')
-                            ->label('سنة البناء')
-                            ->numeric()
-                            ->minValue(1900)
-                            ->maxValue(date('Y'))
-                            ->nullable(),
-                    ]),
-
                     Grid::make(2)->schema([
                         CheckboxList::make('features')
                             ->label('المميزات')
-                            ->relationship('features', 'name_ar')
+                            ->relationship('features', 'name')
                             ->columns(4)
                             ->columnSpan(1),
 
@@ -111,6 +94,8 @@ class PropertyForm
                             ->rows(6)
                             ->columnSpan(1),
                     ]),
+
+                    ...CustomFieldRenderer::formComponents('property', 'additional_details'),
                 ]),
         ]);
     }

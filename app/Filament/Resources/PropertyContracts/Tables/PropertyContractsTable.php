@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\PropertyContracts\Tables;
 
+use App\Filament\Resources\PropertyContracts\PropertyContractResource;
 use App\Models\User;
 use App\Services\PaymentGeneratorService;
 use Exception;
 use Filament\Actions\Action;
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
@@ -93,9 +95,22 @@ class PropertyContractsTable
                                 $q->where('owner_id', $value);
                             })
                         );
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        if (! empty($data['owner_id'])) {
+                            $owner = User::find($data['owner_id']);
+
+                            return $owner ? 'المالك: '.$owner->name : null;
+                        }
+
+                        return null;
                     }),
             ])
             ->recordActions([
+                EditAction::make()
+                    ->url(fn ($record) => PropertyContractResource::getUrl('edit', ['record' => $record]))
+                    ->visible(fn ($record) => PropertyContractResource::canEdit($record)),
+
                 Action::make('generatePayments')
                     ->label('توليد الدفعات')
                     ->icon('heroicon-o-calculator')
@@ -155,6 +170,13 @@ class PropertyContractsTable
                     ->color('warning')
                     ->url(fn ($record) => $record ? route('filament.admin.resources.property-contracts.reschedule', $record) : '#')
                     ->visible(fn ($record) => $record && $record->canReschedule()),
+
+                Action::make('renewContract')
+                    ->label('تجديد العقد')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('primary')
+                    ->url(fn ($record) => $record ? route('filament.admin.resources.property-contracts.renew', $record) : '#')
+                    ->visible(fn ($record) => $record && auth()->user()?->can('renew', $record)),
             ])
             ->defaultSort('created_at', 'desc');
     }

@@ -5,7 +5,7 @@ namespace App\Filament\Resources\CollectionPayments\Pages;
 use App\Enums\PaymentStatus;
 use App\Exports\CollectionPaymentsExport;
 use App\Filament\Resources\CollectionPayments\CollectionPaymentResource;
-use Filament\Actions\Action;
+use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Facades\Excel;
@@ -16,10 +16,18 @@ class ListCollectionPayments extends ListRecords
 
     protected ?int $unitContractId = null;
 
+    protected ?int $propertyId = null;
+
+    protected ?int $unitId = null;
+
+    protected ?int $ownerId = null;
+
+    protected ?int $tenantId = null;
+
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('export')
+            Actions\Action::make('export')
                 ->label('تصدير')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')
@@ -35,13 +43,39 @@ class ListCollectionPayments extends ListRecords
     {
         parent::mount();
 
-        // Get unit_contract_id from URL if present
-        $this->unitContractId = request()->integer('unit_contract_id');
+        // Get filter parameters from URL (support both simple and Filament formats)
+        $this->unitContractId = request()->integer('unit_contract_id') ?: null;
+        $this->propertyId = request()->integer('property_id') ?: request()->input('tableFilters.property_and_unit.property_id') ?: null;
+        $this->unitId = request()->integer('unit_id') ?: request()->input('tableFilters.property_and_unit.unit_id') ?: null;
+        $this->ownerId = request()->integer('owner_id') ?: request()->input('tableFilters.owner_id.value') ?: null;
+        $this->tenantId = request()->integer('tenant_id') ?: request()->input('tableFilters.tenant_id.value') ?: null;
 
         // Apply filter if unit_contract_id exists
         if ($this->unitContractId) {
-            // Set the filter value for the hidden filter
             $this->tableFilters['unit_contract_id'] = $this->unitContractId;
+        }
+
+        // If unit_id is provided without property_id, get property_id from unit
+        if ($this->unitId && ! $this->propertyId) {
+            $unit = \App\Models\Unit::find($this->unitId);
+            if ($unit) {
+                $this->propertyId = $unit->property_id;
+            }
+        }
+
+        if ($this->propertyId) {
+            $this->tableFilters['property_and_unit']['property_id'] = $this->propertyId;
+            if ($this->unitId) {
+                $this->tableFilters['property_and_unit']['unit_id'] = $this->unitId;
+            }
+        }
+
+        if ($this->ownerId) {
+            $this->tableFilters['owner_id']['value'] = $this->ownerId;
+        }
+
+        if ($this->tenantId) {
+            $this->tableFilters['tenant_id']['value'] = $this->tenantId;
         }
     }
 
@@ -63,14 +97,14 @@ class ListCollectionPayments extends ListRecords
             $search = trim($search);
 
             $query->where(function (Builder $query) use ($search) {
-                // Search in basic fields
+                // البحث في الحقول الأساسية
                 $query->where('id', 'LIKE', "%{$search}%")
                     ->orWhere('payment_number', 'LIKE', "%{$search}%")
                     ->orWhere('amount', 'LIKE', "%{$search}%")
                     ->orWhere('delay_reason', 'LIKE', "%{$search}%")
                     ->orWhere('late_payment_notes', 'LIKE', "%{$search}%");
 
-                // Search by status using scopes
+                // البحث في الحالة باستخدام الـ scopes الجديدة
                 $statusMap = [
                     'محصل' => PaymentStatus::COLLECTED,
                     'مستحق' => PaymentStatus::DUE,
@@ -87,22 +121,22 @@ class ListCollectionPayments extends ListRecords
                     }
                 }
 
-                // Search in contract number
+                // البحث في رقم العقد
                 $query->orWhereHas('unitContract', function ($q) use ($search) {
                     $q->where('contract_number', 'LIKE', "%{$search}%");
                 });
 
-                // Search in tenant name
+                // البحث في المستأجر
                 $query->orWhereHas('unitContract.tenant', function ($q) use ($search) {
                     $q->where('name', 'LIKE', "%{$search}%");
                 });
 
-                // Search in unit name
+                // البحث في الوحدة
                 $query->orWhereHas('unitContract.unit', function ($q) use ($search) {
                     $q->where('name', 'LIKE', "%{$search}%");
                 });
 
-                // Search in property name
+                // البحث في العقار
                 $query->orWhereHas('unitContract.property', function ($q) use ($search) {
                     $q->where('name', 'LIKE', "%{$search}%");
                 });

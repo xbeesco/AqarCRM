@@ -13,7 +13,6 @@ use App\Models\PropertyStatus;
 use App\Models\PropertyType;
 use App\Models\Unit;
 use App\Models\UnitType;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -39,49 +38,28 @@ class PropertyTest extends TestCase
 
     protected function createRequiredLookupData(): void
     {
-        // Create property type
-        $this->propertyType = PropertyType::firstOrCreate(
+        // Use updateOrInsert to force specific IDs (works with MySQL)
+        PropertyType::query()->updateOrInsert(
             ['id' => 1],
-            [
-                'name_ar' => 'عمارة سكنية',
-                'name_en' => 'Residential Building',
-                'slug' => 'residential-building',
-                'is_active' => true,
-            ]
+            ['name' => 'Residential Building', 'slug' => 'residential-building', 'created_at' => now(), 'updated_at' => now()]
         );
+        $this->propertyType = PropertyType::find(1);
 
-        // Create property status
-        $this->propertyStatus = PropertyStatus::firstOrCreate(
+        PropertyStatus::query()->updateOrInsert(
             ['id' => 1],
-            [
-                'name_ar' => 'متاح',
-                'name_en' => 'Available',
-                'slug' => 'available',
-                'is_active' => true,
-            ]
+            ['name' => 'Available', 'slug' => 'available', 'created_at' => now(), 'updated_at' => now()]
         );
+        $this->propertyStatus = PropertyStatus::find(1);
 
-        // Create location
-        $this->location = Location::firstOrCreate(
+        Location::query()->updateOrInsert(
             ['id' => 1],
-            [
-                'name' => 'Test Location',
-                'name_ar' => 'موقع اختبار',
-                'name_en' => 'Test Location',
-                'level' => 1,
-                'is_active' => true,
-            ]
+            ['name' => 'Test Location', 'level' => 1, 'created_at' => now(), 'updated_at' => now()]
         );
+        $this->location = Location::find(1);
 
-        // Create unit type
-        UnitType::firstOrCreate(
+        UnitType::query()->updateOrInsert(
             ['id' => 1],
-            [
-                'name_ar' => 'شقة',
-                'name_en' => 'Apartment',
-                'slug' => 'apartment',
-                'is_active' => true,
-            ]
+            ['name' => 'Apartment', 'slug' => 'apartment', 'created_at' => now(), 'updated_at' => now()]
         );
 
         // Create owner
@@ -268,8 +246,7 @@ class PropertyTest extends TestCase
         $feature1 = PropertyFeature::firstOrCreate(
             ['slug' => 'swimming-pool'],
             [
-                'name_ar' => 'مسبح',
-                'name_en' => 'Swimming Pool',
+                'name' => 'Swimming Pool',
                 'slug' => 'swimming-pool',
             ]
         );
@@ -277,23 +254,19 @@ class PropertyTest extends TestCase
         $feature2 = PropertyFeature::firstOrCreate(
             ['slug' => 'gym'],
             [
-                'name_ar' => 'صالة رياضية',
-                'name_en' => 'Gym',
+                'name' => 'Gym',
                 'slug' => 'gym',
             ]
         );
 
         // Attach features to property
-        $property->features()->attach([
-            $feature1->id => ['value' => 'available'],
-            $feature2->id => ['value' => 'available'],
-        ]);
+        $property->features()->attach([$feature1->id, $feature2->id]);
 
         $property->refresh();
 
         $this->assertCount(2, $property->features);
         $this->assertInstanceOf(PropertyFeature::class, $property->features->first());
-        $this->assertEquals('available', $property->features->first()->pivot->value);
+        $this->assertContains($feature1->id, $property->features->pluck('id')->toArray());
     }
 
     #[Test]

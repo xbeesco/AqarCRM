@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <form wire:submit.prevent="reschedule">
+    <form wire:submit="reschedule">
         {{ $this->form }}
 
         <div class="mt-6 flex gap-3">

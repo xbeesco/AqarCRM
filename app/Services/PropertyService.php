@@ -183,7 +183,7 @@ class PropertyService
                 'rent_price' => $unit->rent_price,
                 'current_tenant' => $unit->current_tenant?->name,
                 'is_available' => $unit->isAvailable(),
-                'status' => $unit->unitType?->name_ar,
+                'status' => $unit->unitType?->name,
             ];
         })->toArray();
     }

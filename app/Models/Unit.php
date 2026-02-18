@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UnitOccupancyStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,29 +20,19 @@ class Unit extends Model
         'property_id',
         'unit_type_id',
         'unit_category_id',
-        'rooms_count',
-        'bathrooms_count',
-        'balconies_count',
-        'floor_number',
-        'has_laundry_room',
-        'electricity_account_number',
-        'water_expenses',
         'floor_plan_file',
-        'area_sqm',
         'rent_price',
         'notes',
+        'metadata',
     ];
 
-    protected $casts = [
-        'area_sqm' => 'decimal:2',
-        'rent_price' => 'decimal:2',
-        'water_expenses' => 'decimal:2',
-        'floor_number' => 'integer',
-        'rooms_count' => 'integer',
-        'bathrooms_count' => 'integer',
-        'balconies_count' => 'integer',
-        'has_laundry_room' => 'boolean',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'rent_price' => 'decimal:2',
+            'metadata' => 'array',
+        ];
+    }
 
     public function property(): BelongsTo
     {
@@ -70,10 +61,14 @@ class Unit extends Model
         return $this->hasMany(UnitContract::class);
     }
 
+    /**
+     * Get the active contract for this unit (currently running today)
+     */
     public function activeContract(): HasOne
     {
         return $this->hasOne(UnitContract::class)
-            ->where('contract_status', 'active')
+            ->where('start_date', '<=', now())
+            ->where('end_date', '>=', now())
             ->latest();
     }
 
@@ -82,14 +77,28 @@ class Unit extends Model
         return $this->morphMany(Expense::class, 'subject');
     }
 
+    /**
+     * حساب إجمالي النفقات للوحدة
+     */
     public function getTotalExpensesAttribute(): float
     {
         return (float) $this->expenses()->sum('cost');
     }
 
+    /**
+     * حساب نفقات الشهر الحالي للوحدة
+     */
     public function getCurrentMonthExpensesAttribute(): float
     {
         return (float) $this->expenses()->thisMonth()->sum('cost');
+    }
+
+    /**
+     * الحصول على حالة إشغال الوحدة
+     */
+    public function getOccupancyStatusAttribute(): UnitOccupancyStatus
+    {
+        return UnitOccupancyStatus::fromUnit($this);
     }
 
     /**

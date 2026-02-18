@@ -13,8 +13,23 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class CollectionPaymentsExport implements FromCollection, ShouldAutoSize, WithHeadings, WithMapping, WithStyles
 {
+    protected $data;
+
+    public function __construct($data = null)
+    {
+        $this->data = $data;
+    }
+
     public function collection()
     {
+        if ($this->data instanceof \Illuminate\Database\Eloquent\Builder) {
+            return $this->data->get();
+        }
+
+        if ($this->data instanceof \Illuminate\Support\Collection) {
+            return $this->data;
+        }
+
         return CollectionPayment::with(['tenant', 'unit', 'property'])->get();
     }
 
@@ -39,7 +54,7 @@ class CollectionPaymentsExport implements FromCollection, ShouldAutoSize, WithHe
             $payment->tenant?->name ?? 'غير محدد',
             $payment->property?->name ?? 'غير محدد',
             $payment->unit?->name ?? 'غير محدد',
-            number_format($payment->amount, 2).' ريال',
+            number_format($payment->amount, 2) . ' ريال',
             $status,
             $payment->due_date_start?->format('Y-m-d') ?? '-',
             $payment->delay_reason ?? $payment->late_payment_notes ?? '-',

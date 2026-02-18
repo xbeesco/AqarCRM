@@ -14,21 +14,17 @@ use Filament\Tables\Table;
 class UnitFeatureResource extends Resource
 {
     protected static ?string $model = UnitFeature::class;
-    
+
     protected static ?string $label = 'ميزة وحدة';
-    
+
     protected static ?string $pluralLabel = 'مميزات الوحدات';
 
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-                TextInput::make('name_ar')
-                    ->label('الاسم بالعربية')
-                    ->required()
-                    ->maxLength(255),
-                TextInput::make('name_en')
-                    ->label('الاسم بالإنجليزية')
+                TextInput::make('name')
+                    ->label('الاسم')
                     ->required()
                     ->maxLength(255),
             ]);
@@ -38,20 +34,8 @@ class UnitFeatureResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('name_ar')
-                    ->label('الاسم بالعربية'),
-                TextColumn::make('name_en')
-                    ->label('الاسم بالإنجليزية'),
-                TextColumn::make('category')
-                    ->label('الفئة')
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'basic' => 'أساسي',
-                        'amenities' => 'مرافق',
-                        'safety' => 'أمان',
-                        'luxury' => 'رفاهية',
-                        'services' => 'خدمات',
-                        default => $state
-                    }),
+                TextColumn::make('name')
+                    ->label('الاسم'),
             ])
             ->searchable(false)
             ->filters([])

@@ -44,19 +44,18 @@ class PropertyContractResource extends Resource
             'index' => Pages\ListPropertyContracts::route('/'),
             'create' => Pages\CreatePropertyContract::route('/create'),
             'view' => Pages\ViewPropertyContract::route('/{record}'),
-            // 'edit' => Pages\EditPropertyContract::route('/{record}/edit'), // Only accessible by super_admin
+            'edit' => Pages\EditPropertyContract::route('/{record}/edit'),
             'reschedule' => Pages\ReschedulePayments::route('/{record}/reschedule'),
+            'renew' => Pages\RenewContract::route('/{record}/renew'),
         ];
     }
 
     /**
-     * Only super_admin can edit contracts
+     * Editing contracts is disabled
      */
     public static function canEdit(Model $record): bool
     {
-        $user = auth()->user();
-
-        return $user && $user->type === 'super_admin';
+        return false;
     }
 
     /**
@@ -70,13 +69,13 @@ class PropertyContractResource extends Resource
     }
 
     /**
-     * Only admins can create contracts
+     * Admins and employees can create contracts
      */
     public static function canCreate(): bool
     {
         $user = auth()->user();
 
-        return $user && in_array($user->type, ['super_admin', 'admin']);
+        return $user && in_array($user->type, ['super_admin', 'admin', 'employee']);
     }
 
     /**

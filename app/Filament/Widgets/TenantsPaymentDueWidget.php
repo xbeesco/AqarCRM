@@ -2,19 +2,21 @@
 
 namespace App\Filament\Widgets;
 
-use Filament\Tables\Columns\TextColumn;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Textarea;
-use Filament\Tables\Filters\SelectFilter;
 use App\Enums\PaymentStatus;
+use App\Exports\CollectionPaymentsExport;
 use App\Models\CollectionPayment;
 use App\Services\CollectionPaymentService;
+use Carbon\Carbon;
 use Filament\Actions\Action;
-use Filament\Forms;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
-use Filament\Tables;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
+use Maatwebsite\Excel\Facades\Excel;
 
 class TenantsPaymentDueWidget extends BaseWidget
 {
@@ -28,15 +30,44 @@ class TenantsPaymentDueWidget extends BaseWidget
 
     protected static bool $isLazy = false;
 
+    public ?int $allowedDelayDays = null;
+
+    public function mount(): void
+    {
+        // تحميل القيمة الافتراضية من الإعدادات (فقط أيام التأخير المسموح بها)
+        $this->allowedDelayDays = (int) \App\Models\Setting::get('allowed_delay_days', 5);
+    }
+
     public function table(Table $table): Table
     {
+        // حساب التاريخ بناءً على أيام التأخير المسموح بها
+        $thresholdDate = Carbon::now()->startOfDay()->subDays($this->allowedDelayDays ?? 0);
+
         return $table
             ->query(
-                CollectionPayment::with(['tenant', 'property', 'unit'])
-                    ->dueForCollection()
+                CollectionPayment::query()
+                    ->with(['tenant', 'property', 'unit'])
+                    ->where('due_date_start', '<=', $thresholdDate)
+                    ->whereNull('collection_date')
+                    ->where(function ($q) {
+                        $q->whereNull('delay_duration')
+                            ->orWhere('delay_duration', 0);
+                    })
                     ->orderBy('property_id')
                     ->orderBy('due_date_start', 'asc')
             )
+            ->headerActions([
+                Action::make('export')
+                    ->label('تصدير')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->action(function (Table $table) {
+                        $filename = 'المستحقات-'.date('Y-m-d').'.xlsx';
+                        $query = $table->getQuery()->clone();
+
+                        return Excel::download(new CollectionPaymentsExport($query), $filename);
+                    }),
+            ])
             ->columns([
                 TextColumn::make('index')
                     ->label('#')
@@ -67,7 +98,8 @@ class TenantsPaymentDueWidget extends BaseWidget
                 TextColumn::make('payment_status_label')
                     ->label('الحالة')
                     ->badge()
-                    ->color(fn ($record): string => $record->payment_status_enum === PaymentStatus::OVERDUE ? 'danger' : 'gray'
+                    ->color(
+                        fn ($record): string => $record->payment_status === PaymentStatus::OVERDUE ? 'danger' : 'gray'
                     ),
             ])
             ->recordActions([
@@ -112,7 +144,7 @@ class TenantsPaymentDueWidget extends BaseWidget
                     ->modalHeading('تأكيد استلام الدفعة')
                     ->modalDescription(
                         fn (?CollectionPayment $record): string => $record ? 'أقر أنا '.auth()->user()->name.' باستلام مبلغ وقدره '.
-                            number_format($record->amount, 2).' ريال' : ''
+                        number_format((float) $record->amount, 2).' ريال' : ''
                     )
                     ->modalSubmitActionLabel('تأكيد')
                     ->modalCancelActionLabel('إلغاء')
@@ -147,6 +179,29 @@ class TenantsPaymentDueWidget extends BaseWidget
                         return $query->byStatuses($data['values']);
                     }),
 
+                Filter::make('allowed_delay_days')
+                    ->label('أيام التأخير المسموح بها')
+                    ->form([
+                        TextInput::make('days')
+                            ->label('أيام التأخير المسموح بها')
+                            ->numeric()
+                            ->default(fn () => $this->allowedDelayDays)
+                            ->helperText('القيمة الافتراضية: '.\App\Models\Setting::get('allowed_delay_days', 5).' يوم'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        // الفلتر يعيد بناء الـ query بالكامل إذا تم تغيير القيمة
+                        $days = (int) ($data['days'] ?? $this->allowedDelayDays);
+                        $thresholdDate = Carbon::now()->startOfDay()->subDays($days);
+
+                        // إعادة تطبيق الشروط الأساسية مع القيمة الجديدة
+                        return $query->where('due_date_start', '<=', $thresholdDate);
+                    })
+                    ->indicateUsing(function (array $data): ?string {
+                        $days = $data['days'] ?? $this->allowedDelayDays;
+
+                        return 'تأخير أكثر من '.$days.' يوم';
+                    }),
+
             ])
             ->paginated([10, 25, 50])
             ->poll('30s')
@@ -157,10 +212,18 @@ class TenantsPaymentDueWidget extends BaseWidget
 
     protected function getTableHeading(): ?string
     {
-        $totalDue = CollectionPayment::dueForCollection()->count();
+        $thresholdDate = Carbon::now()->startOfDay()->subDays($this->allowedDelayDays ?? 0);
 
-        $totalAmount = CollectionPayment::dueForCollection()->sum('amount');
+        $query = CollectionPayment::query()
+            ->where('due_date_start', '<=', $thresholdDate)
+            ->whereNull('collection_date')
+            ->where(function ($q) {
+                $q->whereNull('delay_duration')
+                    ->orWhere('delay_duration', 0);
+            });
 
+        $totalDue = $query->count();
+        $totalAmount = (float) $query->sum('amount');
         $formattedAmount = number_format($totalAmount, 2).' ريال';
 
         return static::$heading." ({$totalDue} دفعة - إجمالي: {$formattedAmount})";

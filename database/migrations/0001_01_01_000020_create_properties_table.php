@@ -15,11 +15,8 @@ return new class extends Migration
             $table->foreignId('location_id')->nullable()->constrained('locations')->nullOnDelete();
             $table->string('address');
             $table->string('postal_code')->nullable();
-            $table->integer('parking_spots')->nullable();
-            $table->integer('elevators')->nullable();
-            $table->integer('build_year')->nullable();
-            $table->integer('floors_count')->nullable();
             $table->text('notes')->nullable();
+            $table->json('metadata')->nullable();
             $table->timestamps();
             // type_id and status_id will be added without FK constraints initially
             // to allow flexibility with the reference data
